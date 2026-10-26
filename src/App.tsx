@@ -1,0 +1,168 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowDownToLine, ArrowRight, CheckCheck, ChevronRight, Clipboard, File, FileText, Folder, FolderOpen, Image, LayoutGrid, Link2, ListFilter, LoaderCircle, Monitor, MoreHorizontal, PanelTop, Pin, Plus, Search, Settings as SettingsIcon, Trash2, Upload, Wifi, WifiOff, X, AlertTriangle, Pencil, ExternalLink, Star, Command } from 'lucide-react';
+import type { InitialState, ItemKind, LibraryItem, LibrarySnapshot, NoteDocument, Settings, SyncStatus, UpdateState } from '../shared/types';
+import { NoteEditor } from './NoteEditor';
+import { SettingsPanel } from './SettingsPanel';
+import { Board } from './Board';
+import { recoverDrafts } from './drafts';
+import { QuickPanel } from './QuickPanel';
+import { CommandPalette } from './CommandPalette';
+import { saveBeforeUpdate } from './save-before-update';
+
+const isPanel = new URLSearchParams(location.search).get('panel') === '1';
+const emptyLibrary: LibrarySnapshot = { items: [], placements: [] };
+export const labels: Record<SyncStatus['state'], string> = { starting: 'Starting the sync engine', unpaired: 'No computer paired yet', offline: 'Paired computers are offline', syncing: 'Syncing', synced: 'Up to date', error: 'Sync needs attention', paused: 'Sync paused' };
+type Filter = ItemKind | 'all' | 'conflict' | 'favorite';
+const filterTitles: Record<Filter, string> = { all: 'Everything', favorite: 'Favorites', conflict: 'Conflicts', note: 'Notes', image: 'Images', file: 'Files' };
+export function size(bytes: number) { if (bytes < 1024) return `${bytes} B`; if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} KB`; return `${(bytes / 1048576).toFixed(1)} MB`; }
+function since(time: number) { const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000)); return minutes < 1 ? 'Just now' : minutes < 60 ? `${minutes}m ago` : minutes < 1440 ? `${Math.floor(minutes / 60)}h ago` : new Date(time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
+function title(item: LibraryItem) { return item.kind === 'note' ? item.name.replace(/\.(md|txt)$/i, '') : item.name; }
+function folderOf(path: string) { const index = path.lastIndexOf('/'); return index < 0 ? '' : path.slice(0, index); }
+export function collectionName(root: string) { return root.split(/[\\/]/).filter(Boolean).at(-1) || root; }
+function notePreview(item: LibraryItem) {
+  const lines = (item.preview || '').replace(/^#+\s*/gm, '').split('\n');
+  if (lines[0]?.trim() === title(item)) lines.shift();
+  return lines.join('\n').trim() || 'Empty note';
+}
+function media(item: LibraryItem) { return `syncit-media://image/thumbnail?path=${encodeURIComponent(item.path)}&v=${item.modifiedAt}`; }
+export function Brand({ compact = false }: { compact?: boolean }) { return <div className="brand"><span className="brand-mark"><Link2 size={24} strokeWidth={2.2} /></span>{!compact && <span>sync<span className="brand-slash">/</span>it</span>}</div>; }
+
+export function App() {
+  const [preparingUpdate, setPreparingUpdate] = useState(false);
+  const [update, setUpdate] = useState<UpdateState | null>(null);
+  useEffect(() => {
+    void window.syncit.updateState().then(setUpdate);
+    const offState = window.syncit.onUpdate(setUpdate);
+    const offPrepare = window.syncit.onPrepareUpdate(async prepare => {
+      setPreparingUpdate(prepare);
+      if (prepare) { (document.activeElement as HTMLElement)?.blur(); await saveBeforeUpdate(); }
+    });
+    return () => { offState(); offPrepare(); };
+  }, []);
+  const [initial, setInitial] = useState<InitialState | null>(null);
+  const [library, setLibrary] = useState<LibrarySnapshot>(emptyLibrary);
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [sync, setSync] = useState<SyncStatus | null>(null);
+  const [view, setView] = useState<'grid' | 'board'>('grid');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [search, setSearch] = useState('');
+  const [palette, setPalette] = useState(false);
+  useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); setPalette(value => !value); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, []);
+  const [note, setNote] = useState<NoteDocument | null>(null);
+  const [preview, setPreview] = useState<LibraryItem | null>(null);
+  const [settingsTab, setSettingsTab] = useState<'connect' | 'preferences' | null>(null);
+  const [toast, setToast] = useState('');
+  const [fatal, setFatal] = useState('');
+  const [dragging, setDragging] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [rename, setRename] = useState<LibraryItem | null>(null); const [newName, setNewName] = useState('');
+  const [deleting, setDeleting] = useState<LibraryItem | null>(null);
+  const [loginChoice, setLoginChoice] = useState(true); const [shortcutChoice, setShortcutChoice] = useState(true);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const requestSequence = useRef(0);
+  const dragDepth = useRef(0);
+  const notify = useCallback((message: string) => { setToast(message.replace(/^Error: Error invoking remote method '[^']+': Error: /, '').replace(/^Error: /, '')); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''), 6500); }, []);
+  const refresh = useCallback(async () => { const sequence = ++requestSequence.current; const snapshot = await window.syncit.list(); if (sequence === requestSequence.current) setLibrary(snapshot); }, []);
+  useEffect(() => {
+    if (!window.syncit) { setFatal('Open Sync it as a desktop app using npm run dev.'); return; }
+    void window.syncit.initial().then(data => { setInitial(data); setSettings(data.settings); setSync(data.sync); setLibrary(data.library); }).catch(error => setFatal(String(error)));
+    const unsubscribers = [window.syncit.onLibrary(() => { void refresh().catch(error => notify(String(error))); }), window.syncit.onSync(setSync), window.syncit.onSettings(setSettings)];
+    return () => { unsubscribers.forEach(unsubscribe => unsubscribe()); clearTimeout(toastTimer.current); };
+  }, [notify, refresh]);
+  useEffect(() => { document.documentElement.dataset.theme = settings?.theme || 'dark'; }, [settings?.theme]);
+  useEffect(() => {
+    if (initial && !isPanel) void recoverDrafts(initial.runId, initial.settings.root).then(count => { if (count) { notify(`Recovered ${count} unsaved ${count === 1 ? 'note' : 'notes'} from the previous session.`); void refresh(); } });
+  }, [initial, notify, refresh]);
+  async function run(action: () => Promise<unknown>, success?: string) { setBusy(true); try { await action(); if (success) notify(success); } catch (error) { notify(String(error)); } finally { setBusy(false); } }
+  async function openItem(item: LibraryItem) { if (isPanel && settings?.panelMode === 'mini') await window.syncit.settings({ panelMode: 'quick' }); if (item.kind === 'note') setNote(await window.syncit.readNote(item.path)); else if (item.kind === 'image') setPreview(item); else await window.syncit.open(item.path); }
+  async function paste() { const result = await window.syncit.paste(); notify(result ? result.kind === 'image' ? 'Screenshot added to the collection.' : 'Note added to the collection.' : 'The clipboard has no text or image to add.'); }
+  async function drop(event: React.DragEvent) {
+    event.preventDefault(); setDragging(false); dragDepth.current = 0;
+    if (event.dataTransfer.types.includes('application/x-syncit-item')) return;
+    const paths = window.syncit.pathsForFiles(Array.from(event.dataTransfer.files));
+    if (paths.length) await run(() => window.syncit.importFiles(paths), `${paths.length} ${paths.length === 1 ? 'item' : 'items'} added to the collection.`);
+    else { const text = event.dataTransfer.getData('text/plain'); if (text.trim()) await run(() => window.syncit.createNote(text), 'Note added to the collection.'); }
+  }
+  function renderCard(item: LibraryItem) {
+    const color = item.path.split('').reduce((sum, character) => sum + character.charCodeAt(0), 0) % 3;
+    const folder = folderOf(item.path);
+    return <article className={`item-card ${item.kind} note-color-${color}`} data-testid="item-card" data-path={item.path}>
+      {settings?.favorites?.includes(item.path) && <Star className="favorite-mark" size={14} fill="currentColor" aria-label="Favorite" />}
+      <button className="card-main" onClick={() => void run(() => openItem(item))} aria-label={`Open ${item.name}`}>
+        {item.kind === 'image' ? <div className="image-preview"><Image size={32} className="image-fallback" /><img src={media(item)} alt={item.name} loading="lazy" onError={event => { event.currentTarget.style.opacity = '0'; }} /></div> : item.kind === 'note' ? <div className="note-preview"><div className="card-kind"><FileText size={13} /><span>NOTE</span></div><h3>{title(item)}</h3><p>{notePreview(item)}</p></div> : <div className="file-preview"><div className="file-glyph"><File size={37} strokeWidth={1.3} /><span>{item.name.split('.').at(-1)?.slice(0, 5).toUpperCase() || 'FILE'}</span></div><h3>{item.name}</h3><span>{size(item.size)}</span></div>}
+      </button>
+      <footer><div>{item.kind === 'image' && <strong>{item.name}</strong>}{folder && <span className="path-chip" title={folder}><Folder size={10} />{folder}</span>}<span>{item.conflict ? <><AlertTriangle size={12} /> Conflict copy</> : since(item.modifiedAt)}{item.kind === 'image' && ` · ${size(item.size)}`}</span></div><details className="card-menu"><summary aria-label={`Actions for ${item.name}`}><MoreHorizontal size={19} /></summary><div onClick={event => (event.currentTarget.parentElement as HTMLDetailsElement).removeAttribute('open')}><button onClick={() => void run(() => openItem(item))}><ExternalLink size={14} />Open</button><button onClick={() => { setRename(item); setNewName(item.name); }}><Pencil size={14} />Rename</button><button onClick={() => void run(() => window.syncit.reveal(item.path))}><FolderOpen size={14} />Show in folder</button><button onClick={() => void run(() => window.syncit.place({ version: 1, path: item.path, x: 40 + library.placements.length % 6 * 35, y: 40 + library.placements.length % 6 * 35, width: 280, height: 290, updatedAt: Date.now() }), 'Pinned to the board.')}><Pin size={14} />Pin to board</button><button onClick={() => void run(() => window.syncit.favorite(item.path, !settings?.favorites?.includes(item.path)))}><Star size={14} />{settings?.favorites?.includes(item.path) ? 'Remove favorite' : 'Add to favorites'}</button><button className="danger" onClick={() => setDeleting(item)}><Trash2 size={14} />Move to Trash</button></div></details></footer>
+    </article>;
+  }
+  if (fatal) return <div className="fatal"><Brand /><h2>The collection could not be opened.</h2><p>{fatal}</p><button onClick={() => location.reload()}>Try again</button></div>;
+  if (!initial || !settings || !sync) return <div className="loading"><Brand /><LoaderCircle className="spin" size={22} /><span>Opening the collection…</span></div>;
+  const name = collectionName(settings.root);
+  const query = search.toLowerCase();
+  const visible = library.items.filter(item => (filter === 'all' || (filter === 'favorite' ? settings.favorites?.includes(item.path) : filter === 'conflict' ? item.conflict : item.kind === filter)) && `${item.path} ${item.preview || ''}`.toLowerCase().includes(query));
+  const counts = { favorite: library.items.filter(item => settings.favorites?.includes(item.path)).length, note: library.items.filter(i => i.kind === 'note').length, image: library.items.filter(i => i.kind === 'image').length, file: library.items.filter(i => i.kind === 'file').length, conflict: library.items.filter(i => i.conflict).length };
+  const connectedPeers = sync.peers.filter(peer => peer.connected).length;
+  const peerSummary = sync.peers.length === 0 ? 'Not paired yet' : sync.peers.length === 1 ? sync.peers[0].name : `${sync.peers.length} computers · ${connectedPeers} online`;
+  const peerDetail = sync.pending.length ? `${sync.pending.length} ${sync.pending.length === 1 ? 'request' : 'requests'} waiting` : sync.peers.length === 0 ? (sync.nearby.length ? `${sync.nearby.length} nearby · pair a computer` : 'Pair a computer') : labels[sync.state];
+  const heading = view === 'board' ? 'Pinboard' : filterTitles[filter];
+  const subtitle = view === 'board' ? 'Card positions sync to paired computers. Zoom is local to this window.' : filter === 'favorite' ? 'Favorites are kept on this computer only.' : filter === 'conflict' ? 'Two computers changed the same item while apart. Keep what you need and delete the rest.' : filter === 'note' ? 'Plain-text and Markdown files up to 1 MB, editable here.' : filter === 'image' ? 'Pasted screenshots and imported images.' : filter === 'file' ? 'Everything that is not a note or an image. Opens in its default app.' : `Everything in the ${name} folder. Drop, paste or write to add.`;
+  const statusIcon = sync.state === 'synced' ? <CheckCheck size={17} /> : sync.state === 'offline' ? <WifiOff size={17} /> : sync.state === 'error' ? <AlertTriangle size={17} /> : sync.state === 'syncing' || sync.state === 'starting' ? <LoaderCircle size={17} className="spin" /> : <Link2 size={17} />;
+  const captureHandlers = {
+    onDragEnter: (event: React.DragEvent) => { if (event.dataTransfer.types.includes('application/x-syncit-item')) return; event.preventDefault(); dragDepth.current++; setDragging(true); },
+    onDragLeave: (event: React.DragEvent) => { event.preventDefault(); if (--dragDepth.current <= 0) setDragging(false); },
+    onDragOver: (event: React.DragEvent) => event.preventDefault(), onDrop: (event: React.DragEvent) => { void drop(event); },
+    onPaste: (event: React.ClipboardEvent) => { if ((event.target as HTMLElement).closest('input, textarea, [contenteditable="true"]') || note || settingsTab) return; event.preventDefault(); void run(paste); }
+  };
+  const navButton = (target: Filter, Icon: typeof FileText, label: string, count?: number) => <button key={target} className={view === 'grid' && filter === target ? 'active' : ''} onClick={() => { setView('grid'); setFilter(target); }}><Icon size={18} />{label}{count !== undefined && <span>{count}</span>}</button>;
+  return <div className={isPanel ? 'quick-app' : 'app-shell'} inert={preparingUpdate || undefined} {...captureHandlers}>
+    {preparingUpdate && <div className="modal-shade" style={{ zIndex: 2000 }}><section className="small-dialog"><h2>Preparing the update…</h2><p>Saving notes and stopping sync.</p></section></div>}
+    {!isPanel && update && ['available', 'ready'].includes(update.phase) && <button className="update-notice" onClick={() => setSettingsTab('preferences')}>Update {update.availableVersion} {update.phase === 'ready' ? 'ready to install' : 'available'} <ArrowRight size={13} /></button>}
+    {isPanel ? <QuickPanel settings={settings} items={library.items} status={labels[sync.state]} platform={initial.platform} open={item => void run(() => openItem(item))} paste={paste} notify={notify} /> : <>
+      <aside className="sidebar"><Brand />
+        <button className="collection-badge" title={settings.root} onClick={() => setSettingsTab('preferences')}><span className="collection-icon"><Folder size={15} /></span><div><strong>{name}</strong><small>{settings.deviceName}</small></div><ChevronRight size={14} /></button>
+        <div className="nav-label">VIEWS</div><nav>{navButton('all', LayoutGrid, 'Everything', library.items.length)}<button className={view === 'board' ? 'active' : ''} onClick={() => { setView('board'); setFilter('all'); setSearch(''); }}><Pin size={18} />Pinboard<span>{library.placements.length}</span></button>{navButton('favorite', Star, 'Favorites', counts.favorite)}</nav>
+        <div className="nav-label">KINDS</div><nav>{navButton('note', FileText, 'Notes', counts.note)}{navButton('image', Image, 'Images', counts.image)}{navButton('file', File, 'Files', counts.file)}{counts.conflict > 0 && navButton('conflict', AlertTriangle, 'Conflicts', counts.conflict)}</nav>
+        <button className="sidebar-folder" onClick={() => void run(() => window.syncit.openFolder())}><FolderOpen size={17} />Open collection folder<ExternalLink size={13} /></button>
+        <div className="sidebar-bottom">
+          <button className="connection-card" onClick={() => setSettingsTab('connect')}><span className={`status-dot ${sync.state === 'synced' ? 'green' : sync.state === 'error' ? 'red' : ''}`} /><div><strong>{peerSummary}</strong><small>{peerDetail}</small></div>{sync.pending.length > 0 ? <b>{sync.pending.length}</b> : <ChevronRight size={14} />}</button>
+          <button className="sidebar-settings" onClick={() => setSettingsTab('preferences')}><SettingsIcon size={17} />Preferences<span className="version">v{initial.version}</span></button>
+        </div>
+      </aside>
+      <main className="main-content"><header className="topbar"><div className="breadcrumb">{name}<span>/</span><strong>{heading}</strong></div><div className="topbar-actions"><button className="icon-button" aria-label="Open command palette" title="Commands · Ctrl/⌘ K" onClick={() => setPalette(true)}><Command size={18} /></button><button className={`sync-pill ${sync.state}`} onClick={() => setSettingsTab('connect')}>{statusIcon}<span>{sync.state === 'synced' ? 'Up to date' : sync.state === 'unpaired' ? 'Pair a computer' : sync.state === 'offline' ? 'Offline' : sync.state === 'error' ? 'Needs attention' : sync.state === 'paused' ? 'Paused' : sync.state === 'starting' ? 'Starting' : 'Syncing'}</span>{sync.pending.length > 0 && <b>{sync.pending.length}</b>}</button><span className="topbar-divider" /><button title="Open Quick drop" aria-label="Open Quick drop" className="icon-button" onClick={() => void window.syncit.showPanel()}><PanelTop size={19} /></button></div></header>
+        <div className="page-heading"><div><h1>{heading}</h1><p>{subtitle}</p></div><button className="primary new-note" disabled={busy} onClick={() => void run(async () => setNote(await window.syncit.createNote()))}><Plus size={17} />New note</button></div>
+        {library.error && <div className="page-error"><AlertTriangle size={18} /><span>{library.error}</span><button onClick={() => void refresh()}>Retry</button></div>}
+        {sync.pending.length > 0 && <button className="pair-banner" onClick={() => setSettingsTab('connect')}><Link2 size={18} />{sync.pending[0].name} asks to join this collection.<span>Review request <ArrowRight size={15} /></span></button>}
+        <div className="toolbar"><div className="view-switch"><button aria-label="Grid view" className={view === 'grid' ? 'active' : ''} onClick={() => setView('grid')}><LayoutGrid size={15} />Grid</button><button aria-label="Pinboard view" className={view === 'board' ? 'active' : ''} onClick={() => setView('board')}><Pin size={15} />Board</button></div><div className="search-box"><Search size={16} /><input aria-label="Search the collection" placeholder="Search names, folders and note text" value={search} onChange={event => setSearch(event.target.value)} />{search && <button className="icon-button" aria-label="Clear search" onClick={() => setSearch('')}><X size={14} /></button>}</div><span className="sort-label"><ListFilter size={15} />Latest first</span><button className="secondary-button" disabled={busy} onClick={() => void run(() => window.syncit.chooseFiles())}><Upload size={15} />Add files</button></div>
+        {view === 'board' ? <Board items={visible} placements={library.placements} renderCard={renderCard} notify={notify} /> : <div className="collection-scroll"><div className="collection-caption"><span>{search ? 'RESULTS' : filterTitles[filter].toUpperCase()}<b>{visible.length}</b></span><span>{library.items.length ? size(library.items.reduce((sum, item) => sum + item.size, 0)) + ' on this computer' : ''}</span></div>
+          {visible.length ? <div className="card-grid">{visible.map(item => <div key={item.path}>{renderCard(item)}</div>)}</div> : search || filter !== 'all' ? <div className="empty-results"><Search size={28} /><h3>{search ? 'No matches.' : `No ${filterTitles[filter].toLowerCase()} yet.`}</h3><p>{search ? 'Search covers file names, folder names and the first 32,000 characters of each note.' : filter === 'favorite' ? 'Use “Add to favorites” in a card’s menu.' : 'Items you add appear here.'}</p></div> : <div className="welcome-empty"><div className="empty-art"><div className="art-note"><FileText size={17} /><span>Note</span><i /><i /></div><div className="art-image"><Image size={37} strokeWidth={1} /></div><div className="art-file"><File size={21} /><span>Any file</span></div></div><h2>The collection is empty.</h2><p>Drop files here, paste from the clipboard, or write a note.<br />Everything in this folder syncs to the computers you pair.</p><div className="row"><button className="primary" onClick={() => void run(async () => setNote(await window.syncit.createNote()))}><Plus size={16} />Write a note</button><button onClick={() => void run(paste)}><Clipboard size={16} />Paste</button><button onClick={() => void run(() => window.syncit.chooseFiles())}>Choose files <ArrowRight size={15} /></button></div></div>}
+          <div className="dropzone"><div className="dropzone-icon"><ArrowDownToLine size={21} /></div><div><strong>Add to the collection</strong><p>Drop files anywhere, or paste from the clipboard. Imports copy the original.</p></div><button onClick={() => void run(paste)}><Clipboard size={15} />Paste<kbd>{initial.platform === 'darwin' ? '⌘' : 'Ctrl'} V</kbd></button></div>
+        </div>}
+        <footer className="statusbar"><button onClick={() => setSettingsTab('connect')}><span className={`status-dot ${sync.state === 'synced' ? 'green' : sync.state === 'error' ? 'red' : ''}`} />{labels[sync.state]}{sync.pendingItems > 0 && ` · ${sync.pendingItems} pending`}</button><span><Wifi size={13} />Local network only<span className="dot-separator">·</span><Monitor size={13} />{settings.deviceName}</span></footer>
+      </main>
+    </>}
+    {palette && <CommandPalette items={library.items} open={item => void run(() => openItem(item))} close={() => setPalette(false)} commands={[
+      { label: 'New note', hint: 'CAPTURE', run: () => void run(async () => setNote(await window.syncit.createNote())) },
+      { label: 'Paste from clipboard', hint: 'CAPTURE', run: () => void run(paste) },
+      { label: 'Open minimal capture window', hint: 'WINDOW', run: () => void run(async () => { await window.syncit.settings({ panelMode: 'mini' }); await window.syncit.showPanel(); }) },
+      { label: 'Open Quick drop', hint: 'WINDOW', run: () => void run(async () => { await window.syncit.settings({ panelMode: 'quick' }); await window.syncit.showPanel(); }) },
+      { label: 'Show favorites', hint: 'COLLECTION', run: () => { setFilter('favorite'); setView('grid'); } },
+      { label: 'Open pinboard', hint: 'COLLECTION', run: () => { setView('board'); setFilter('all'); } },
+      { label: 'Open collection folder', hint: 'FOLDER', run: () => void run(() => window.syncit.openFolder()) },
+      { label: sync.state === 'paused' ? 'Resume sync' : 'Pause sync', hint: 'SYNC', run: () => void run(() => window.syncit.settings({ syncPaused: sync.state !== 'paused' })) },
+      { label: 'Computers & sync', hint: 'SETTINGS', run: () => setSettingsTab('connect') },
+      { label: 'Open preferences', hint: 'SETTINGS', run: () => setSettingsTab('preferences') }
+    ]} />}
+    {dragging && <div className="drop-overlay"><div><ArrowDownToLine size={40} /><h2>Drop to add</h2><p>Files are copied into the collection.</p></div></div>}
+    {toast && <div className="toast" role="status"><span>{toast}</span><button className="icon-button" aria-label="Dismiss message" onClick={() => setToast('')}><X size={15} /></button></div>}
+    {note && <NoteEditor key={note.path} document={note} close={() => setNote(null)} notify={notify} runId={initial.runId} root={settings.root} />}
+    {settingsTab && <SettingsPanel settings={settings} sync={sync} close={() => setSettingsTab(null)} update={setSettings} notify={notify} initialTab={settingsTab} />}
+    {preview && <div className="modal-shade" onClick={event => { if (event.target === event.currentTarget) setPreview(null); }}><section className="image-modal" role="dialog" aria-label="Image preview"><header><strong>{preview.name}</strong><button className="icon-button" aria-label="Close preview" onClick={() => setPreview(null)}><X size={21} /></button></header><img src={media(preview)} alt={preview.name} /><footer><span>{size(preview.size)}{folderOf(preview.path) && ` · ${folderOf(preview.path)}`}</span><button onClick={() => void run(() => window.syncit.open(preview.path))}><ExternalLink size={15} />Open original</button></footer></section></div>}
+    {rename && <div className="modal-shade"><form className="small-dialog" onSubmit={event => { event.preventDefault(); void run(async () => { await window.syncit.rename(rename.path, newName); setRename(null); }); }}><h2>Rename item</h2><label>Filename<input aria-label="Filename" autoFocus value={newName} onChange={event => setNewName(event.target.value)} /></label><div className="row"><button type="button" onClick={() => setRename(null)}>Cancel</button><button disabled={busy} className="primary">Rename</button></div></form></div>}
+    {deleting && <div className="modal-shade"><section className="small-dialog" role="dialog" aria-label="Delete item"><Trash2 size={25} /><h2>Move to Trash?</h2><p>“{deleting.name}” will also be removed from paired computers when they reconnect. The local copy can be recovered from the Trash or Recycle Bin.</p><div className="row"><button onClick={() => setDeleting(null)}>Keep it</button><button className="danger-button" disabled={busy} onClick={() => void run(async () => { await window.syncit.trash(deleting.path); setDeleting(null); }, 'Moved to Trash.')}>Move to Trash</button></div></section></div>}
+    {!settings.onboardingDone && !isPanel && <div className="modal-shade onboarding-shade"><section className="onboarding" role="dialog" aria-label="Set up the collection"><Brand /><h1>Set up your collection</h1><p>Sync it keeps files, screenshots and notes in one folder on this computer, and syncs that folder directly with the computers you pair on your local network.</p>
+      <div className="onboarding-folder"><span className="eyebrow">COLLECTION FOLDER</span><code>{settings.root}</code><button type="button" disabled={busy} onClick={() => void run(async () => { const next = await window.syncit.chooseRoot(); if (next) setSettings(next); })}>Choose a different folder</button></div>
+      <label className="toggle-row"><div><strong>Start Sync it at login</strong><small>Keeps syncing from the tray or menu bar.</small></div><input type="checkbox" checked={loginChoice} onChange={event => setLoginChoice(event.target.checked)} /></label>
+      <label className="toggle-row"><div><strong>Desktop shortcut to the collection folder</strong><small>Use Explorer or Finder on the same files.</small></div><input type="checkbox" checked={shortcutChoice} onChange={event => setShortcutChoice(event.target.checked)} /></label>
+      <button className="primary" disabled={busy} onClick={() => void run(async () => { const next = await window.syncit.settings({ onboardingDone: true, startAtLogin: loginChoice }); setSettings(next); if (shortcutChoice) await window.syncit.shortcut(); }, 'Collection ready. Pair another computer under Computers & sync.')}>Create collection <ArrowRight size={17} /></button>
+      <small>Pair other computers afterwards from the sidebar. Nothing is sent outside your local network.</small></section></div>}
+  </div>;
+}

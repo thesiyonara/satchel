@@ -1,0 +1,131 @@
+{
+  "name": "sync-it",
+  "productName": "Sync it",
+  "version": "0.4.0",
+  "description": "Your files, notes, and ideas. Together on your local network.",
+  "private": true,
+  "type": "module",
+  "author": "Sync it contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/thesiyonara/sync-it.git"
+  },
+  "homepage": "https://github.com/thesiyonara/sync-it",
+  "bugs": "https://github.com/thesiyonara/sync-it/issues",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/build-electron.mjs",
+    "typecheck": "tsc --noEmit",
+    "start": "electron .",
+    "test": "tsx --test tests/core.test.ts tests/security.test.ts tests/control.test.ts tests/updates.test.ts tests/markdown.test.ts tests/companion.test.ts",
+    "test:sync": "tsx --test tests/sync.test.ts",
+    "test:ui": "node scripts/ui-test.mjs",
+    "test:features": "node scripts/features-test.mjs",
+    "test:updates": "node scripts/update-test.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
+    "fetch:engine": "node scripts/fetch-engine.mjs",
+    "dist:win": "npm run build && node scripts/fetch-engine.mjs win32 x64 && electron-builder --win --x64",
+    "dist:mac": "npm run build && node scripts/fetch-engine.mjs darwin arm64 && node scripts/fetch-engine.mjs darwin x64 && electron-builder --mac --arm64 --x64",
+    "cli": "node scripts/syncit.mjs",
+    "release:prepare": "node scripts/release.mjs",
+    "privacy:check": "node scripts/privacy-check.mjs"
+  },
+  "dependencies": {
+    "bcryptjs": "3.0.3",
+    "chokidar": "6.0.0",
+    "fast-xml-parser": "5.11.2",
+    "image-size": "2.0.4",
+    "lucide-react": "1.61.0",
+    "qrcode-generator": "2.0.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "selfsigned": "5.5.0"
+  },
+  "devDependencies": {
+    "@electron/fuses": "2.1.3",
+    "@playwright/test": "1.64.1",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "adm-zip": "0.6.1",
+    "electron": "45.0.0",
+    "electron-builder": "26.18.0",
+    "esbuild": "0.28.2",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  },
+  "build": {
+    "appId": "local.syncit.desktop",
+    "productName": "Sync it",
+    "artifactName": "Sync-it-${version}-${os}-${arch}.${ext}",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "!**/*.map",
+      "!**/*.log",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/${os}-${arch}",
+        "to": "engine",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "assets",
+        "to": "assets",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "scripts/syncit.mjs",
+        "to": "cli/syncit.mjs"
+      }
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "signExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": false
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity",
+      "minimumSystemVersion": "13.0",
+      "identity": "-",
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "NSLocalNetworkUsageDescription": "Sync it connects to your paired computer on the local network to sync your files and notes."
+      }
+    },
+    "electronFuses": {
+      "runAsNode": false,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    }
+  }
+}

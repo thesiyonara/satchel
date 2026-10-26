@@ -1,0 +1,28 @@
+name: Feature request
+description: Something the app should do.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The task, not the solution. "Move a screenshot from the laptop to the desktop without opening the dashboard."
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: How could Sync it do it?
+      description: Optional. Keep in mind the project stays local-only, with no accounts or cloud services.
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Where
+      options:
+        - Dashboard
+        - Quick drop
+        - Pairing and sync
+        - Notes
+        - Phone access
+        - CLI
+        - Other

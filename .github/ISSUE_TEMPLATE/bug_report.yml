@@ -1,0 +1,35 @@
+name: Bug report
+description: Something does not work as described.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Sync it version and platform
+      placeholder: "0.3.0 on Windows 11 / macOS 15"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What you did, what you expected, what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Setup
+      description: How many computers are paired, whether discovery is on, whether a phone is paired, anything unusual about the network or the collection folder (external drive, cloud folder).
+  - type: textarea
+    id: logs
+    attributes:
+      label: Messages
+      description: The exact text of any error shown in the app or by `node scripts/syncit.mjs status`. Remove anything private.
+  - type: checkboxes
+    id: security
+    attributes:
+      label: Security
+      options:
+        - label: This is not a security problem (those go through Security → Report a vulnerability).
+          required: true

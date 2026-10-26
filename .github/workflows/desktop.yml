@@ -1,0 +1,79 @@
+name: Desktop packages
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: node node_modules/electron/install.js
+      - run: npm run privacy:check
+      - run: npm run fetch:engine
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:sync
+      - if: runner.os == 'Windows'
+        run: npm run test:features
+      - if: runner.os == 'Windows'
+        run: npm run test:updates
+      - if: runner.os == 'Windows'
+        run: npm run dist:win
+      - if: runner.os == 'Windows'
+        run: node scripts/package-smoke.mjs
+      - if: runner.os == 'macOS'
+        run: npm run dist:mac
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: Sync-it-${{ runner.os }}
+          path: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+          if-no-files-found: error
+
+  # On a version tag, gather both platforms' packages, write the checksum file the in-app
+  # updater verifies against, and open a draft release for a maintainer to review and publish.
+  release:
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Verify the tag matches package.json and write checksums
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$PACKAGE_VERSION" ]; then echo "Tag $GITHUB_REF_NAME does not match package.json version $PACKAGE_VERSION"; exit 1; fi
+          cd artifacts
+          ls -l
+          sha256sum Sync-it-"$VERSION"-* > "SHA256SUMS-$VERSION.txt"
+          cat "SHA256SUMS-$VERSION.txt"
+      - name: Create a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" artifacts/* --draft --title "Sync it $VERSION" --generate-notes --repo "$GITHUB_REPOSITORY"
