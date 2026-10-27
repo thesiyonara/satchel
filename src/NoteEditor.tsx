@@ -96,7 +96,7 @@ export function NoteEditor({ document: initial, close, notify, runId, root, mode
   }
   async function finish() { try { await save(); close(); } catch { /* Keep the buffer visible until it can be saved. */ } }
   const editor = <section className={`note-editor ${mode === 'pane' ? 'note-pane' : ''} ${history ? 'with-history' : ''}`} role={mode === 'pane' ? 'complementary' : 'dialog'} aria-modal={mode === 'pane' ? undefined : true} aria-label="Note" onKeyDown={event => { if (event.key === 'Escape') void finish(); if ((event.metaKey || event.ctrlKey) && event.key === 's') { event.preventDefault(); void save().catch(() => {}); } }}>
-    <header><span className="note-label"><FileText size={17} />{document.path.split('/').at(-1)}{folder && <span className="note-folder"> · {folder}</span>}</span><div className="row">
+    <header><span className="note-label"><FileText size={17} />{folder ? <span className="note-folder">{folder}</span> : isMarkdown ? 'Markdown' : 'Plain text'}</span><div className="row">
       {isMarkdown && <button className={`icon-button ${preview ? 'active' : ''}`} aria-label={preview ? 'Edit note' : 'Preview Markdown'} aria-pressed={preview} title={preview ? 'Edit' : 'Preview Markdown'} onClick={() => setPreview(value => !value)}>{preview ? <Pencil size={17} /> : <Eye size={17} />}</button>}
       <button className={`icon-button ${history ? 'active' : ''}`} aria-label="Note history" aria-pressed={history} title="History" onClick={() => setHistory(value => !value)}><History size={17} /></button>
       <button className="icon-button" title="Open in text editor" aria-label="Open in text editor" onClick={() => { void save().then(() => window.syncit.open(current.current.path)).catch(() => {}); }}><ExternalLink size={17} /></button>

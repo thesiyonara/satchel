@@ -97,7 +97,6 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 .note-preview { padding: 16px 18px 6px; }
 .note-preview h3 { font-size: 16px; line-height: 1.3; font-weight: 600; letter-spacing: -.2px; margin: 0 0 6px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .note-preview p { font-size: 14px; line-height: 1.6; margin: 0; white-space: pre-wrap; color: var(--text-2); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 9; -webkit-box-orient: vertical; overflow: hidden; }
-.card-kind { display: none; }
 .image-preview { position: relative; min-height: 96px; background: var(--subtle); display: grid; place-items: center; }
 .image-preview img { display: block; width: 100%; height: auto; max-height: 520px; object-fit: cover; }
 .image-preview .image-fallback { position: absolute; color: var(--faint); }
@@ -187,7 +186,7 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 @keyframes pane-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
 @media (max-width: 1180px) { .note-pane { position: fixed; right: 0; top: 0; bottom: 0; z-index: 100; width: min(640px, 92vw); box-shadow: var(--shadow); } .note-pane.with-history { width: min(900px, 95vw); } }
 .note-editor header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 22px; min-height: 36px; }
-.note-label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--faint); text-transform: none; }
+.note-label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--faint); }
 .note-label > svg { display: none; }
 .note-folder { color: var(--faint); }
 .note-editor h2 { font-size: 26px; font-weight: 600; letter-spacing: -.4px; line-height: 1.2; overflow-wrap: anywhere; margin: 0 0 16px; }
@@ -373,10 +372,7 @@ progress { width: 100%; height: 4px; margin-top: 12px; accent-color: var(--accen
 .floating-tools > span { flex: 1; }
 .floating-tools button { display: flex; align-items: center; gap: 5px; background: transparent; border: 0; padding: 6px 8px; font-size: 13px; color: var(--muted); border-radius: 7px; font-weight: 400; }
 .floating-tools button:hover { background: var(--subtle); color: var(--text); }
-.dock-group { display: inline-flex; flex-shrink: 0; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; margin-right: 4px; }
 .floating-tools button { flex-shrink: 0; white-space: nowrap; }
-.dock-group button { border-radius: 0; padding: 5px 7px; }
-.dock-group button + button { border-left: 1px solid var(--line); }
 .floating-tabs { display: flex; padding: 8px 16px 2px; gap: 14px; border-top: 1px solid var(--line); }
 .floating-tabs button { display: flex; align-items: center; gap: 5px; border: 0; background: transparent; padding: 4px 0; color: var(--faint); font-size: 12.5px; font-weight: 500; }
 .floating-tabs button.active { color: var(--text); }
@@ -397,4 +393,31 @@ progress { width: 100%; height: 4px; margin-top: 12px; accent-color: var(--accen
 .quick-status { min-height: 32px; border: 0; border-top: 1px solid var(--line); border-radius: 0; background: var(--bg); font-size: 12px; color: var(--muted); }
 
 @media (max-width: 1050px) { .rail { width: 180px; padding-left: 18px; } .topbar { padding-right: 20px; } .collection-scroll { padding-right: 20px; } .board-wrapper { margin-right: 20px; } }
+
+/* Motion: one curve, two durations. Things enter with a short rise, respond to the pointer at once, and never bounce. */
+:root { --ease: cubic-bezier(.2, .7, .2, 1); --fast: .14s; --base: .2s; }
+button, .icon-button, .card-menu summary, .settings-tabs button, .chip { transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease), color var(--fast) var(--ease), opacity var(--fast) var(--ease), box-shadow var(--fast) var(--ease), transform var(--fast) var(--ease); }
+button:active:not(:disabled) { transform: scale(.98); }
+.card-main:active, .rail nav button:active, .floating-titlebar button:active, .view-switch button:active { transform: none; }
+.item-card { transition: border-color var(--fast) var(--ease), box-shadow var(--base) var(--ease), background-color .25s var(--ease); }
+.image-preview img { opacity: 0; transition: opacity .3s var(--ease); }
+.image-preview img.loaded { opacity: 1; }
+.card-grid > div { animation: card-in var(--base) var(--ease) both; }
+@keyframes card-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.collection-scroll, .board-wrapper, .empty-results, .welcome-empty { animation: view-in var(--base) var(--ease); }
+@keyframes view-in { from { opacity: 0; } to { opacity: 1; } }
+.modal-shade { animation: fade-in var(--fast) var(--ease); }
+.modal-shade > * { animation: dialog-in var(--base) var(--ease); }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
+.card-menu > div { animation: menu-in var(--fast) var(--ease); transform-origin: bottom right; }
+@keyframes menu-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
+.toast { animation: toast-in var(--base) var(--ease); }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.update-notice, .sync-pill, .pair-banner, .inline-warning, .floating-opacity, .note-history { animation: rise-in var(--base) var(--ease); }
+@keyframes rise-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.drop-overlay { animation: fade-in var(--fast) var(--ease); }
+.note-pane { animation: pane-in var(--base) var(--ease); }
+body, .rail, .main-content, .note-editor, .settings-panel, .floating-workspace, .search-box, input, textarea, select { transition: background-color .25s var(--ease), color .25s var(--ease), border-color .25s var(--ease); }
+.spin { animation: spin 1.2s linear infinite; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

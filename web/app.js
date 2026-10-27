@@ -118,7 +118,7 @@
   function mediaCard(item, inTiles) {
     const card = el('button', { class: 'card-item media', 'aria-label': item.name, onclick: () => open(item) }, el('span', { class: 'placeholder', text: item.kind === 'video' ? 'Video' : 'Photo' }));
     thumbnail(item).then(url => {
-      card.replaceChildren(el('img', { src: url, alt: '' }));
+      card.replaceChildren(el('img', { src: url, alt: '', onload: event => event.target.classList.add('loaded') }));
       if (item.kind === 'video') card.append(el('span', { class: 'play' }));
       if (!inTiles) { if (folder(item.path)) card.append(el('span', { class: 'folder-tag', text: folder(item.path) })); card.append(el('span', { class: 'caption', text: item.name })); }
     }).catch(() => { if (!inTiles) card.append(el('span', { class: 'caption', text: item.name })); });
@@ -134,7 +134,7 @@
     const card = el('button', { class: `card-item file ${item.kind === 'audio' ? 'audio' : ''} ${preview === 'pdf' ? 'pdf' : ''}`, onclick: () => open(item) },
       el('span', { class: 'ext', text: item.kind === 'audio' ? 'Audio' : (extOf(item.name).slice(1) || 'file').slice(0, 4).toUpperCase() }),
       el('div', { class: 'text' }, el('strong', { text: item.name }), el('span', { class: 'foot', text: `${size(item.size)} · ${when(item.modifiedAt)}` })));
-    if (preview === 'pdf') thumbnail(item).then(url => { card.classList.replace('file', 'media'); card.classList.remove('pdf'); card.replaceChildren(el('img', { src: url, alt: '' }), el('span', { class: 'caption', text: item.name })); }).catch(() => {});
+    if (preview === 'pdf') thumbnail(item).then(url => { card.classList.replace('file', 'media'); card.classList.remove('pdf'); card.replaceChildren(el('img', { src: url, alt: '', onload: event => event.target.classList.add('loaded') }), el('span', { class: 'caption', text: item.name })); }).catch(() => {});
     return card;
   }
   function renderPairing(prefill) {

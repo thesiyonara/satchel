@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.9 — 2026-10-27
+
+### Changed
+- A polish pass on the new design: one motion system across the app and the phone page (cards and views rise in, dialogs and menus settle, thumbnails fade in once loaded, buttons respond at once, nothing bounces, and all of it is off under reduced motion), the note pane no longer repeats the title in its label, Quick drop's docking buttons sit with the other tools, and leftover code from the old chrome is gone.
+
 ## 0.4.8 — 2026-10-27
 
 ### Changed

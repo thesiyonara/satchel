@@ -7,7 +7,6 @@
 html, body { margin: 0; background: var(--bg); color: var(--text); min-height: 100%; overflow-x: hidden; }
 body { padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left); }
 main { max-width: 760px; margin: 0 auto; padding: 6px 16px calc(100px + env(safe-area-inset-bottom)); }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 button, input, textarea { font: inherit; color: inherit; }
 button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 11px 15px; font-size: 15px; font-weight: 500; cursor: pointer; min-height: 44px; }
 button:active { opacity: .8; }
@@ -135,3 +134,21 @@ main > textarea:focus { border: 0; }
 
 .toast { position: fixed; left: 16px; right: 16px; bottom: calc(92px + env(safe-area-inset-bottom)); background: var(--ink); color: var(--ink-text); border: 0; border-radius: 10px; padding: 12px 15px; font-size: 14px; box-shadow: 0 12px 36px #17191c40; z-index: 8; overflow-wrap: anywhere; }
 .hidden { display: none; }
+
+/* Motion: one curve, short, never bouncy. */
+:root { --ease: cubic-bezier(.2, .7, .2, 1); }
+main { animation: rise .2s var(--ease); }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+button, .chip { transition: background-color .14s var(--ease), border-color .14s var(--ease), color .14s var(--ease), opacity .14s var(--ease), transform .14s var(--ease); }
+button:active:not(:disabled) { transform: scale(.98); opacity: 1; }
+.card-item { animation: rise .2s var(--ease) both; }
+.card-item.media img { opacity: 0; transition: opacity .3s var(--ease); }
+.card-item.media img.loaded { opacity: 1; }
+.sheet-shade { animation: fade .15s var(--ease); }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.sheet { animation: up .22s var(--ease); }
+@keyframes up { from { transform: translateY(32px); } to { transform: none; } }
+.toast { animation: rise .2s var(--ease); }
+.fab { transition: transform .14s var(--ease), opacity .14s var(--ease); }
+.viewer img, .viewer video { animation: fade .25s var(--ease); }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
