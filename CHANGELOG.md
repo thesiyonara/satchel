@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- The README and the website explain how to open the unsigned installers on Windows and on macOS 15, where the right-click Open shortcut no longer works.
+
 ## 0.6.1 — 2026-10-27
 
 ### Added

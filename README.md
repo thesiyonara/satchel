@@ -43,7 +43,7 @@ Download the package for your computer from the [latest release](https://github.
 - **Windows 10 or 11:** `Satchel-X.Y.Z-win-x64.exe`, a normal installer.
 - **macOS 13 or newer on Apple silicon:** `Satchel-X.Y.Z-mac-arm64.dmg`. Drag Satchel to Applications. Intel Macs are not built for yet.
 
-Builds are not yet signed with a developer identity, so Windows SmartScreen and macOS Gatekeeper warn on first launch. On Windows choose **More info → Run anyway**; on macOS right-click the app and choose **Open**, or allow it under System Settings → Privacy & Security. Every release ships a `SHA256SUMS-X.Y.Z.txt` you can check the download against.
+Builds are not yet signed with a developer identity, so Windows SmartScreen and macOS Gatekeeper warn on first launch. On Windows choose **More info → Run anyway**. On macOS, open the app once so it is refused, then go to System Settings → Privacy & Security and choose **Open Anyway**; since macOS 15 the right-click Open shortcut no longer works for unsigned apps. The app's own updater checks later versions against their checksums, so the warning appears only on the first install. Every release ships a `SHA256SUMS-X.Y.Z.txt` you can check the download against.
 
 On first launch, choose the collection folder (`~/Satchel` by default) and whether to start at login.
 
