@@ -15,7 +15,7 @@ import engineHashes from '../shared/engine-integrity.json';
 const execFileAsync = promisify(execFile);
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 type Config = Record<string, any>;
-export interface EngineOptions { executable: string; home: string; settings: () => Settings; updateSettings: (patch: Partial<Settings>) => Promise<void>; changed?: (status: SyncStatus) => void; port?: number; allowLoopback?: boolean; discovery?: boolean }
+export interface EngineOptions { executable: string; home: string; settings: () => Settings; updateSettings: (patch: Partial<Settings>) => Promise<void>; changed?: (status: SyncStatus) => void; arrived?: () => void; port?: number; allowLoopback?: boolean; discovery?: boolean }
 export interface PairingCode { version: 1; deviceId: string; folderId: string; name: string; port: number }
 export const deviceIdPattern = /^[A-Z2-7]{7}(?:-[A-Z2-7]{7}){7}$/;
 const folderIdPattern = /^[a-zA-Z0-9-]{1,80}$/;
@@ -123,7 +123,7 @@ export class SyncEngine {
       const digest = createHash('sha256');
       for await (const chunk of createReadStream(this.options.executable)) digest.update(chunk);
       const expected = engineHashes[`${process.platform}-${process.arch}` as keyof typeof engineHashes];
-      if (!expected || digest.digest('hex') !== expected) throw new Error('The sync helper failed its integrity check. Reinstall Sync it from a trusted build.');
+      if (!expected || digest.digest('hex') !== expected) throw new Error('The sync helper failed its integrity check. Reinstall Satchel from a trusted build.');
       // Packaging or extraction can drop the execute bit on macOS; restore it for the verified helper only.
       if (process.platform !== 'win32') await fs.access(this.options.executable, fsConstants.X_OK).catch(() => fs.chmod(this.options.executable, 0o755));
       await secureDirectory(this.options.home);
@@ -206,7 +206,7 @@ export class SyncEngine {
     if (!response.ok) throw new Error(`Cannot authenticate the existing sync helper (${response.status}). Quit it before retrying.`);
     const paths = await response.json() as Record<string, string>;
     const normalize = (value: string) => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
-    if (typeof paths.config !== 'string' || normalize(paths.config) !== normalize(filename)) throw new Error('Another service is using this control port. Restart Sync it.');
+    if (typeof paths.config !== 'string' || normalize(paths.config) !== normalize(filename)) throw new Error('Another service is using this control port. Restart Satchel.');
     await fetch(endpoint + '/system/shutdown', { method: 'POST', headers, signal: AbortSignal.timeout(3000) });
     for (let attempt = 0; attempt < 60; attempt++) {
       await pause(100);
@@ -230,7 +230,7 @@ export class SyncEngine {
       }
       config.options.localAnnounceEnabled = this.options.discovery ?? settings.localDiscovery ?? true;
       let folder = config.folders.find((entry: Config) => entry.id === settings.folderId);
-      if (!folder) folder = { ...config.defaults.folder, id: settings.folderId, label: 'Sync it', path: settings.root };
+      if (!folder) folder = { ...config.defaults.folder, id: settings.folderId, label: 'Satchel', path: settings.root };
       // The watcher plus the app's own scan requests catch changes; the hourly full rescan is a safety net, not the mechanism.
       Object.assign(folder, { path: settings.root, type: 'sendreceive', fsWatcherEnabled: true, fsWatcherDelayS: 0.5, rescanIntervalS: 3600, ignorePerms: true, maxConflicts: -1, paused: false, minDiskFree: { value: 1, unit: '%' }, versioning: { type: 'staggered', params: { maxAge: String(30 * 86400) }, cleanupIntervalS: 3600, fsPath: '', fsType: 'basic' } });
       shareWithDevices(folder, config.devices);
@@ -248,9 +248,40 @@ export class SyncEngine {
       await this.refresh(); this.poll();
     }, this.active ? 1500 : 10000);
   }
+  /** Files whose latest change came from another computer, by relative path, from the engine's RemoteChangeDetected events. */
+  private arrivals = new Map<string, { at: number; by: string }>();
+  private eventsAbort?: AbortController;
+  private lastEvent = 0;
+  arrival(relative: string) { const found = this.arrivals.get(relative.replace(/\\/g, '/')); return found && Date.now() - found.at < 172800000 ? found : undefined; }
+  private watchEvents() {
+    if (this.eventsAbort || this.stopped) return;
+    const abort = this.eventsAbort = new AbortController();
+    const loop = async () => {
+      while (!this.stopped && this.eventsAbort === abort) {
+        try {
+          const response = await fetch(`http://127.0.0.1:${this.apiPort}/rest/events?events=RemoteChangeDetected&since=${this.lastEvent}&timeout=30`, { headers: { 'X-API-Key': this.apiKey }, signal: abort.signal });
+          if (!response.ok) throw new Error(String(response.status));
+          const events = await response.json() as { id: number; time: string; data?: { folder: string; path: string; modifiedBy: string; type: string; action: string } }[];
+          const folderId = this.options.settings().folderId;
+          let changed = false;
+          for (const event of events) {
+            this.lastEvent = Math.max(this.lastEvent, event.id);
+            if (!event.data || event.data.folder !== folderId || event.data.type !== 'file' || event.data.action === 'deleted') continue;
+            const peer = this.status.peers.find(candidate => candidate.id === event.data!.modifiedBy);
+            this.arrivals.set(event.data.path.replace(/\\/g, '/'), { at: Date.parse(event.time) || Date.now(), by: peer?.name || 'another computer' });
+            changed = true;
+          }
+          if (this.arrivals.size > 5000) for (const [key, value] of this.arrivals) { if (Date.now() - value.at > 172800000) this.arrivals.delete(key); }
+          if (changed) this.options.arrived?.();
+        } catch { if (this.stopped || this.eventsAbort !== abort) return; await pause(3000); }
+      }
+    };
+    void loop();
+  }
   async refresh() {
     if (this.refreshing || this.stopped) return;
     this.refreshing = true;
+    this.watchEvents();
     try {
       const folderId = this.options.settings().folderId;
       const folder = encodeURIComponent(folderId);
@@ -361,7 +392,7 @@ export class SyncEngine {
   async scan() { if (this.status.deviceId && !this.stopped) await this.api(`/db/scan?folder=${encodeURIComponent(this.options.settings().folderId)}`, 'POST').catch(() => {}); }
   async retry() { this.retries = 0; if (!this.child || this.child.exitCode !== null) await this.start(); else { await this.configure(); await this.scan(); await this.refresh(); } }
   async stop() {
-    this.stopped = true; clearTimeout(this.timer); clearTimeout(this.restartTimer); clearTimeout(this.healthyTimer);
+    this.stopped = true; this.eventsAbort?.abort(); this.eventsAbort = undefined; clearTimeout(this.timer); clearTimeout(this.restartTimer); clearTimeout(this.healthyTimer);
     const child = this.child;
     if (!child) return;
     await this.api('/system/shutdown', 'POST').catch(() => {});

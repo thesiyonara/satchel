@@ -1,4 +1,4 @@
-/* Sync it. Content first: the collection starts at the top of the window, the chrome says each thing once,
+/* Satchel. Content first: the collection starts at the top of the window, the chrome says each thing once,
    one typeface does the hierarchy, and orange appears only where something needs attention or is selected. */
 :root { font-family: 'Instrument Sans', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; color-scheme: light; font-size: 14px;
   --bg: #f5f5f2; --surface: #ffffff; --subtle: #ebebe7; --raised: #ffffff; --text: #17191c; --text-2: #3a3e44; --muted: #6b7079; --faint: #8a8f97; --line: #e4e4df; --line-2: #c9c9c3; --accent: #e0491e; --accent-text: #b93a14; --accent-soft: #e0491e14; --ink: #17191c; --ink-text: #ffffff; --ok: #3f9a6a; --warn: #c27a1a; --danger: #b93a14; --shadow: 0 18px 60px #17191c1f; --green: var(--accent); --green-soft: var(--accent-soft); --note0: #ffffff; --note1: #ffffff; --note2: #ffffff; --mono: 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace; }
@@ -149,8 +149,6 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 .loading > span { font-size: 13px; color: var(--muted); }
 .fatal p, .fatal pre { max-width: 80vw; overflow-wrap: anywhere; white-space: pre-wrap; }
 .brand { display: flex; align-items: center; gap: 10px; font-size: 22px; font-weight: 600; letter-spacing: -.6px; }
-.brand-mark { width: 30px; height: 30px; background: var(--ink); color: var(--ink-text); display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; }
-.brand-slash { color: var(--accent); font-weight: 400; padding: 0 1px; }
 
 /* Dialogs */
 .modal-shade { position: fixed; z-index: 100; inset: 0; background: #17191c66; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -356,7 +354,6 @@ progress { width: 100%; height: 4px; margin-top: 12px; accent-color: var(--accen
 .floating-titlebar button { -webkit-app-region: no-drag; width: 28px; height: 28px; padding: 0; display: grid; place-items: center; border: 0; background: transparent; color: var(--muted); border-radius: 7px; }
 .floating-titlebar button:hover, .floating-titlebar button[aria-pressed=true] { color: var(--text); background: var(--subtle); }
 .floating-wordmark { font-weight: 600; font-size: 14px; letter-spacing: -.2px; }
-.floating-wordmark span { color: var(--accent); padding: 0 1px; }
 .floating-mode { font-size: 12.5px; color: var(--muted); }
 .floating-intro { padding: 12px 16px 8px; }
 .floating-intro h2 { font-size: 15px; font-weight: 600; letter-spacing: -.2px; margin: 0 0 3px; }
@@ -430,4 +427,30 @@ body, .rail, .main-content, .note-editor, .settings-panel, .floating-workspace, 
 .is-mini .capture-composer textarea { height: 60px; }
 .is-mini .floating-tools { padding-top: 3px; padding-bottom: 4px; }
 .topbar-actions .icon-button, .view-switch button { flex-shrink: 0; }
+
+/* The Satchel mark, multi-selection, arrivals from other computers, the drawer handle and the pile. */
+.brand .mark, .floating-wordmark .mark { color: var(--ink); flex-shrink: 0; }
+.floating-wordmark { display: inline-flex; align-items: center; gap: 7px; }
+.item-card.selected { outline: 2px solid var(--accent); outline-offset: 2px; }
+.selection-chip { display: inline-flex; align-items: center; gap: 6px; border: 0; background: var(--accent-soft); color: var(--accent-text); border-radius: 999px; padding: 3px 10px; font-size: 12px; margin-left: 10px; }
+.item-card footer .arrived { display: inline-flex; align-items: center; gap: 4px; color: var(--accent-text); font-style: normal; }
+.handle-page, .handle-page body, .handle-page #root { background: transparent !important; overflow: hidden; }
+.handle { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.handle span { display: block; width: 5px; height: 100%; border-radius: 3px; background: #17191c; opacity: .3; transition: opacity var(--fast) var(--ease), width var(--fast) var(--ease), background-color var(--fast) var(--ease); }
+.handle:hover span, .handle.hot span { opacity: 1; width: 8px; background: var(--accent); }
+.pile { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 8px 12px 12px; gap: 10px; }
+.pile-drop { border: 1.5px dashed var(--line-2); border-radius: 12px; padding: 18px 14px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; color: var(--muted); }
+.pile-drop h2 { margin: 2px 0 0; font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -.2px; }
+.pile-drop p { margin: 0; font-size: 12.5px; }
+.pile-items { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.pile-items button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 5px 6px; border-radius: 8px; text-align: left; font-weight: 400; color: var(--text); }
+.pile-items button:hover { background: var(--subtle); }
+.pile-items img { width: 34px; height: 34px; border-radius: 7px; object-fit: cover; background: var(--subtle); flex-shrink: 0; opacity: 0; transition: opacity .3s var(--ease); }
+.pile-items img.loaded { opacity: 1; }
+.pile-icon { width: 34px; height: 34px; border-radius: 7px; background: var(--subtle); display: grid; place-items: center; color: var(--muted); flex-shrink: 0; }
+.pile-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
+.pile-items em { font-size: 11.5px; white-space: nowrap; color: var(--accent-text); font-style: normal; }
+.pile-items p { padding: 10px 6px; color: var(--muted); font-size: 13px; margin: 0; }
+.pile-expand { border: 0; background: transparent; color: var(--accent-text); justify-content: flex-start; padding: 6px 4px; font-size: 12.5px; }
+.pile ~ .floating-tools { display: none; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

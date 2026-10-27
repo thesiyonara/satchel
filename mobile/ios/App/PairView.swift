@@ -36,7 +36,7 @@ struct PairView: View {
 
     private func pair(with payload: String) async {
         guard !busy else { return }
-        guard let offer = PairingOffer.parse(payload) else { error = "That is not a Sync it pairing code."; return }
+        guard let offer = PairingOffer.parse(payload) else { error = "That is not a Satchel pairing code."; return }
         guard !offer.isExpired else { error = "This pairing code has expired. Choose “Pair a phone” again on the computer."; return }
         await complete(offer)
     }

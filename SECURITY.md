@@ -1,6 +1,6 @@
 # Security policy
 
-Sync it syncs files between computers on a local network with a bundled Syncthing helper, serves an optional phone-access API on that network, and updates itself from GitHub releases. The detailed security model, hardening and known limits are in [docs/SECURITY.md](docs/SECURITY.md).
+Satchel syncs files between computers on a local network with a bundled Syncthing helper, serves an optional phone-access API on that network, and updates itself from GitHub releases. The detailed security model, hardening and known limits are in [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Reporting a vulnerability
 

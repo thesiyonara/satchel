@@ -7,7 +7,7 @@ import { XMLParser } from 'fast-xml-parser';
 import { getCurrentFuseWire, FuseV1Options, FuseState } from '@electron/fuses';
 
 // Packaged builds intentionally cannot be controlled through Electron's debugger.
-const executable = path.resolve('release/win-unpacked/Sync it.exe');
+const executable = path.resolve('release/win-unpacked/Satchel.exe');
 const fuses = await getCurrentFuseWire(executable);
 for (const option of [FuseV1Options.RunAsNode, FuseV1Options.EnableNodeOptionsEnvironmentVariable, FuseV1Options.EnableNodeCliInspectArguments]) assert.equal(fuses[option], FuseState.DISABLE);
 for (const option of [FuseV1Options.EnableEmbeddedAsarIntegrityValidation, FuseV1Options.OnlyLoadAppFromAsar]) assert.equal(fuses[option], FuseState.ENABLE);

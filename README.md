@@ -1,16 +1,16 @@
-# Sync it
+# Satchel
 
 One shared folder for all your computers. It syncs over your own network, not the internet.
 
-[![Checks](https://github.com/thesiyonara/sync-it/actions/workflows/ci.yml/badge.svg)](https://github.com/thesiyonara/sync-it/actions/workflows/ci.yml)
-[![Latest release](https://img.shields.io/github/v/release/thesiyonara/sync-it?display_name=tag)](https://github.com/thesiyonara/sync-it/releases/latest)
+[![Checks](https://github.com/thesiyonara/satchel/actions/workflows/ci.yml/badge.svg)](https://github.com/thesiyonara/satchel/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/thesiyonara/satchel?display_name=tag)](https://github.com/thesiyonara/satchel/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
 
 ![The dashboard: a grid of notes and files with the collection and connection state in the sidebar](docs/screenshots/dashboard.png)
 
 ## What it is
 
-Sync it is a desktop app for Windows and macOS. You get one folder on each of your computers, and the app keeps those folders the same. Changes travel straight from one computer to the other over your own network, never through a server. On top of that folder the app gives you a searchable grid, a shared pinboard, a note editor with history, and a small floating window for dropping things in quickly.
+Satchel is a desktop app for Windows and macOS. You get one folder on each of your computers, and the app keeps those folders the same. Changes travel straight from one computer to the other over your own network, never through a server. On top of that folder the app gives you a searchable grid, a shared pinboard, a note editor with history, and a small floating window for dropping things in quickly.
 
 Files stay ordinary files on your disk, so any other program can use them. There is no account, no relay and no telemetry. Computers find each other on the network and you confirm each pairing yourself; the bundled [Syncthing](https://syncthing.net) engine encrypts every transfer. The interface shows only real state: what is paired, what is syncing, what conflicted.
 
@@ -20,7 +20,8 @@ Files stay ordinary files on your disk, so any other program can use them. There
 - Previews inside the app: images (including iPhone HEIC and TIFF through the operating system's renderer), video and audio with seeking, PDFs, and text-like files. Office documents and archives open in their default app.
 - Note editor with autosave, read-only Markdown preview, and **History** to preview and restore earlier versions, including versions archived from received changes.
 - Shared pinboard: card positions sync; zoom stays local.
-- Quick drop: a floating window (Ctrl/⌘ Shift Space) to write a note, paste a screenshot or drop files from anywhere.
+- Quick drop: a floating window (Ctrl/⌘ Shift Space) to write a note, paste a screenshot or drop files from anywhere. A thin handle at the screen edge is the drawer: drag a file toward it and it slides out, drop, and it closes by itself.
+- Files that arrived from another computer say so on their card, in the drawer, and in the sidebar for two days.
 - Pairing without a code from a Nearby list, or with a code or device ID when discovery is blocked. Any number of computers; each can be revoked.
 - Untrusted devices: give a NAS an encryption password and it holds an encrypted copy it cannot read.
 - Conflicts keep both versions. Deleted files go to the Recycle Bin or Trash, and received overwrites keep 30 days of versions.
@@ -34,18 +35,18 @@ Files stay ordinary files on your disk, so any other program can use them. There
 
 ## Install
 
-Download the package for your computer from the [latest release](https://github.com/thesiyonara/sync-it/releases/latest):
+Download the package for your computer from the [latest release](https://github.com/thesiyonara/satchel/releases/latest):
 
-- **Windows 10 or 11:** `Sync-it-X.Y.Z-win-x64.exe`, a normal installer.
-- **macOS 13 or newer on Apple silicon:** `Sync-it-X.Y.Z-mac-arm64.dmg`. Drag Sync it to Applications. Intel Macs are not built for yet.
+- **Windows 10 or 11:** `Satchel-X.Y.Z-win-x64.exe`, a normal installer.
+- **macOS 13 or newer on Apple silicon:** `Satchel-X.Y.Z-mac-arm64.dmg`. Drag Satchel to Applications. Intel Macs are not built for yet.
 
 Builds are not yet signed with a developer identity, so Windows SmartScreen and macOS Gatekeeper warn on first launch. On Windows choose **More info → Run anyway**; on macOS right-click the app and choose **Open**, or allow it under System Settings → Privacy & Security. Every release ships a `SHA256SUMS-X.Y.Z.txt` you can check the download against.
 
-On first launch, choose the collection folder (`~/Sync it` by default) and whether to start at login.
+On first launch, choose the collection folder (`~/Satchel` by default) and whether to start at login.
 
 ## Pair your computers
 
-1. Install and set up Sync it on each computer, on the same network.
+1. Install and set up Satchel on each computer, on the same network.
 2. On one computer open **Computers & sync**. The other computer appears under **Nearby** with its device ID. Compare the ID with the one shown on that computer, then **Connect**.
 3. On the other computer, **Approve** the request. Both computers adopt one collection ID; existing files are merged, never deleted.
 

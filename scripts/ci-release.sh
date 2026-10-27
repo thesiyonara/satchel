@@ -15,15 +15,15 @@ cd artifacts
 ls -l
 
 if ! gh release view "$tag" --repo "$repo" --json name >/dev/null 2>&1; then
-  sha256sum Sync-it-"$version"-* > "$sums"
+  sha256sum Satchel-"$version"-* > "$sums"
   cat "$sums"
-  gh release create "$tag" ./* --draft --title "Sync it $version" --generate-notes --repo "$repo"
+  gh release create "$tag" ./* --draft --title "Satchel $version" --generate-notes --repo "$repo"
   exit 0
 fi
 
 existing="$(gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name')"
 new=()
-for file in Sync-it-"$version"-*; do
+for file in Satchel-"$version"-*; do
   if grep -qxF "$file" <<< "$existing"; then echo "Keeping the published $file"; else new+=("$file"); fi
 done
 if [ "${#new[@]}" -eq 0 ]; then echo "The release already has every package from this run."; exit 0; fi

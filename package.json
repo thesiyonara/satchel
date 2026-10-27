@@ -1,18 +1,18 @@
 {
-  "name": "sync-it",
-  "productName": "Sync it",
+  "name": "satchel",
+  "productName": "Satchel",
   "version": "0.4.10",
   "description": "One shared folder for all your computers. It syncs over your own network, not the internet.",
   "private": true,
   "type": "module",
-  "author": "Sync it contributors",
+  "author": "Satchel contributors",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/thesiyonara/sync-it.git"
+    "url": "https://github.com/thesiyonara/satchel.git"
   },
-  "homepage": "https://github.com/thesiyonara/sync-it",
-  "bugs": "https://github.com/thesiyonara/sync-it/issues",
+  "homepage": "https://github.com/thesiyonara/satchel",
+  "bugs": "https://github.com/thesiyonara/satchel/issues",
   "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "node scripts/dev.mjs",
@@ -61,8 +61,8 @@
   },
   "build": {
     "appId": "local.syncit.desktop",
-    "productName": "Sync it",
-    "artifactName": "Sync-it-${version}-${os}-${arch}.${ext}",
+    "productName": "Satchel",
+    "artifactName": "Satchel-${version}-${os}-${arch}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "assets"
@@ -119,7 +119,7 @@
       "identity": "-",
       "hardenedRuntime": false,
       "extendInfo": {
-        "NSLocalNetworkUsageDescription": "Sync it connects to your paired computer on the local network to sync your files and notes."
+        "NSLocalNetworkUsageDescription": "Satchel connects to your paired computer on the local network to sync your files and notes."
       }
     },
     "electronFuses": {

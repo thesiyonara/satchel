@@ -2,7 +2,13 @@
 
 ## Unreleased
 
+### Added
+- A drawer at the screen edge: a thin handle on the right, or the left, or off, in Preferences. Drag a file toward it and the drawer slides out as a pile of what is in the satchel; drop, and it closes by itself. Hovering opens it too, and the command palette has "Open the drawer".
+- Several cards can be selected with Ctrl or ⌘ click and dragged out of the window together.
+- Files that arrived from another computer in the last two days say so on their card, in the drawer, and under "From other computers" in the sidebar.
+
 ### Changed
+- The app is now called Satchel, with a new mark: a block with a strap across it. Existing installs upgrade in place and keep their settings, pairings and collection folder. The GitHub repository moved to thesiyonara/satchel; the old address redirects.
 - macOS packages are built for Apple silicon only; the Intel build is dropped for now.
 - One plain description of the app in the package, the README and the GitHub repository, and a README introduction written as prose.
 

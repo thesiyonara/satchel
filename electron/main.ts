@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { app, BrowserWindow, Menu, Notification, Tray, ipcMain, protocol, nativeImage, clipboard, dialog, shell, globalShortcut, nativeTheme, powerMonitor, screen, session } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { imageSize } from 'image-size';
@@ -31,11 +32,15 @@ const testing = !app.isPackaged && process.env.SYNCIT_TEST_MODE === '1';
 const profileOverride = process.argv.find(argument => argument.startsWith('--profile='))?.slice(10);
 if (profileOverride) { if (!path.isAbsolute(profileOverride)) throw new Error('--profile must be an absolute directory'); app.setPath('userData', profileOverride); }
 if (testing && process.env.SYNCIT_TEST_PROFILE) app.setPath('userData', path.resolve(process.env.SYNCIT_TEST_PROFILE));
+// The app was called Sync it before 0.5. An existing profile keeps its settings, pairings and engine database under the old name.
+if (!testing && !profileOverride) { const legacy = path.join(path.dirname(app.getPath('userData')), 'Sync it'); if (!existsSync(path.join(app.getPath('userData'), 'settings.json')) && existsSync(path.join(legacy, 'settings.json'))) app.setPath('userData', legacy); }
 const devURL = !app.isPackaged ? process.env.SYNCIT_DEV_URL : undefined;
 const assets = app.isPackaged ? path.join(process.resourcesPath, 'assets') : path.join(app.getAppPath(), 'assets');
 const dist = path.join(app.getAppPath(), 'dist');
 let mainWindow: BrowserWindow | undefined;
 let panelWindow: BrowserWindow | undefined;
+let handleWindow: BrowserWindow | undefined;
+let drawerTimer: ReturnType<typeof setInterval> | undefined;
 let tray: Tray | undefined;
 let quitting = false;
 let cleanedUp = false;
@@ -44,7 +49,7 @@ let engine: SyncEngine;
 let store: SettingsStore;
 let scanTimer: ReturnType<typeof setTimeout>;
 let registeredShortcut = '';
-const windows = () => [mainWindow, panelWindow].filter((window): window is BrowserWindow => !!window && !window.isDestroyed());
+const windows = () => [mainWindow, panelWindow, handleWindow].filter((window): window is BrowserWindow => !!window && !window.isDestroyed());
 const updateActivity = () => engine?.setActive(windows().some(window => window.isVisible() && !window.isMinimized()));
 const broadcast = (channel: string, value?: unknown) => windows().forEach(window => window.webContents.send(channel, value));
 
@@ -55,7 +60,13 @@ protocol.registerSchemesAsPrivileged([
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 else {
   app.on('second-instance', () => showDashboard());
-  app.whenReady().then(start).catch(error => { dialog.showErrorBox('Sync it could not start', errorMessage(error)); quitting = true; app.quit(); });
+  app.whenReady().then(start).catch(error => { dialog.showErrorBox('Satchel could not start', errorMessage(error)); quitting = true; app.quit(); });
+}
+// Items annotated with where their latest change came from, when another computer sent it recently.
+async function librarySnapshot() {
+  const snapshot = await library.snapshot();
+  for (const item of snapshot.items) { const arrival = engine?.arrival(item.path); if (arrival) { item.arrivedAt = arrival.at; item.arrivedFrom = arrival.by; } }
+  return snapshot;
 }
 function notifyLibrary() {
   broadcast('syncit:library');
@@ -72,7 +83,7 @@ async function start() {
   await library.initialize().catch(() => {}); // Missing roots are reported in the dashboard, never recreated silently.
   const executable = app.isPackaged ? path.join(process.resourcesPath, 'engine', process.platform === 'win32' ? 'syncthing.exe' : 'syncthing') : path.join(app.getAppPath(), 'vendor', `${process.platform === 'win32' ? 'win' : 'mac'}-${process.arch}`, process.platform === 'win32' ? 'syncthing.exe' : 'syncthing');
   engine = new SyncEngine({ executable, home: path.join(app.getPath('userData'), 'engine'), settings: () => store.value, updateSettings: patch => store.update(patch), port: testing ? Number(process.env.SYNCIT_TEST_PORT || 22127) : undefined, discovery: testing ? false : undefined,
-    changed: status => { broadcast('syncit:sync', status); tray?.setToolTip(`Sync it · ${status.state === 'synced' ? 'Up to date' : status.state}`); refreshTray(); } });
+    arrived: () => broadcast('syncit:library'), changed: status => { broadcast('syncit:sync', status); tray?.setToolTip(`Satchel · ${status.state === 'synced' ? 'Up to date' : status.state}`); refreshTray(); } });
   companion = new Companion({ directory: app.getPath('userData'), port: store.value.phonePort ?? (testing ? 22128 : 22028), allowLoopback: testing, webRoot: path.join(app.getAppPath(), 'web'), library: () => library, text: async relative => readTextPreview(await contained(library.root, relative)), deviceName: () => store.value.deviceName, collectionName: () => path.basename(store.value.root), syncState: () => engine.status.state, thumbnail: thumbnailFor });
   if (store.value.phoneAccess) void companion.start().catch(() => {});
   setupProtocols(); setupIPC();
@@ -80,7 +91,8 @@ async function start() {
   session.defaultSession.setPermissionCheckHandler(() => false);
   try { registerShortcut(store.value.shortcut); } catch { /* Preferences can choose a shortcut that is not in use. */ }
   mainWindow = createWindow(false);
-  setupTray();
+  setupTray(); placeHandle();
+  screen.on('display-metrics-changed', () => placeHandle());
   stopControl = await startControl(app.getPath('userData'), operations);
   powerMonitor.on('resume', () => { void engine.retry().catch(() => {}); });
   void engine.start().catch(() => {});
@@ -122,7 +134,7 @@ async function installUpdate() {
     await engine.stop();
     const file = await updater.installer();
     // Windows: the normal interactive NSIS installer handles replacement and offers launch.
-    // macOS: the verified disk image is mounted and opened; the user drags Sync it to Applications.
+    // macOS: the verified disk image is mounted and opened; the user drags Satchel to Applications.
     // Do not silently install or bypass the OS's unsigned-publisher warning.
     const error = await shell.openPath(file); if (error) throw new Error(error);
     quitting = true; setTimeout(() => app.quit(), 250);
@@ -184,7 +196,7 @@ function createWindow(panel: boolean) {
   const stateFile = path.join(app.getPath('userData'), panel ? 'panel-window.json' : 'main-window.json');
   const mini = panel && store.value.panelMode === 'mini';
   const window = new BrowserWindow({ width: panel ? 360 : 1240, height: panel ? (mini ? 230 : 570) : 820, minWidth: panel ? 320 : 860, minHeight: panel ? (mini ? 210 : 460) : 600, show: false, frame: !panel,
-    title: panel ? 'Sync it · Quick drop' : 'Sync it', backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1116' : '#f8f9f6',
+    title: panel ? 'Satchel · Quick drop' : 'Satchel', backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1116' : '#f8f9f6',
     icon: path.join(assets, 'icon.png'), autoHideMenuBar: true, alwaysOnTop: panel && store.value.alwaysOnTop,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, devTools: !app.isPackaged } });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -197,6 +209,8 @@ function createWindow(panel: boolean) {
   if (panel) {
     window.setOpacity(store.value.panelOpacity ?? 1);
     window.on('blur', () => { if (store.value.panelAutoHide) window.hide(); });
+    window.on('show', () => handleWindow?.hide());
+    window.on('hide', () => { clearInterval(drawerTimer); if (!window.isDestroyed()) window.webContents.send('syncit:drawer', false); if (handleWindow && !handleWindow.isDestroyed()) handleWindow.showInactive(); });
   }
   let boundsTimer: ReturnType<typeof setTimeout>;
   window.on('resize', persistBounds); window.on('move', persistBounds);
@@ -213,6 +227,46 @@ function createWindow(panel: boolean) {
   return window;
 }
 function showDashboard() { if (!mainWindow || mainWindow.isDestroyed()) mainWindow = createWindow(false); if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); }
+const HANDLE = { width: 14, height: 180 };
+// A thin handle at a screen edge. Hovering it, or dragging a file onto it, slides the drawer out.
+function placeHandle() {
+  const edge = store.value.drawerEdge ?? 'right';
+  if (testing || edge === 'off' || !store.value.onboardingDone) { if (handleWindow && !handleWindow.isDestroyed()) handleWindow.destroy(); handleWindow = undefined; return; }
+  if (!handleWindow || handleWindow.isDestroyed()) {
+    handleWindow = new BrowserWindow({ width: HANDLE.width, height: HANDLE.height, show: false, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false, focusable: false, skipTaskbar: true, hasShadow: false, alwaysOnTop: true, title: 'Satchel drawer',
+      webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, devTools: !app.isPackaged } });
+    handleWindow.setAlwaysOnTop(true, 'screen-saver');
+    handleWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    handleWindow.webContents.on('will-navigate', event => event.preventDefault());
+    handleWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+    handleWindow.on('close', event => { if (!quitting) event.preventDefault(); });
+    void handleWindow.loadURL(devURL ? `${devURL}/?handle=1` : 'syncit-app://app/index.html?handle=1');
+    handleWindow.once('ready-to-show', () => { if (handleWindow && !handleWindow.isDestroyed() && !panelWindow?.isVisible()) handleWindow.showInactive(); });
+  }
+  const area = screen.getPrimaryDisplay().workArea;
+  handleWindow.setBounds({ x: edge === 'left' ? area.x : area.x + area.width - HANDLE.width, y: Math.round(area.y + (area.height - HANDLE.height) / 2), width: HANDLE.width, height: HANDLE.height });
+}
+// The drawer: the Quick drop window shown flush against the handle's edge as a pile of recent items. It closes by itself
+// once the pointer has left it, unless the user has clicked into it.
+function showDrawer() {
+  const edge = store.value.drawerEdge === 'left' ? 'left' : 'right';
+  if (!panelWindow || panelWindow.isDestroyed()) panelWindow = createWindow(true);
+  const area = screen.getPrimaryDisplay().workArea;
+  const [width, height] = panelWindow.getSize();
+  panelWindow.setPosition(edge === 'left' ? area.x : area.x + area.width - width, Math.round(area.y + (area.height - height) / 2));
+  panelWindow.webContents.send('syncit:drawer', true);
+  panelWindow.showInactive();
+  handleWindow?.hide();
+  clearInterval(drawerTimer);
+  let outside = 0;
+  drawerTimer = setInterval(() => {
+    if (!panelWindow || panelWindow.isDestroyed() || !panelWindow.isVisible()) { clearInterval(drawerTimer); return; }
+    const point = screen.getCursorScreenPoint(); const bounds = panelWindow.getBounds();
+    const inside = point.x >= bounds.x - 12 && point.x <= bounds.x + bounds.width + 12 && point.y >= bounds.y - 12 && point.y <= bounds.y + bounds.height + 12;
+    outside = inside ? 0 : outside + 1;
+    if (outside >= 5 && !panelWindow.isFocused()) { clearInterval(drawerTimer); panelWindow.hide(); }
+  }, 300);
+}
 function showPanel() { if (!panelWindow || panelWindow.isDestroyed()) panelWindow = createWindow(true); panelWindow.show(); panelWindow.focus(); }
 function applyPanelPreferences(resize = false) {
   if (!panelWindow || panelWindow.isDestroyed()) return;
@@ -235,7 +289,7 @@ function registerShortcut(accelerator: string) {
   if (registeredShortcut) globalShortcut.unregister(registeredShortcut);
   registeredShortcut = accelerator;
 }
-function toast(body: string) { if (Notification.isSupported()) new Notification({ title: 'Sync it', body, silent: true }).show(); }
+function toast(body: string) { if (Notification.isSupported()) new Notification({ title: 'Satchel', body, silent: true }).show(); }
 let trayMenuSignature = '';
 function refreshTray() {
   if (!tray || tray.isDestroyed()) return;
@@ -249,14 +303,14 @@ function refreshTray() {
     { type: 'separator' },
     { label: paused ? 'Resume sync' : 'Pause sync', enabled: peers > 0 || paused, click: () => { void operations.get('settings')!({ syncPaused: !paused }); } },
     { label: 'Open collection folder', click: () => { void shell.openPath(store.value.root); } }, { type: 'separator' },
-    { label: 'Quit Sync it', click: () => { quitting = true; app.quit(); } }
+    { label: 'Quit Satchel', click: () => { quitting = true; app.quit(); } }
   ]));
 }
 function setupTray() {
   const icon = nativeImage.createFromPath(path.join(assets, process.platform === 'darwin' ? 'trayTemplate.png' : 'tray.png'));
   if (process.platform === 'darwin') icon.setTemplateImage(true);
   tray = new Tray(icon);
-  tray.setToolTip('Sync it');
+  tray.setToolTip('Satchel');
   refreshTray();
   tray.on('double-click', showDashboard);
 }
@@ -270,9 +324,10 @@ function setupIPC() {
     try { return await guarded(...args); } catch (error) { throw new Error(errorMessage(error)); }
   }); };
   operations.set('commands', () => [...operations.keys()].sort());
-  operations.set('status', () => ({ version: app.getVersion(), sync: engine.status, windows: windows().map(window => ({ name: window === panelWindow ? 'panel' : 'dashboard', visible: window.isVisible(), bounds: window.getBounds(), alwaysOnTop: window.isAlwaysOnTop(), opacity: window.getOpacity() })), panelMode: store.value.panelMode ?? 'quick' }));
+  operations.set('status', () => ({ version: app.getVersion(), sync: engine.status, windows: windows().map(window => ({ name: window === panelWindow ? 'panel' : window === handleWindow ? 'handle' : 'dashboard', visible: window.isVisible(), bounds: window.getBounds(), alwaysOnTop: window.isAlwaysOnTop(), opacity: window.getOpacity() })), panelMode: store.value.panelMode ?? 'quick' }));
   operations.set('window', async (mode: string) => {
     if (mode === 'dashboard') showDashboard();
+    else if (mode === 'drawer') showDrawer();
     else if (mode === 'quick' || mode === 'mini') { await operations.get('settings')!({ panelMode: mode }); showPanel(); }
     else panelAction(mode);
     return operations.get('status')!();
@@ -286,8 +341,9 @@ function setupIPC() {
     await atomicWrite(file, (await window.webContents.capturePage()).toPNG()); return { path: file };
   });
   operations.set('quit', () => { setTimeout(() => { quitting = true; app.quit(); }, 100); return { quitting: true }; });
-  bind('initial', async () => ({ settings: store.value, library: await library.snapshot(), sync: engine.status, platform: process.platform, runId, version: app.getVersion(), loginEnabled: !testing && app.getLoginItemSettings({ args: ['--background'] }).openAtLogin }));
-  bind('list', () => library.snapshot());
+  bind('initial', async () => ({ settings: store.value, library: await librarySnapshot(), sync: engine.status, platform: process.platform, runId, version: app.getVersion(), loginEnabled: !testing && app.getLoginItemSettings({ args: ['--background'] }).openAtLogin }));
+  bind('list', () => librarySnapshot());
+  bind('openDrawer', () => { showDrawer(); });
   bind('updateState', () => updater.state); bind('checkUpdate', checkUpdate); bind('downloadUpdate', () => updater.download()); bind('installUpdate', installUpdate);
   bind('releasePage', async () => { await shell.openExternal(releasesURL); });
   bind('phoneInfo', async () => ({ enabled: !!store.value.phoneAccess, running: companion.running, port: companion.port, fingerprint: companion.fingerprint, addresses: localNetworks(testing).addresses, devices: await companion.devices(), pairing: companion.pairingActive }));
@@ -327,14 +383,16 @@ function setupIPC() {
   bind('open', async (relative: string) => { const target = await contained(library.root, relative); assertSafeToOpen(target); if (!(await fs.lstat(target)).isFile()) throw new Error('Open folders with “Show in folder”'); const error = await shell.openPath(target); if (error) throw new Error(error); });
   bind('reveal', async (relative: string) => shell.showItemInFolder(await contained(library.root, relative)));
   // Dragging a card out of the window starts an OS drag of the file itself, with its thumbnail as the drag image when one exists.
-  bind('dragOut', async (relative: string) => {
-    const file = await contained(library.root, relative);
-    if (!(await fs.lstat(file)).isFile()) throw new Error('Only files can be dragged out');
+  bind('dragOut', async (relative: string | string[]) => {
+    const list = Array.isArray(relative) ? relative.slice(0, 200) : [relative];
+    if (!list.length) throw new Error('Nothing to drag');
+    const files: string[] = [];
+    for (const item of list) { if (typeof item !== 'string') throw new Error('Invalid path'); const file = await contained(library.root, item); if (!(await fs.lstat(file)).isFile()) throw new Error('Only files can be dragged out'); files.push(file); }
     let icon = nativeImage.createFromPath(path.join(assets, 'icon.png'));
-    try { const thumbnail = nativeImage.createFromBuffer(await thumbnailFor(relative, 256, 256)); if (!thumbnail.isEmpty()) icon = thumbnail; } catch { /* notes and plain files use the app icon */ }
+    try { const thumbnail = nativeImage.createFromBuffer(await thumbnailFor(list[0], 256, 256)); if (!thumbnail.isEmpty()) icon = thumbnail; } catch { /* notes and plain files use the app icon */ }
     icon = icon.resize({ width: 96, height: 96, quality: 'good' });
-    if (!testing) mainWindow?.webContents.startDrag({ file, icon });
-    return { file };
+    if (!testing) mainWindow?.webContents.startDrag({ file: files[0], files, icon });
+    return { files };
   });
   bind('openFolder', async () => { const error = await shell.openPath(store.value.root); if (error) throw new Error(error); });
   bind('place', (placement: BoardPlacement) => library.place(placement)); bind('unpin', (relative: string) => library.unpin(relative));
@@ -356,7 +414,7 @@ function setupIPC() {
       catch { /* Keep the requested preference; the UI checks effective OS state and gives manual setup instructions. */ }
     }
     await store.update(valid);
-    nativeTheme.themeSource = store.value.theme; applyPanelPreferences(valid.panelMode !== undefined);
+    nativeTheme.themeSource = store.value.theme; applyPanelPreferences(valid.panelMode !== undefined); placeHandle();
     // Before the engine is up, start() applies the stored settings itself; reconfiguring a running engine is the only live step.
     if ((valid.deviceName || valid.localDiscovery !== undefined || valid.syncPaused !== undefined) && engine.status.deviceId) { await engine.configure(); await engine.refresh(); }
     if (valid.phoneAccess !== undefined || valid.phonePort !== undefined) { await companion.stop(); companion.port = store.value.phonePort ?? (testing ? 22128 : 22028); if (store.value.phoneAccess) await companion.start(); }
@@ -382,9 +440,9 @@ function setupIPC() {
     if (testing) return;
     const desktop = app.getPath('desktop');
     if (process.platform === 'win32') {
-      if (!shell.writeShortcutLink(path.join(desktop, 'Sync it folder.lnk'), { target: store.value.root, description: 'Your local Sync it collection' })) throw new Error('Could not create the desktop shortcut');
+      if (!shell.writeShortcutLink(path.join(desktop, 'Satchel folder.lnk'), { target: store.value.root, description: 'Your local Satchel collection' })) throw new Error('Could not create the desktop shortcut');
     } else {
-      const link = path.join(desktop, 'Sync it folder');
+      const link = path.join(desktop, 'Satchel folder');
       try { await fs.symlink(store.value.root, link, 'dir'); } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
     }
   });

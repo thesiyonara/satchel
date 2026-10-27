@@ -9,7 +9,7 @@ const index = args.indexOf('--profile');
 if (index >= 0) { profile = args[index + 1]; if (!profile) throw new Error('--profile requires a directory'); args.splice(index, 2); }
 const [command = 'help', ...values] = args;
 if (command === 'help' || command === '--help') {
-  console.log(`Sync it local CLI — start the app first. Requires Node.js 24.
+  console.log(`Satchel local CLI — start the app first. Requires Node.js 24.
 Usage: node syncit.mjs [--profile DIRECTORY] COMMAND [arguments]
   status                         Sync status and native window state
   list [search]                  Search filenames and note text
@@ -32,9 +32,9 @@ Control access uses a rotating secret in your private local app profile.`);
 try {
   let descriptor;
   const base = process.platform === 'win32' ? process.env.APPDATA : path.join(os.homedir(), 'Library', 'Application Support');
-  const candidates = profile ? [path.resolve(profile)] : ['Sync it', 'sync-it'].map(name => path.join(base, name));
+  const candidates = profile ? [path.resolve(profile)] : ['Satchel', 'Sync it', 'sync-it'].map(name => path.join(base, name));
   for (const candidate of candidates) { try { descriptor = JSON.parse(await readFile(path.join(candidate, 'control.json'), 'utf8')); break; } catch {} }
-  if (!descriptor || !Number.isInteger(descriptor.port) || descriptor.port < 1 || descriptor.port > 65535 || !/^[a-f0-9]{64}$/.test(descriptor.token)) throw new Error('No running app control endpoint. Start Sync it 0.2.0 or newer, or specify --profile.');
+  if (!descriptor || !Number.isInteger(descriptor.port) || descriptor.port < 1 || descriptor.port > 65535 || !/^[a-f0-9]{64}$/.test(descriptor.token)) throw new Error('No running app control endpoint. Start Satchel 0.2.0 or newer, or specify --profile.');
   let operation = command; let parameters = values;
   if (command === 'update') { const operations = { status: 'updateState', check: 'checkUpdate', download: 'downloadUpdate', install: 'installUpdate' }; operation = operations[values[0]]; if (!operation) throw new Error('Use update status|check|download|install'); parameters = []; }
   if (command === 'phone') { const operations = { status: 'phoneInfo', pair: 'phoneOffer', cancel: 'phoneCancelPairing', revoke: 'revokePhone' }; operation = operations[values[0]]; if (!operation) throw new Error('Use phone status|pair|cancel|revoke ID'); parameters = values[0] === 'revoke' ? [values[1]] : []; }

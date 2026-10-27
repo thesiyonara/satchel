@@ -22,8 +22,8 @@ Releases are tagged `vX.Y.Z`, built by GitHub Actions on Windows and macOS, and 
 
 | Asset | Built by |
 | --- | --- |
-| `Sync-it-X.Y.Z-win-x64.exe` | `npm run dist:win` on Windows |
-| `Sync-it-X.Y.Z-mac-arm64.dmg` (plus `.zip`) | `npm run dist:mac` on macOS; Apple silicon only for now |
+| `Satchel-X.Y.Z-win-x64.exe` | `npm run dist:win` on Windows |
+| `Satchel-X.Y.Z-mac-arm64.dmg` (plus `.zip`) | `npm run dist:mac` on macOS; Apple silicon only for now |
 | `SHA256SUMS-X.Y.Z.txt` | CI, or `node scripts/release.mjs` locally |
 
 Never overwrite a published tag with different bytes; publish a new patch version instead.

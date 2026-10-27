@@ -1,14 +1,14 @@
 # Updates
 
-Sync it updates itself from this project's GitHub releases. No account, token or extra tool is involved; the app never installs anything without your click.
+Satchel updates itself from this project's GitHub releases. No account, token or extra tool is involved; the app never installs anything without your click.
 
 ## In the app
 
 Open **Preferences → App updates**:
 
-1. **Check for updates** asks GitHub's public releases API for the newest version that is newer than the installed one and ships a package for this computer: a Windows installer (`Sync-it-VERSION-win-ARCH.exe`) or a macOS disk image (`Sync-it-VERSION-mac-ARCH.dmg`).
+1. **Check for updates** asks GitHub's public releases API for the newest version that is newer than the installed one and ships a package for this computer: a Windows installer (`Satchel-VERSION-win-ARCH.exe`) or a macOS disk image (`Satchel-VERSION-mac-ARCH.dmg`).
 2. **Download update** fetches the release's `SHA256SUMS-VERSION.txt` first, then the package, both over HTTPS from `github.com/<owner>/<repo>/releases/download/`, and verifies the package against the checksum file.
-3. **Install update → Save notes & install** saves open note editors, stops syncing, verifies the file again, opens it, and quits Sync it. On Windows, finish the normal installer and use its launch option. On a Mac, the disk image opens in Finder: drag Sync it to Applications, replace the existing app, then open it.
+3. **Install update → Save notes & install** saves open note editors, stops syncing, verifies the file again, opens it, and quits Satchel. On Windows, finish the normal installer and use its launch option. On a Mac, the disk image opens in Finder: drag Satchel to Applications, replace the existing app, then open it.
 
 You can postpone installation and keep working. A download is held only for the current app session; failed downloads are removed immediately, and downloads left by earlier sessions are deleted at the next start. Collection files and preferences stay where they are after updating.
 

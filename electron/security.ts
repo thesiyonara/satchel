@@ -9,7 +9,7 @@ const execute = promisify(execFile);
 // OpenDocument files (.odt/.ods/.odp) can embed LibreOffice macros, so they are treated like .docm/.xlsm.
 const viewable = new Set(['.txt', '.md', '.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.avif', '.heic', '.tif', '.tiff', '.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg', '.oga', '.opus', '.mp4', '.m4v', '.mov', '.mkv', '.webm', '.avi', '.ogv', '.3gp', '.csv', '.docx', '.xlsx', '.pptx', '.rtf', '.zip', '.7z']);
 export function assertSafeToOpen(file: string) {
-  if (!viewable.has(path.extname(file).toLowerCase())) throw new Error('This file type is not launched from Sync it. Use “Show in folder” and inspect it before opening.');
+  if (!viewable.has(path.extname(file).toLowerCase())) throw new Error('This file type is not launched from Satchel. Use “Show in folder” and inspect it before opening.');
 }
 export function rendererRequestAllowed(url: string, devURL?: string): boolean {
   try {

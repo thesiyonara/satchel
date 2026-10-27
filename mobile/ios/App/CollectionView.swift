@@ -46,7 +46,7 @@ struct CollectionView: View {
 
     private func load() async {
         loading = true; defer { loading = false }
-        guard let (computer, client) = await store.reachableClient() else { message = "No paired computer is reachable on this network. Open Sync it on a computer and connect the phone to the same Wi-Fi."; return }
+        guard let (computer, client) = await store.reachableClient() else { message = "No paired computer is reachable on this network. Open Satchel on a computer and connect the phone to the same Wi-Fi."; return }
         self.computer = computer; self.client = client
         do {
             let response = try await client.items()

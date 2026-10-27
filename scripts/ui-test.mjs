@@ -50,7 +50,8 @@ try {
   // Dragging a card out hands the OS the real file (the drag itself is skipped in test mode); paths outside the collection are refused.
   const imagePath = await page.locator('.item-card.image').first().getAttribute('data-path');
   const dragged = await page.evaluate(relative => window.syncit.dragOut(relative), imagePath);
-  assert.ok(dragged.file.endsWith(imagePath.replace(/\//g, path.sep)) && path.isAbsolute(dragged.file), JSON.stringify(dragged));
+  assert.ok(dragged.files[0].endsWith(imagePath.replace(/\//g, path.sep)) && path.isAbsolute(dragged.files[0]), JSON.stringify(dragged));
+  assert.equal((await page.evaluate(relative => window.syncit.dragOut([relative, relative]), imagePath)).files.length, 2, 'several items drag out together');
   await assert.rejects(page.evaluate(() => window.syncit.dragOut('../settings.json')));
   await page.getByRole('textbox', { name: 'Search the collection' }).fill('bookshop');
   await expect(page.locator('[data-testid="item-card"]')).toHaveCount(1);
@@ -90,6 +91,12 @@ try {
   await expect.poll(() => page.evaluate(() => window.syncit.initial().then(i => i.settings.panelOpacity))).toBe(1);
   await panel.getByRole('button', { name: 'Window opacity' }).click();
   await panel.screenshot({ path: path.join(artifacts, 'quick-drop.png') });
+  // The drawer: opened from the dashboard here, since the edge handle window is not created in test mode. It shows the pile, and Expand returns the full window.
+  await page.evaluate(() => window.syncit.openDrawer());
+  await expect(panel.getByRole('heading', { name: 'Drop here' })).toBeVisible();
+  await panel.screenshot({ path: path.join(artifacts, 'drawer.png') });
+  await panel.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
+  await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
   // Preserve the user's clipboard while exercising the real desktop paste route. A locked or remote
   // desktop session makes the Windows clipboard unavailable; those steps are then skipped, not failed.
   const clipboardAvailable = await application.evaluate(async ({ clipboard, ClipboardItem }) => {

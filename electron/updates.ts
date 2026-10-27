@@ -25,9 +25,9 @@ export function versionTuple(version: string) {
   return version.split('.').map(Number);
 }
 export function newer(a: string, b: string) { const x = versionTuple(a), y = versionTuple(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; }
-// Matches electron-builder's artifactName "Sync-it-${version}-${os}-${arch}.${ext}" (os is "win" or "mac").
+// Matches electron-builder's artifactName "Satchel-${version}-${os}-${arch}.${ext}" (os is "win" or "mac").
 export function installerName(version: string, platform: string, arch: string) {
-  return platform === 'darwin' ? `Sync-it-${version}-mac-${arch}.dmg` : `Sync-it-${version}-win-${arch}.exe`;
+  return platform === 'darwin' ? `Satchel-${version}-mac-${arch}.dmg` : `Satchel-${version}-win-${arch}.exe`;
 }
 export interface SelectedRelease { version: string; tag: string; filename: string; checksum: string; installerURL: string; checksumURL: string }
 /** The newest release that is newer than `current`, not a draft, allowed by the preview setting, and ships both this platform's package and the checksum file. */
@@ -74,7 +74,7 @@ export function describeFailure(error: unknown): string {
 }
 export const githubClient: ReleaseClient = {
   async json(url, signal) {
-    const response = await fetch(url, { signal, redirect: 'follow', headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': `Sync-it/${appVersion}` } });
+    const response = await fetch(url, { signal, redirect: 'follow', headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': `Satchel/${appVersion}` } });
     if (!response.ok) throw new HttpError(response.status, url);
     const text = await response.text();
     if (text.length > MAX_RELEASE_LIST) throw new Error('The release list is unexpectedly large');
@@ -82,7 +82,7 @@ export const githubClient: ReleaseClient = {
   },
   async download(url, file, limit, signal) {
     if (!url.startsWith(downloadPrefix)) throw new Error('Refusing to download from outside the project releases');
-    const response = await fetch(url, { signal, redirect: 'follow', headers: { 'User-Agent': `Sync-it/${appVersion}` } });
+    const response = await fetch(url, { signal, redirect: 'follow', headers: { 'User-Agent': `Satchel/${appVersion}` } });
     if (!response.ok || !response.body) throw new HttpError(response.status, url);
     const declared = Number(response.headers.get('content-length') || 0);
     if (declared > limit) throw new Error('The download is larger than allowed');
@@ -131,14 +131,14 @@ export class Updates {
     if (this.busy) return this.state;
     if (!this.release || !['available', 'error'].includes(this.state.phase)) throw new Error('Check for an update first');
     const release = this.release;
-    this.busy = true; this.emit({ phase: 'downloading', message: `Downloading Sync it ${release.version} from GitHub…` });
+    this.busy = true; this.emit({ phase: 'downloading', message: `Downloading Satchel ${release.version} from GitHub…` });
     try {
       const base = path.join(this.home, 'updates'); await fs.mkdir(base, { recursive: true });
       this.directory = await fs.mkdtemp(path.join(base, 'download-'));
       await this.run(signal => this.client.download(release.checksumURL, path.join(this.directory, release.checksum), MAX_CHECKSUMS, signal), 60000);
       await this.run(signal => this.client.download(release.installerURL, path.join(this.directory, release.filename), MAX_INSTALLER, signal), 20 * 60 * 1000);
       await verifyInstaller(path.join(this.directory, release.filename), path.join(this.directory, release.checksum), release.filename);
-      return this.emit({ phase: 'ready', message: this.platform === 'darwin' ? 'Download verified. Install opens the disk image; drag Sync it to Applications to replace this version.' : 'Download verified. Install when you are ready.' });
+      return this.emit({ phase: 'ready', message: this.platform === 'darwin' ? 'Download verified. Install opens the disk image; drag Satchel to Applications to replace this version.' : 'Download verified. Install when you are ready.' });
     } catch (error) {
       const base = path.resolve(this.home, 'updates');
       if (this.directory && path.resolve(this.directory).startsWith(base + path.sep)) await fs.rm(this.directory, { recursive: true, force: true }).catch(() => {});

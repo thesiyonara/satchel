@@ -1,4 +1,4 @@
-# Sync it — visual direction
+# Satchel — visual direction
 
 ## Intent
 

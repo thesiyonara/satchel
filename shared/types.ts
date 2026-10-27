@@ -2,6 +2,8 @@ export type ItemKind = 'note' | 'image' | 'video' | 'audio' | 'file';
 export interface LibraryItem {
   path: string; name: string; kind: ItemKind; size: number; modifiedAt: number;
   preview?: string; conflict: boolean;
+  /** Set when the latest change came from another computer in the last two days. */
+  arrivedAt?: number; arrivedFrom?: string;
 }
 export interface BoardPlacement { version: 1; path: string; x: number; y: number; width: number; height: number; updatedAt: number }
 export interface LibrarySnapshot { items: LibraryItem[]; placements: BoardPlacement[]; error?: string }
@@ -13,6 +15,8 @@ export interface Settings {
   startAtLogin: boolean; alwaysOnTop: boolean; shortcut: string; theme: 'system' | 'light' | 'dark';
   localDiscovery?: boolean; syncPaused?: boolean;
   panelMode?: 'quick' | 'mini'; panelOpacity?: number; panelAutoHide?: boolean; favorites?: string[];
+  /** The screen edge that carries the drawer handle. */
+  drawerEdge?: 'off' | 'left' | 'right';
   updateChecks?: boolean; updatePreviews?: boolean; lastUpdateCheck?: number;
   phoneAccess?: boolean; phonePort?: number;
 }
@@ -38,7 +42,9 @@ export interface SyncItAPI {
   initial(): Promise<InitialState>;
   list(): Promise<LibrarySnapshot>;
   importFiles(paths: string[]): Promise<void>;
-  dragOut(path: string): Promise<{ file: string }>;
+  dragOut(paths: string | string[]): Promise<{ files: string[] }>;
+  openDrawer(): Promise<void>;
+  onDrawer(callback: (pile: boolean) => void): () => void;
   chooseFiles(): Promise<void>;
   paste(): Promise<{ path: string; kind: ItemKind } | null>;
   createNote(text?: string): Promise<NoteDocument>;

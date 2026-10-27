@@ -1,6 +1,6 @@
 # Local control and automation
 
-Sync it 0.2.0 includes a CLI for the running desktop app. Node.js 24 is required to run the CLI; the desktop app itself still needs no separate Node installation. This is a local command interface, not an AI service. You can pipe prompts or other text into notes without sending anything to a model.
+Satchel 0.2.0 includes a CLI for the running desktop app. Node.js 24 is required to run the CLI; the desktop app itself still needs no separate Node installation. This is a local command interface, not an AI service. You can pipe prompts or other text into notes without sending anything to a model.
 
 From a source checkout:
 
@@ -20,7 +20,7 @@ node scripts/syncit.mjs resume
 
 The actual note filename is returned by `capture`; duplicates may get a suffix. `capture --stdin` accepts multiline text, up to 1 MB. `import PATH...` copies files or folders. All successful results are JSON; failures produce a JSON error on stderr and a nonzero exit code. Clipboard access happens only through an explicit `call paste []` command or UI paste.
 
-The installed script is `resources/cli/syncit.mjs` next to the Windows app, or `Sync it.app/Contents/Resources/cli/syncit.mjs` on a Mac build. Run it with `node` using its full path. It detects the usual per-user profile. For a test profile, add `--profile "ABSOLUTE_DIRECTORY"`, or set `SYNCIT_PROFILE`. The app must already be running; an old 0.1.x instance does not have this endpoint.
+The installed script is `resources/cli/syncit.mjs` next to the Windows app, or `Satchel.app/Contents/Resources/cli/syncit.mjs` on a Mac build. Run it with `node` using its full path. It detects the usual per-user profile. For a test profile, add `--profile "ABSOLUTE_DIRECTORY"`, or set `SYNCIT_PROFILE`. The app must already be running; an old 0.1.x instance does not have this endpoint.
 
 ## Advanced operations
 

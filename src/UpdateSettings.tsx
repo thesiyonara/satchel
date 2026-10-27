@@ -15,7 +15,7 @@ export function UpdateSettings({ settings, save, notify }: { settings: Settings;
     {state?.phase === 'ready' && !confirm && <button className="primary" onClick={() => setConfirm(true)}>Install update</button>}</div>
     {state?.phase === 'current' && <p role="status">You have the newest release in this channel.</p>}
     {state?.message && <p role="status" className={state.phase === 'error' ? 'error-text' : ''}>{state.message}</p>}
-    {confirm && <div className="inline-warning"><p>Open notes will be saved, sync will stop, and the verified installer or disk image will open. Finish the Windows installer, or on a Mac drag Sync it to Applications, then relaunch the app.</p><div className="row"><button className="primary" onClick={() => void run(() => window.syncit.installUpdate())}>Save notes & install</button><button onClick={() => setConfirm(false)}>Later</button></div></div>}
+    {confirm && <div className="inline-warning"><p>Open notes will be saved, sync will stop, and the verified installer or disk image will open. Finish the Windows installer, or on a Mac drag Satchel to Applications, then relaunch the app.</p><div className="row"><button className="primary" onClick={() => void run(() => window.syncit.installUpdate())}>Save notes & install</button><button onClick={() => setConfirm(false)}>Later</button></div></div>}
     <p>Updates are downloaded from the project’s GitHub releases and verified against the checksums published with each release. Downloads and installation always require your click.</p><button onClick={() => void run(() => window.syncit.releasePage())}>Open releases in browser</button>
   </div>;
 }

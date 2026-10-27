@@ -10,8 +10,8 @@ import { repository, releasesAPI } from '../shared/project';
 
 const download = (version: string, name: string) => `https://github.com/${repository}/releases/download/v${version}/${name}`;
 const release = (version: string, prerelease = false, draft = false) => ({ tag_name: `v${version}`, prerelease, draft, assets: [
-  { name: `Sync-it-${version}-win-x64.exe`, size: 4, browser_download_url: download(version, `Sync-it-${version}-win-x64.exe`) },
-  { name: `Sync-it-${version}-mac-arm64.dmg`, size: 4, browser_download_url: download(version, `Sync-it-${version}-mac-arm64.dmg`) },
+  { name: `Satchel-${version}-win-x64.exe`, size: 4, browser_download_url: download(version, `Satchel-${version}-win-x64.exe`) },
+  { name: `Satchel-${version}-mac-arm64.dmg`, size: 4, browser_download_url: download(version, `Satchel-${version}-mac-arm64.dmg`) },
   { name: `SHA256SUMS-${version}.txt`, size: 120, browser_download_url: download(version, `SHA256SUMS-${version}.txt`) }
 ] });
 /** A fake GitHub: serves the release list and writes assets from `files` by name. */
@@ -35,13 +35,13 @@ test('update selection forbids downgrades, drafts, unapproved previews, missing 
   assert.equal(selectRelease(releases, '0.2.0', true, 'x64')?.version, '0.3.0');
   assert.equal(selectRelease(releases, '0.3.0', true, 'x64'), null);
   assert.equal(selectRelease(releases, '0.2.0', true, 'arm64'), null);
-  assert.equal(selectRelease(releases, '0.2.0', false, 'arm64', 'darwin')?.filename, 'Sync-it-0.2.1-mac-arm64.dmg');
+  assert.equal(selectRelease(releases, '0.2.0', false, 'arm64', 'darwin')?.filename, 'Satchel-0.2.1-mac-arm64.dmg');
   assert.equal(selectRelease(releases, '0.2.0', false, 'x64', 'darwin'), null);
   assert.equal(selectRelease([{ ...release('0.2.1'), assets: [] }], '0.2.0', true, 'x64'), null);
   assert.equal(selectRelease([{ ...release('0.2.1'), tag_name: '../../evil' }], '0.2.0', true, 'x64'), null);
-  const foreign = release('0.2.1'); foreign.assets[0].browser_download_url = 'https://evil.example/Sync-it-0.2.1-win-x64.exe';
+  const foreign = release('0.2.1'); foreign.assets[0].browser_download_url = 'https://evil.example/Satchel-0.2.1-win-x64.exe';
   assert.equal(selectRelease([foreign], '0.2.0', false, 'x64'), null, 'assets must be served from this repository');
-  assert.equal(selectRelease(releases, '0.2.0', false, 'x64')?.installerURL, download('0.2.1', 'Sync-it-0.2.1-win-x64.exe'));
+  assert.equal(selectRelease(releases, '0.2.0', false, 'x64')?.installerURL, download('0.2.1', 'Satchel-0.2.1-win-x64.exe'));
   assert.deepEqual(validateSettingsPatch({ updateChecks: true, updatePreviews: false }), { updateChecks: true, updatePreviews: false });
   assert.throws(() => validateSettingsPatch({ lastUpdateCheck: 0 }));
 });
@@ -50,7 +50,7 @@ test('download verifies checksum, rechecks before install, rejects corruption an
   t.after(async () => { assert.ok(path.basename(home).startsWith('syncit-updates-')); await fs.rm(home, { recursive: true, force: true }); });
   const payload = Buffer.from('test-only installer bytes'); const digest = createHash('sha256').update(payload).digest('hex');
   let corrupt = false; const log: string[] = [];
-  const updater = new Updates(home, '0.2.0', () => {}, 'win32', 'x64', fakeClient([release('0.2.1')], () => ({ 'Sync-it-0.2.1-win-x64.exe': corrupt ? 'wrong' : payload, 'SHA256SUMS-0.2.1.txt': `${digest}  Sync-it-0.2.1-win-x64.exe\n` }), log));
+  const updater = new Updates(home, '0.2.0', () => {}, 'win32', 'x64', fakeClient([release('0.2.1')], () => ({ 'Satchel-0.2.1-win-x64.exe': corrupt ? 'wrong' : payload, 'SHA256SUMS-0.2.1.txt': `${digest}  Satchel-0.2.1-win-x64.exe\n` }), log));
   assert.equal(log.length, 0, 'No request before explicit check');
   await assert.rejects(updater.installer());
   assert.equal((await updater.check(false)).phase, 'available');
@@ -58,12 +58,12 @@ test('download verifies checksum, rechecks before install, rejects corruption an
   corrupt = true; assert.equal((await updater.download()).phase, 'error');
   assert.deepEqual(await fs.readdir(path.join(home, 'updates')), []);
   corrupt = false; assert.equal((await updater.download()).phase, 'ready');
-  assert.ok(log.at(-1)!.endsWith('/Sync-it-0.2.1-win-x64.exe') && log.at(-2)!.endsWith('/SHA256SUMS-0.2.1.txt'), 'checksums are fetched before the installer');
+  assert.ok(log.at(-1)!.endsWith('/Satchel-0.2.1-win-x64.exe') && log.at(-2)!.endsWith('/SHA256SUMS-0.2.1.txt'), 'checksums are fetched before the installer');
   const file = await updater.installer(); await fs.appendFile(file, 'tampered');
   await assert.rejects(updater.installer(), /checksum mismatch/);
   await fs.writeFile(file, payload);
   const checksum = path.join(path.dirname(file), 'SHA256SUMS-0.2.1.txt');
-  await fs.appendFile(checksum, `${digest}  Sync-it-0.2.1-win-x64.exe\n`);
+  await fs.appendFile(checksum, `${digest}  Satchel-0.2.1-win-x64.exe\n`);
   await assert.rejects(verifyInstaller(file, checksum, path.basename(file)), /ambiguous/);
 });
 test('unsupported platforms and request errors are actionable without attempting installation', async () => {
@@ -88,14 +88,14 @@ test('quitting cancels an active request', async () => {
 test('macOS updates select the disk image, verify it, and stale downloads are removed at startup', async t => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), 'syncit-updates-'));
   t.after(async () => { assert.ok(path.basename(home).startsWith('syncit-updates-')); await fs.rm(home, { recursive: true, force: true }); });
-  const stale = path.join(home, 'updates', 'download-old'); await fs.mkdir(stale, { recursive: true }); await fs.writeFile(path.join(stale, 'Sync-it-0.2.0-mac-arm64.dmg'), 'old');
+  const stale = path.join(home, 'updates', 'download-old'); await fs.mkdir(stale, { recursive: true }); await fs.writeFile(path.join(stale, 'Satchel-0.2.0-mac-arm64.dmg'), 'old');
   const payload = Buffer.from('test-only disk image bytes'); const digest = createHash('sha256').update(payload).digest('hex');
-  const updater = new Updates(home, '0.2.0', () => {}, 'darwin', 'arm64', fakeClient([release('0.2.1')], () => ({ 'Sync-it-0.2.1-mac-arm64.dmg': payload, 'SHA256SUMS-0.2.1.txt': `${digest}  Sync-it-0.2.1-mac-arm64.dmg\n${digest}  Sync-it-0.2.1-win-x64.exe\n` })));
+  const updater = new Updates(home, '0.2.0', () => {}, 'darwin', 'arm64', fakeClient([release('0.2.1')], () => ({ 'Satchel-0.2.1-mac-arm64.dmg': payload, 'SHA256SUMS-0.2.1.txt': `${digest}  Satchel-0.2.1-mac-arm64.dmg\n${digest}  Satchel-0.2.1-win-x64.exe\n` })));
   await updater.clean();
   await assert.rejects(fs.access(stale), 'Stale downloads from earlier sessions are removed');
   assert.equal((await updater.check(false)).phase, 'available');
   const ready = await updater.download(); assert.equal(ready.phase, 'ready'); assert.match(ready.message || '', /disk image/);
-  assert.ok((await updater.installer()).endsWith('Sync-it-0.2.1-mac-arm64.dmg'));
+  assert.ok((await updater.installer()).endsWith('Satchel-0.2.1-mac-arm64.dmg'));
   await updater.clean(); assert.equal(updater.state.phase, 'ready', 'A verified download held by this session is kept');
   await fs.access(await updater.installer());
 });

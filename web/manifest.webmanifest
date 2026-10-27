@@ -1,6 +1,6 @@
 {
-  "name": "Sync it",
-  "short_name": "Sync it",
+  "name": "Satchel",
+  "short_name": "Satchel",
   "description": "Your collection on this computer, from your phone.",
   "start_url": "./",
   "display": "standalone",

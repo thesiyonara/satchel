@@ -15,6 +15,6 @@ for (const file of files) {
 for (const file of await readdir('.cache')) if (/^syncthing-macos-(arm64|amd64)-v2\.1\.7\.zip$/.test(file)) zip.addLocalFile(path.join('.cache', file), '.cache');
 await mkdir('release', { recursive: true });
 const { version } = JSON.parse(await readFile('package.json', 'utf8'));
-const output = `release/Sync-it-${version}-Mac-build-kit.zip`;
+const output = `release/Satchel-${version}-Mac-build-kit.zip`;
 zip.writeZip(output);
 console.log(`Source and verified Mac engine archives: ${output}`);

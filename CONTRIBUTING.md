@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping. Sync it is a small, opinionated app, so the useful contributions are the ones that keep it small and honest.
+Thanks for helping. Satchel is a small, opinionated app, so the useful contributions are the ones that keep it small and honest.
 
 ## Ground rules
 

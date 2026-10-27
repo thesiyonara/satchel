@@ -8,7 +8,7 @@ import { atomicWrite, readJSON } from './files';
 export class SettingsStore {
   value!: Settings;
   private writing: Promise<void> = Promise.resolve();
-  constructor(private directory: string, private defaultRoot = path.join(os.homedir(), 'Sync it')) {}
+  constructor(private directory: string, private defaultRoot = path.join(os.homedir(), 'Satchel')) {}
   async load() {
     await fs.mkdir(this.directory, { recursive: true });
     try {
@@ -16,9 +16,10 @@ export class SettingsStore {
       if (this.value.version !== 1 || !path.isAbsolute(this.value.root) || typeof this.value.folderId !== 'string') throw new Error('Settings are not compatible. Keep your collection and contact support before resetting the app.');
       this.value.localDiscovery ??= true;
       this.value.syncPaused ??= false;
+      this.value.drawerEdge ??= 'right';
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-      this.value = { version: 1, root: this.defaultRoot, folderId: randomUUID(), deviceName: os.hostname(), onboardingDone: false, startAtLogin: false, alwaysOnTop: true, shortcut: 'CommandOrControl+Shift+Space', theme: 'system' };
+      this.value = { version: 1, root: this.defaultRoot, folderId: randomUUID(), deviceName: os.hostname(), onboardingDone: false, startAtLogin: false, alwaysOnTop: true, shortcut: 'CommandOrControl+Shift+Space', theme: 'system', drawerEdge: 'right' };
       await fs.mkdir(this.value.root, { recursive: true });
       await this.update({});
     }
@@ -42,6 +43,7 @@ export function validateSettingsPatch(input: unknown): Partial<Settings> {
     else if (key === 'panelOpacity' && typeof value === 'number' && Number.isFinite(value) && value >= .6 && value <= 1) result.panelOpacity = value;
     else if (key === 'phonePort' && Number.isInteger(value) && (value as number) >= 1024 && (value as number) <= 65535) result.phonePort = value as number;
     else if (key === 'theme' && ['system', 'light', 'dark'].includes(value as string)) result.theme = value as Settings['theme'];
+    else if (key === 'drawerEdge' && ['off', 'left', 'right'].includes(value as string)) result.drawerEdge = value as Settings['drawerEdge'];
     else throw new Error('This preference cannot be changed here');
   }
   return result;

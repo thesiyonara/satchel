@@ -1,4 +1,4 @@
-// Sync it phone client. Served by the desktop's Phone access service and talks only to the same origin.
+// Satchel phone client. Served by the desktop's Phone access service and talks only to the same origin.
 // Everything is built with DOM APIs; no markup is ever assembled from text, so collection contents cannot inject anything.
 (() => {
   'use strict';

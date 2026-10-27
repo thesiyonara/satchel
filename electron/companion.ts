@@ -47,7 +47,7 @@ export async function ensureCertificate(directory: string): Promise<{ cert: stri
   try { [cert, key] = await Promise.all([fs.readFile(certFile, 'utf8'), fs.readFile(keyFile, 'utf8')]); }
   catch {
     const notBefore = new Date(); const notAfter = new Date(notBefore); notAfter.setFullYear(notAfter.getFullYear() + 10);
-    const pems = await generate([{ name: 'commonName', value: 'Sync it phone access' }], { keyType: 'ec', curve: 'P-256', algorithm: 'sha256', notBeforeDate: notBefore, notAfterDate: notAfter, extensions: [{ name: 'basicConstraints', cA: false }, { name: 'keyUsage', digitalSignature: true, keyEncipherment: true }, { name: 'extKeyUsage', serverAuth: true }] });
+    const pems = await generate([{ name: 'commonName', value: 'Satchel phone access' }], { keyType: 'ec', curve: 'P-256', algorithm: 'sha256', notBeforeDate: notBefore, notAfterDate: notAfter, extensions: [{ name: 'basicConstraints', cA: false }, { name: 'keyUsage', digitalSignature: true, keyEncipherment: true }, { name: 'extKeyUsage', serverAuth: true }] });
     cert = pems.cert; key = pems.private;
     await atomicWrite(keyFile, key); await atomicWrite(certFile, cert); // Temporary files are created with mode 0600.
   }

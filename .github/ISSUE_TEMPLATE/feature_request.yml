@@ -12,7 +12,7 @@ body:
   - type: textarea
     id: proposal
     attributes:
-      label: How could Sync it do it?
+      label: How could Satchel do it?
       description: Optional. Keep in mind the project stays local-only, with no accounts or cloud services.
   - type: dropdown
     id: scope

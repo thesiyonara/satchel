@@ -1,6 +1,6 @@
 # Third-party notices
 
-Sync it bundles the unmodified Syncthing v2.1.7 binary for the target operating system and CPU architecture.
+Satchel bundles the unmodified Syncthing v2.1.7 binary for the target operating system and CPU architecture.
 
 - Project and source: https://github.com/syncthing/syncthing/tree/v2.1.7
 - License: Mozilla Public License 2.0 (MPL-2.0).
