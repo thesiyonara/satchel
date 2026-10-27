@@ -41,6 +41,7 @@ let mainWindow: BrowserWindow | undefined;
 let panelWindow: BrowserWindow | undefined;
 let handleWindow: BrowserWindow | undefined;
 let drawerTimer: ReturnType<typeof setInterval> | undefined;
+let drawerOpen = false;
 let tray: Tray | undefined;
 let quitting = false;
 let cleanedUp = false;
@@ -210,7 +211,7 @@ function createWindow(panel: boolean) {
     window.setOpacity(store.value.panelOpacity ?? 1);
     window.on('blur', () => { if (store.value.panelAutoHide) window.hide(); });
     window.on('show', () => handleWindow?.hide());
-    window.on('hide', () => { clearInterval(drawerTimer); if (!window.isDestroyed()) window.webContents.send('syncit:drawer', false); if (handleWindow && !handleWindow.isDestroyed()) handleWindow.showInactive(); });
+    window.on('hide', () => { clearInterval(drawerTimer); drawerOpen = false; if (!window.isDestroyed()) window.webContents.send('syncit:drawer', false); if (handleWindow && !handleWindow.isDestroyed()) handleWindow.showInactive(); });
   }
   let boundsTimer: ReturnType<typeof setTimeout>;
   window.on('resize', persistBounds); window.on('move', persistBounds);
@@ -254,6 +255,7 @@ function showDrawer() {
   const area = screen.getPrimaryDisplay().workArea;
   const [width, height] = panelWindow.getSize();
   panelWindow.setPosition(edge === 'left' ? area.x : area.x + area.width - width, Math.round(area.y + (area.height - height) / 2));
+  drawerOpen = true;
   panelWindow.webContents.send('syncit:drawer', true);
   panelWindow.showInactive();
   handleWindow?.hide();
@@ -345,7 +347,7 @@ function setupIPC() {
     await atomicWrite(file, (await window.webContents.capturePage()).toPNG()); return { path: file };
   });
   operations.set('quit', () => { setTimeout(() => { quitting = true; app.quit(); }, 100); return { quitting: true }; });
-  bind('initial', async () => ({ settings: store.value, library: await librarySnapshot(), sync: engine.status, platform: process.platform, runId, version: app.getVersion(), loginEnabled: !testing && app.getLoginItemSettings({ args: ['--background'] }).openAtLogin }));
+  bind('initial', async () => ({ settings: store.value, library: await librarySnapshot(), sync: engine.status, platform: process.platform, runId, version: app.getVersion(), drawer: drawerOpen, loginEnabled: !testing && app.getLoginItemSettings({ args: ['--background'] }).openAtLogin }));
   bind('list', () => librarySnapshot());
   bind('openDrawer', () => { showDrawer(); });
   bind('updateState', () => updater.state); bind('checkUpdate', checkUpdate); bind('downloadUpdate', () => updater.download()); bind('installUpdate', installUpdate);

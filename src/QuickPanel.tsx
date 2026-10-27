@@ -56,6 +56,6 @@ function Pile({ items, open, media, expand }: { items: LibraryItem[]; open: (ite
   return <div className="pile">
     <div className="pile-drop"><ArrowDownToLine size={20} /><h2>Drop here</h2><p>It goes in the satchel on every computer.</p></div>
     <div className="pile-items">{recent.map(item => { const Icon = icons[item.kind]; return <button key={item.path} onClick={() => open(item)} title={item.name}>{item.kind === 'image' || item.kind === 'video' ? <img src={media(item)} alt="" loading="lazy" onLoad={event => event.currentTarget.classList.add('loaded')} /> : <span className="pile-icon"><Icon size={15} /></span>}<span className="pile-name">{item.name}</span>{item.arrivedFrom && <em>from {item.arrivedFrom}</em>}</button>; })}{!recent.length && <p>Nothing in the collection yet.</p>}</div>
-    <button className="pile-expand" onClick={expand}>Write a note or see everything<ArrowUpRight size={13} /></button>
+    <button className="pile-expand" onClick={expand}>Open the full window<ArrowUpRight size={13} /></button>
   </div>;
 }

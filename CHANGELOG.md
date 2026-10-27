@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.2 — 2026-10-27
+
+### Fixed
+- The drawer shows the pile the first time it opens, when its window did not exist yet; before, that first open showed the full Quick drop window with the note composer.
+
 ## 0.5.1 — 2026-10-27
 
 ### Fixed

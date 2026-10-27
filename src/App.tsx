@@ -83,7 +83,7 @@ export function App() {
   const refresh = useCallback(async () => { const sequence = ++requestSequence.current; const snapshot = await window.syncit.list(); if (sequence === requestSequence.current) setLibrary(snapshot); }, []);
   useEffect(() => {
     if (!window.syncit) { setFatal('Open Satchel as a desktop app using npm run dev.'); return; }
-    void window.syncit.initial().then(data => { setInitial(data); setSettings(data.settings); setSync(data.sync); setLibrary(data.library); }).catch(error => setFatal(String(error)));
+    void window.syncit.initial().then(data => { setInitial(data); setSettings(data.settings); setSync(data.sync); setLibrary(data.library); if (isPanel && data.drawer) setPile(true); }).catch(error => setFatal(String(error)));
     const unsubscribers = [window.syncit.onLibrary(() => { void refresh().catch(error => notify(String(error))); }), window.syncit.onSync(setSync), window.syncit.onSettings(setSettings)];
     return () => { unsubscribers.forEach(unsubscribe => unsubscribe()); clearTimeout(toastTimer.current); };
   }, [notify, refresh]);

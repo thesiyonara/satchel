@@ -36,7 +36,7 @@ export interface SyncStatus {
   deviceId: string; peers: Peer[]; pending: PendingPeer[]; nearby: NearbyDevice[]; pendingItems: number; pendingBytes: number;
   localAddresses: string[]; errors: string[]; engineVersion: string;
 }
-export interface InitialState { settings: Settings; library: LibrarySnapshot; sync: SyncStatus; platform: string; loginEnabled: boolean; runId: string; version: string }
+export interface InitialState { settings: Settings; library: LibrarySnapshot; sync: SyncStatus; platform: string; loginEnabled: boolean; runId: string; version: string; /** The Quick drop window was opened as the drawer and should show the pile. */ drawer?: boolean }
 export interface UpdateState { phase: 'idle' | 'checking' | 'available' | 'current' | 'downloading' | 'ready' | 'error' | 'unsupported'; currentVersion: string; availableVersion?: string; message?: string; checkedAt?: number }
 export interface SyncItAPI {
   initial(): Promise<InitialState>;
