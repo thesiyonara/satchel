@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.3 — 2026-10-27
+
+### Fixed
+- Phone page: long titles and file names no longer push the page sideways; titles wrap to two lines, previews are cut with an ellipsis, and the note editor fills the screen and grows with the text instead of scrolling inside a box.
+
 ## 0.4.2 — 2026-10-27
 
 ### Added

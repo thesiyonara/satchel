@@ -174,7 +174,9 @@
 
   function renderNote() {
     const item = state.view.item;
-    const textarea = el('textarea', { 'aria-label': 'Note text', placeholder: 'Write here.', spellcheck: 'true' });
+    const textarea = el('textarea', { 'aria-label': 'Note text', placeholder: 'Write here.', spellcheck: 'true', oninput: () => grow() });
+    // The editor grows with the text so the page scrolls, never a box inside it.
+    const grow = () => { textarea.style.height = 'auto'; textarea.style.height = `${Math.max(textarea.scrollHeight + 24, window.innerHeight - 190)}px`; };
     const saveState = el('p', { class: 'save-state' });
     let document_ = null;
     const saveButton = el('button', { class: 'primary', text: 'Save', onclick: () => void run(async () => {
@@ -192,7 +194,8 @@
     }).finally(() => { saveButton.disabled = false; }) });
     root.replaceChildren(topBar(item ? title(item) : 'New note', { back: true }), textarea, saveState,
       el('div', { class: 'actions' }, saveButton, item ? el('button', { 'aria-label': 'Download note', onclick: () => void run(() => download(item)), text: 'Download' }) : null));
-    if (item) api('GET', `/v1/note?path=${encodeURIComponent(item.path)}`).then(note => { document_ = note; textarea.value = note.text; }).catch(error => { saveState.className = 'save-state error'; saveState.textContent = error.message; });
+    grow();
+    if (item) api('GET', `/v1/note?path=${encodeURIComponent(item.path)}`).then(note => { document_ = note; textarea.value = note.text; grow(); }).catch(error => { saveState.className = 'save-state error'; saveState.textContent = error.message; });
     else textarea.focus();
   }
 
