@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-10-27
 
 ### Added
 - A selection does things now: Shift click selects a range, Ctrl/⌘ A selects everything in view, and the selection bar favorites, moves to a folder, trashes, or clears. Dragging any selected card still drags them all out.
