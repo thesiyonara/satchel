@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import './fonts/fonts.css';
 import './styles.css';
 
 class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { message: string }> {

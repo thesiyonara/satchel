@@ -18,7 +18,7 @@ export class SettingsStore {
       this.value.syncPaused ??= false;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-      this.value = { version: 1, root: this.defaultRoot, folderId: randomUUID(), deviceName: os.hostname(), onboardingDone: false, startAtLogin: false, alwaysOnTop: true, shortcut: 'CommandOrControl+Shift+Space', theme: 'dark' };
+      this.value = { version: 1, root: this.defaultRoot, folderId: randomUUID(), deviceName: os.hostname(), onboardingDone: false, startAtLogin: false, alwaysOnTop: true, shortcut: 'CommandOrControl+Shift+Space', theme: 'system' };
       await fs.mkdir(this.value.root, { recursive: true });
       await this.update({});
     }

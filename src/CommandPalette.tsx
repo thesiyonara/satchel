@@ -7,7 +7,7 @@ export function CommandPalette({ commands, items, open, close }: { commands: Com
   const input = useRef<HTMLInputElement>(null);
   const previous = useRef(document.activeElement as HTMLElement | null);
   useEffect(() => { input.current?.focus(); return () => previous.current?.focus(); }, []);
-  const results = [...commands, ...items.map(item => ({ label: item.name, hint: item.kind.toUpperCase(), run: () => open(item), text: item.preview }))].filter(item => `${item.label} ${'text' in item ? item.text : ''}`.toLowerCase().includes(query.toLowerCase())).slice(0, 12);
+  const results = [...commands, ...items.map(item => ({ label: item.name, hint: item.kind[0].toUpperCase() + item.kind.slice(1), run: () => open(item), text: item.preview }))].filter(item => `${item.label} ${'text' in item ? item.text : ''}`.toLowerCase().includes(query.toLowerCase())).slice(0, 12);
   function execute(index: number) { const command = results[index]; if (command) { close(); command.run(); } }
   return <div className="modal-shade command-shade" onMouseDown={event => { if (event.target === event.currentTarget) close(); }}><section className="command-palette" role="dialog" aria-modal="true" aria-label="Command palette" onKeyDown={event => {
     if (event.key === 'Escape') { event.preventDefault(); close(); }

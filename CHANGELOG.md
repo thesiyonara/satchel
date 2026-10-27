@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.8 — 2026-10-27
+
+### Changed
+- A new look for the desktop app, Quick drop and the phone page: content first. The collection starts at the top of the window under a search field; the page heading, subtitle, hint bars and drop box are gone. A rail of plain words replaces the icon sidebar, with the sync state once at its foot. Cards are sized by their content in a masonry layout: notes show their text, images keep their own aspect ratio, files are compact rows. One bundled typeface, Instrument Sans, carries the hierarchy, in sentence case throughout. The app follows the system light or dark setting by default; orange is used only for selection and attention.
+
 ## 0.4.7 — 2026-10-27
 
 ### Added

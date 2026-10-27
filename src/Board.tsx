@@ -54,6 +54,6 @@ export function Board({ items, placements, renderCard, notify }: { items: Librar
         </div>
       </div>
     </div>
-    <div className="unplaced-strip"><div className="unplaced-label">NOT ON THE BOARD <span>{unplaced.length}</span></div>{unplaced.length === 0 ? <p>Every item is on the board.</p> : unplaced.map(item => <button key={item.path} draggable onDragStart={event => event.dataTransfer.setData('application/x-syncit-item', item.path)} onClick={() => void pin(item)} title={`Pin ${item.name}`}><Plus size={14} />{item.name}</button>)}</div>
+    <div className="unplaced-strip"><div className="unplaced-label">Not on the board <span>{unplaced.length}</span></div>{unplaced.length === 0 ? <p>Every item is on the board.</p> : unplaced.map(item => <button key={item.path} draggable onDragStart={event => event.dataTransfer.setData('application/x-syncit-item', item.path)} onClick={() => void pin(item)} title={`Pin ${item.name}`}><Plus size={14} />{item.name}</button>)}</div>
   </div>;
 }

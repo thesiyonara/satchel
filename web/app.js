@@ -116,7 +116,7 @@
   }
 
   function mediaCard(item, inTiles) {
-    const card = el('button', { class: 'card-item media', 'aria-label': item.name, onclick: () => open(item) }, el('span', { class: 'placeholder', text: item.kind === 'video' ? 'VIDEO' : 'PHOTO' }));
+    const card = el('button', { class: 'card-item media', 'aria-label': item.name, onclick: () => open(item) }, el('span', { class: 'placeholder', text: item.kind === 'video' ? 'Video' : 'Photo' }));
     thumbnail(item).then(url => {
       card.replaceChildren(el('img', { src: url, alt: '' }));
       if (item.kind === 'video') card.append(el('span', { class: 'play' }));
@@ -126,14 +126,14 @@
   }
   function noteCard(item) {
     return el('button', { class: `card-item note tint-${tint(item.path)}`, onclick: () => open(item) },
-      el('span', { class: 'kind', text: 'NOTE' }), folder(item.path) ? el('span', { class: 'folder-tag', text: folder(item.path) }) : null,
+      folder(item.path) ? el('span', { class: 'folder-tag', text: folder(item.path) }) : null,
       el('strong', { text: title(item) }), el('p', { text: notePreview(item) || 'Empty note' }), el('span', { class: 'foot', text: when(item.modifiedAt) }));
   }
   function fileCard(item) {
     const preview = previewOf(item);
     const card = el('button', { class: `card-item file ${item.kind === 'audio' ? 'audio' : ''} ${preview === 'pdf' ? 'pdf' : ''}`, onclick: () => open(item) },
-      el('span', { class: 'ext', text: item.kind === 'audio' ? 'AUDIO' : (extOf(item.name).slice(1) || 'FILE').slice(0, 4).toUpperCase() }),
-      el('strong', { text: item.name }), el('span', { class: 'foot', text: `${size(item.size)} · ${when(item.modifiedAt)}` }));
+      el('span', { class: 'ext', text: item.kind === 'audio' ? 'Audio' : (extOf(item.name).slice(1) || 'file').slice(0, 4).toUpperCase() }),
+      el('div', { class: 'text' }, el('strong', { text: item.name }), el('span', { class: 'foot', text: `${size(item.size)} · ${when(item.modifiedAt)}` })));
     if (preview === 'pdf') thumbnail(item).then(url => { card.classList.replace('file', 'media'); card.classList.remove('pdf'); card.replaceChildren(el('img', { src: url, alt: '' }), el('span', { class: 'caption', text: item.name })); }).catch(() => {});
     return card;
   }
@@ -160,7 +160,7 @@
     else if (!visible.length) content = el('div', { class: 'empty' }, el('strong', { text: items.length ? 'No matches' : 'Nothing here yet' }), items.length ? 'Try another word.' : 'Tap + to write a note or add a photo. Everything lands on the computer.');
     else if (tiles) content = el('div', { class: 'tiles' }, visible.map(item => mediaCard(item, true)));
     else content = el('div', { class: 'grid' }, visible.map(item => item.kind === 'note' ? noteCard(item) : item.kind === 'image' || item.kind === 'video' ? mediaCard(item, false) : fileCard(item)));
-    const label = el('div', { class: 'section-label' }, el('span', { text: (state.query ? 'RESULTS' : kindNames[state.filter].toUpperCase()) }), el('span', { text: String(visible.length) }));
+    const label = el('div', { class: 'section-label' }, el('span', { text: state.query ? 'Results' : kindNames[state.filter] }), el('span', { text: String(visible.length) }));
     const upload = el('input', { type: 'file', class: 'hidden', 'aria-label': 'Choose a file to add', onchange: event => { const file = event.target.files[0]; if (file) void run(async () => { await api('POST', `/v1/upload?name=${encodeURIComponent(file.name)}`, { body: file, contentType: file.type || 'application/octet-stream' }); await load(); toast(`${file.name} added.`); }); event.target.value = ''; } });
     const openSheet = () => {
       const shade = el('div', { class: 'sheet-shade', onclick: event => { if (event.target === shade) shade.remove(); } },
@@ -199,7 +199,7 @@
       }
     } else if (preview === 'audio') {
       const audio = el('audio', { class: 'preview-audio', controls: true, autoplay: true, 'aria-label': item.name });
-      body = el('div', {}, el('div', { class: 'audio-art', text: 'AUDIO' }), audio);
+      body = el('div', {}, el('div', { class: 'audio-art', text: item.name }), audio);
       streamLink(item).then(url => { audio.src = url; }).catch(error => fail(error.message));
       audio.addEventListener('error', () => fail());
     } else if (preview === 'pdf') {
@@ -248,7 +248,7 @@
     root.replaceChildren(topBar('This computer', { back: true }),
       el('div', { class: 'card' },
         el('h2', { text: status.deviceName || 'Computer' }),
-        el('dl', {}, el('dt', { text: 'COLLECTION' }), el('dd', { text: status.collection || '' }), el('dt', { text: 'SYNC' }), el('dd', { text: labels[status.state] || status.state || '' }), el('dt', { text: 'PHONES' }), el('dd', { text: String(status.phones || 1) }), el('dt', { text: 'THIS PHONE' }), el('dd', { text: status.phone ? status.phone.name : 'Phone' }))),
+        el('dl', {}, el('dt', { text: 'Collection' }), el('dd', { text: status.collection || '' }), el('dt', { text: 'Sync' }), el('dd', { text: labels[status.state] || status.state || '' }), el('dt', { text: 'Phones' }), el('dd', { text: String(status.phones || 1) }), el('dt', { text: 'This phone' }), el('dd', { text: status.phone ? status.phone.name : 'Phone' }))),
       el('div', { class: 'card' },
         el('p', { text: 'Nothing from the collection is stored on this phone. Photos and files are fetched from the computer each time; notes are saved straight to it. Add this page to the Home Screen to open it like an app.' })),
       el('div', { class: 'card' },

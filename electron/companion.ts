@@ -33,9 +33,10 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const STATIC_FILES: Record<string, { file: string; type: string }> = {
   '/': { file: 'index.html', type: 'text/html; charset=utf-8' }, '/index.html': { file: 'index.html', type: 'text/html; charset=utf-8' },
   '/app.js': { file: 'app.js', type: 'text/javascript; charset=utf-8' }, '/app.css': { file: 'app.css', type: 'text/css; charset=utf-8' },
-  '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json' }, '/icon.png': { file: 'icon.png', type: 'image/png' }
+  '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json' }, '/icon.png': { file: 'icon.png', type: 'image/png' },
+  '/instrument-sans-latin.woff2': { file: 'instrument-sans-latin.woff2', type: 'font/woff2' }, '/instrument-sans-italic-latin.woff2': { file: 'instrument-sans-italic-latin.woff2', type: 'font/woff2' }
 };
-export const webCSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self'; connect-src 'self'; manifest-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
+export const webCSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self'; font-src 'self'; connect-src 'self'; manifest-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
 const MEDIA_TICKET_TTL_MS = 10 * 60000;
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 class RequestError extends Error { constructor(public status: number, message: string) { super(message); } }

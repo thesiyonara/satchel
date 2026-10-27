@@ -44,7 +44,7 @@ try {
   // Dragging something that is already in the window (a thumbnail here) must not import anything or create a note.
   const before = await page.locator('[data-testid="item-card"]').count();
   await page.locator('.item-card.image img').first().dragTo(page.locator('.collection-caption'));
-  await page.locator('[data-testid="item-card"]').first().dragTo(page.locator('.page-heading'));
+  await page.locator('[data-testid="item-card"]').first().dragTo(page.locator('.collection-caption'));
   await page.waitForTimeout(800);
   assert.equal(await page.locator('[data-testid="item-card"]').count(), before, 'An in-app drag adds nothing');
   // Dragging a card out hands the OS the real file (the drag itself is skipped in test mode); paths outside the collection are refused.
