@@ -28,6 +28,8 @@ Releases are tagged `vX.Y.Z`, built by GitHub Actions on Windows and macOS, and 
 
 Never overwrite a published tag with different bytes; publish a new patch version instead.
 
+The `dist:*` scripts pass `--publish never` to electron-builder: on a version tag it would otherwise try to publish the packages itself and fail without a token. Publishing is the workflow's release job or `scripts/release.mjs --publish`, nothing else.
+
 ## Local alternative
 
 `npm run dist:win` or `npm run dist:mac`, then `node scripts/release.mjs` to write the checksum file, then `node scripts/release.mjs --publish --notes PATH [--preview] [--draft]`, which uses the GitHub CLI with your own login. This is for maintainers who cannot use Actions; the result must have the same asset names. Pushing the tag afterwards still runs the workflow, which then attaches the packages the local publish did not build, typically the macOS ones.
