@@ -14,7 +14,7 @@ Releases are tagged `vX.Y.Z`, built by GitHub Actions on Windows and macOS, and 
    git push origin master vX.Y.Z
    ```
 
-5. **Wait for Desktop packages.** The workflow packages the Windows installer and the macOS DMG/ZIP for both architectures, runs the packaged smoke test on Windows, computes `SHA256SUMS-X.Y.Z.txt`, and creates a **draft** release with generated notes.
+5. **Wait for Desktop packages.** The workflow packages the Windows installer and the macOS DMG/ZIP for both architectures, runs the packaged smoke test on Windows, computes `SHA256SUMS-X.Y.Z.txt`, and creates a **draft** release with generated notes. If a release for the tag already exists, it adds only the packages that are missing and extends the checksum file; assets already on the release are never replaced (`scripts/ci-release.sh`).
 6. **Review the draft.** Replace the generated notes with the changelog section, mark it as a pre-release if it is a preview (the app only offers pre-releases to users who opted in), and publish. Do not rename assets.
 7. **Verify** by opening Preferences → App updates on an older installation and checking that the new version is offered and installs.
 
@@ -30,7 +30,7 @@ Never overwrite a published tag with different bytes; publish a new patch versio
 
 ## Local alternative
 
-`npm run dist:win` or `npm run dist:mac`, then `node scripts/release.mjs` to write the checksum file, then `node scripts/release.mjs --publish --notes PATH [--preview] [--draft]`, which uses the GitHub CLI with your own login. This is for maintainers who cannot use Actions; the result must have the same asset names.
+`npm run dist:win` or `npm run dist:mac`, then `node scripts/release.mjs` to write the checksum file, then `node scripts/release.mjs --publish --notes PATH [--preview] [--draft]`, which uses the GitHub CLI with your own login. This is for maintainers who cannot use Actions; the result must have the same asset names. Pushing the tag afterwards still runs the workflow, which then attaches the packages the local publish did not build, typically the macOS ones.
 
 ## Signing
 

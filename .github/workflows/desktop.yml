@@ -48,8 +48,9 @@ jobs:
             release/*.zip
           if-no-files-found: error
 
-  # On a version tag, gather both platforms' packages, write the checksum file the in-app
-  # updater verifies against, and open a draft release for a maintainer to review and publish.
+  # On a version tag, gather both platforms' packages and hand them to scripts/ci-release.sh: it writes
+  # the checksum file the in-app updater verifies against and opens a draft release for a maintainer
+  # to review, or, when the release already exists, adds only the packages it lacks.
   release:
     needs: package
     if: startsWith(github.ref, 'refs/tags/v')
@@ -62,20 +63,7 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
-      - name: Verify the tag matches package.json and write checksums
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          if [ "$VERSION" != "$PACKAGE_VERSION" ]; then echo "Tag $GITHUB_REF_NAME does not match package.json version $PACKAGE_VERSION"; exit 1; fi
-          cd artifacts
-          ls -l
-          sha256sum Sync-it-"$VERSION"-* > "SHA256SUMS-$VERSION.txt"
-          cat "SHA256SUMS-$VERSION.txt"
-      - name: Create a draft release
+      - name: Create a draft release, or add the packages a published release lacks
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          gh release create "$GITHUB_REF_NAME" artifacts/* --draft --title "Sync it $VERSION" --generate-notes --repo "$GITHUB_REPOSITORY"
+        run: bash scripts/ci-release.sh "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY"
