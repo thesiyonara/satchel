@@ -2,7 +2,7 @@
   "name": "sync-it",
   "productName": "Sync it",
   "version": "0.4.10",
-  "description": "Your files, notes, and ideas. Together on your local network.",
+  "description": "Keeps your files and notes the same on all your computers, over your own Wi-Fi. No account, no cloud.",
   "private": true,
   "type": "module",
   "author": "Sync it contributors",

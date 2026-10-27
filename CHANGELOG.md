@@ -4,6 +4,7 @@
 
 ### Changed
 - macOS packages are built for Apple silicon only; the Intel build is dropped for now.
+- One plain description of the app in the package, the README and the GitHub repository, and a README introduction written as prose.
 
 ## 0.4.10 — 2026-10-27
 

@@ -1,6 +1,6 @@
 # Sync it
 
-One folder of files, screenshots and notes, kept identical on the computers you pair, over your own network. No account, no cloud, no server.
+Keeps your files and notes the same on all your computers, over your own Wi-Fi. No account, no cloud.
 
 [![Checks](https://github.com/thesiyonara/sync-it/actions/workflows/ci.yml/badge.svg)](https://github.com/thesiyonara/sync-it/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/thesiyonara/sync-it?display_name=tag)](https://github.com/thesiyonara/sync-it/releases/latest)
@@ -10,11 +10,9 @@ One folder of files, screenshots and notes, kept identical on the computers you 
 
 ## What it is
 
-Sync it is a desktop app for Windows and macOS. It keeps a normal folder, the **collection**, and syncs it directly between paired computers on the same local network using a bundled, pinned [Syncthing](https://syncthing.net) engine. On top of that folder it gives you a searchable grid, a shared pinboard, a note editor with history, and a small floating window for capturing things quickly.
+Sync it is a desktop app for Windows and macOS. You get one folder on each of your computers, and the app keeps those folders the same. Changes travel straight from one computer to the other over your own network, never through a server. On top of that folder the app gives you a searchable grid, a shared pinboard, a note editor with history, and a small floating window for dropping things in quickly.
 
-- **Yours.** Files stay ordinary files on your disks. Nothing leaves your network; there is no account, relay, telemetry or web font.
-- **Direct.** Computers find each other on the LAN and pair with a device ID you confirm. Transfers are encrypted end to end by Syncthing.
-- **Honest.** The interface shows real state only: what is paired, what is syncing, what conflicted.
+Files stay ordinary files on your disk, so any other program can use them. There is no account, no relay and no telemetry. Computers find each other on the network and you confirm each pairing yourself; the bundled [Syncthing](https://syncthing.net) engine encrypts every transfer. The interface shows only real state: what is paired, what is syncing, what conflicted.
 
 ## Features
 
