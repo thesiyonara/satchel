@@ -33,7 +33,7 @@ export function validateSettingsPatch(input: unknown): Partial<Settings> {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('Invalid preferences');
   const result: Partial<Settings> = {};
   for (const [key, value] of Object.entries(input)) {
-    if (key === 'startAtLogin' || key === 'alwaysOnTop' || key === 'onboardingDone' || key === 'localDiscovery' || key === 'syncPaused' || key === 'panelAutoHide' || key === 'updateChecks' || key === 'updatePreviews' || key === 'phoneAccess') {
+    if (key === 'startAtLogin' || key === 'alwaysOnTop' || key === 'onboardingDone' || key === 'localDiscovery' || key === 'syncPaused' || key === 'panelAutoHide' || key === 'updateChecks' || key === 'updatePreviews' || key === 'phoneAccess' || key === 'arrivalAlerts') {
       if (typeof value !== 'boolean') throw new Error('Invalid preference');
       result[key] = value;
     } else if (key === 'deviceName' || key === 'shortcut') {

@@ -21,7 +21,8 @@ Files stay ordinary files on your disk, so any other program can use them. There
 - Note editor with autosave, read-only Markdown preview, and **History** to preview and restore earlier versions, including versions archived from received changes.
 - Shared pinboard: card positions sync; zoom stays local.
 - Quick drop: a floating window (Ctrl/⌘ Shift Space) to write a note, paste a screenshot or drop files from anywhere. A thin handle at the screen edge is the drawer: drag a file toward it and it slides out, drop, and it closes by itself.
-- Files that arrived from another computer say so on their card, in the drawer, and in the sidebar for two days.
+- Files that arrived from another computer say so on their card, in the drawer, and in the sidebar for two days. A system notification for arrivals can be turned on in Preferences.
+- Select several cards with Ctrl/⌘ or Shift click, or Ctrl/⌘ A, then favorite, move to a folder, trash or drag them out together. Folders are ordinary folders in the collection and appear in the sidebar.
 - Pairing without a code from a Nearby list, or with a code or device ID when discovery is blocked. Any number of computers; each can be revoked.
 - Untrusted devices: give a NAS an encryption password and it holds an encrypted copy it cannot read.
 - Conflicts keep both versions. Deleted files go to the Recycle Bin or Trash, and received overwrites keep 30 days of versions.

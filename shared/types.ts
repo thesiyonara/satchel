@@ -17,6 +17,8 @@ export interface Settings {
   panelMode?: 'quick' | 'mini'; panelOpacity?: number; panelAutoHide?: boolean; favorites?: string[];
   /** The screen edge that carries the drawer handle. */
   drawerEdge?: 'off' | 'left' | 'right';
+  /** A system notification when a paired computer sends something. */
+  arrivalAlerts?: boolean;
   updateChecks?: boolean; updatePreviews?: boolean; lastUpdateCheck?: number;
   phoneAccess?: boolean; phonePort?: number;
 }
@@ -54,6 +56,8 @@ export interface SyncItAPI {
   readText(path: string): Promise<string>;
   readNoteVersion(id: string): Promise<string>;
   rename(path: string, name: string): Promise<string>;
+  /** Moves items into a folder of the collection ('' for the top level), creating it when needed. */
+  move(paths: string[], folder: string): Promise<string[]>;
   trash(path: string): Promise<void>;
   open(path: string): Promise<void>;
   reveal(path: string): Promise<void>;
@@ -92,4 +96,5 @@ export interface SyncItAPI {
   onLibrary(callback: () => void): () => void;
   onSync(callback: (state: SyncStatus) => void): () => void;
   onSettings(callback: (settings: Settings) => void): () => void;
+  onNavigate(callback: (target: { filter: string }) => void): () => void;
 }

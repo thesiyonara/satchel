@@ -299,6 +299,32 @@ export class Library {
       this.changed(); return next;
     });
   }
+  /** Moves an item into a folder of the collection ('' for the top level), creating the folder when needed. */
+  async move(relative: string, folder: string): Promise<string> {
+    return this.serial(async () => {
+      if (typeof folder !== 'string') throw new Error('Invalid folder');
+      const parts = folder.split(/[\\/]/).filter(Boolean);
+      if (parts.some(part => part !== cleanName(part) || part.startsWith('.') || !part.trim()) || parts.length > 8) throw new Error('Choose a folder name without slashes, leading dots or reserved characters');
+      const original = await contained(this.root, relative);
+      const name = path.posix.basename(relative);
+      const next = [...parts, name].join('/');
+      if (next === relative) return relative;
+      const target = await contained(this.root, next);
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      try { await fs.lstat(target); throw new Error(`“${name}” already exists in that folder`); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+      await fs.rename(original, target);
+      this.index?.delete(relative); await this.refreshEntry(next);
+      await this.renameHistory(relative, next).catch(() => {});
+      const oldPlacement = await contained(this.root, `.syncit/board/${hash(relative)}.json`, true);
+      try {
+        const record = validatePlacement(JSON.parse(await fs.readFile(oldPlacement, 'utf8')));
+        await atomicWrite(await contained(this.root, `.syncit/board/${hash(next)}.json`, true), JSON.stringify({ ...record, path: next, updatedAt: Date.now() }));
+        await fs.unlink(oldPlacement);
+      } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+      this.changed(); return next;
+    });
+  }
   async trash(relative: string) {
     await this.serial(async () => { await this.recycle(await contained(this.root, relative)); this.index?.delete(relative); this.changed(); });
     await this.unpin(relative);

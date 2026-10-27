@@ -39,7 +39,6 @@ const assets = app.isPackaged ? path.join(process.resourcesPath, 'assets') : pat
 const dist = path.join(app.getAppPath(), 'dist');
 let mainWindow: BrowserWindow | undefined;
 let panelWindow: BrowserWindow | undefined;
-let handleWindow: BrowserWindow | undefined;
 let drawerTimer: ReturnType<typeof setInterval> | undefined;
 let drawerOpen = false;
 let currentSender: Electron.WebContents | undefined;
@@ -51,7 +50,7 @@ let engine: SyncEngine;
 let store: SettingsStore;
 let scanTimer: ReturnType<typeof setTimeout>;
 let registeredShortcut = '';
-const windows = () => [mainWindow, panelWindow, handleWindow].filter((window): window is BrowserWindow => !!window && !window.isDestroyed());
+const windows = () => [mainWindow, panelWindow, ...handles()].filter((window): window is BrowserWindow => !!window && !window.isDestroyed());
 const updateActivity = () => engine?.setActive(windows().some(window => window.isVisible() && !window.isMinimized()));
 const broadcast = (channel: string, value?: unknown) => windows().forEach(window => window.webContents.send(channel, value));
 
@@ -84,8 +83,8 @@ async function start() {
   library = new Library(store.value.root, notifyLibrary, file => shell.trashItem(file), path.join(app.getPath('userData'), 'note-recovery'));
   await library.initialize().catch(() => {}); // Missing roots are reported in the dashboard, never recreated silently.
   const executable = app.isPackaged ? path.join(process.resourcesPath, 'engine', process.platform === 'win32' ? 'syncthing.exe' : 'syncthing') : path.join(app.getAppPath(), 'vendor', `${process.platform === 'win32' ? 'win' : 'mac'}-${process.arch}`, process.platform === 'win32' ? 'syncthing.exe' : 'syncthing');
-  engine = new SyncEngine({ executable, home: path.join(app.getPath('userData'), 'engine'), settings: () => store.value, updateSettings: patch => store.update(patch), port: testing ? Number(process.env.SYNCIT_TEST_PORT || 22127) : undefined, discovery: testing ? false : undefined,
-    arrived: () => broadcast('syncit:library'), changed: status => { broadcast('syncit:sync', status); tray?.setToolTip(`Satchel · ${status.state === 'synced' ? 'Up to date' : status.state}`); refreshTray(); } });
+  engine = new SyncEngine({ executable, home: path.join(app.getPath('userData'), 'engine'), settings: () => store.value, updateSettings: patch => store.update(patch), port: testing ? Number(process.env.SYNCIT_TEST_PORT || 22127) : undefined, allowLoopback: testing, discovery: testing ? false : undefined,
+    arrived: items => { broadcast('syncit:library'); notifyArrival(items); }, changed: status => { broadcast('syncit:sync', status); tray?.setToolTip(`Satchel · ${status.state === 'synced' ? 'Up to date' : status.state}`); refreshTray(); } });
   companion = new Companion({ directory: app.getPath('userData'), port: store.value.phonePort ?? (testing ? 22128 : 22028), allowLoopback: testing, webRoot: path.join(app.getAppPath(), 'web'), library: () => library, text: async relative => readTextPreview(await contained(library.root, relative)), deviceName: () => store.value.deviceName, collectionName: () => path.basename(store.value.root), syncState: () => engine.status.state, thumbnail: thumbnailFor });
   if (store.value.phoneAccess) void companion.start().catch(() => {});
   setupProtocols(); setupIPC();
@@ -94,7 +93,7 @@ async function start() {
   try { registerShortcut(store.value.shortcut); } catch { /* Preferences can choose a shortcut that is not in use. */ }
   mainWindow = createWindow(false);
   setupTray(); placeHandle();
-  screen.on('display-metrics-changed', () => placeHandle());
+  screen.on('display-metrics-changed', () => placeHandle()); screen.on('display-added', () => placeHandle()); screen.on('display-removed', () => placeHandle());
   stopControl = await startControl(app.getPath('userData'), operations);
   powerMonitor.on('resume', () => { void engine.retry().catch(() => {}); });
   void engine.start().catch(() => {});
@@ -211,8 +210,8 @@ function createWindow(panel: boolean) {
   if (panel) {
     window.setOpacity(store.value.panelOpacity ?? 1);
     window.on('blur', () => { if (store.value.panelAutoHide) window.hide(); });
-    window.on('show', () => handleWindow?.hide());
-    window.on('hide', () => { clearInterval(drawerTimer); drawerOpen = false; if (!window.isDestroyed()) window.webContents.send('syncit:drawer', false); if (handleWindow && !handleWindow.isDestroyed()) handleWindow.showInactive(); });
+    window.on('show', () => { for (const handle of handles()) handle.hide(); });
+    window.on('hide', () => { clearInterval(drawerTimer); drawerOpen = false; if (!window.isDestroyed()) window.webContents.send('syncit:drawer', false); for (const handle of handles()) handle.showInactive(); });
   }
   let boundsTimer: ReturnType<typeof setTimeout>;
   window.on('resize', persistBounds); window.on('move', persistBounds);
@@ -230,36 +229,44 @@ function createWindow(panel: boolean) {
 }
 function showDashboard() { if (!mainWindow || mainWindow.isDestroyed()) mainWindow = createWindow(false); if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); }
 const HANDLE = { width: 14, height: 180 };
-// A thin handle at a screen edge. Hovering it, or dragging a file onto it, slides the drawer out.
+const handleWindows = new Map<number, BrowserWindow>();
+const handles = () => [...handleWindows.values()].filter(window => !window.isDestroyed());
+function createHandle(): BrowserWindow {
+  const window = new BrowserWindow({ width: HANDLE.width, height: HANDLE.height, show: false, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false, focusable: false, skipTaskbar: true, hasShadow: false, alwaysOnTop: true, title: 'Satchel drawer',
+    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, devTools: !app.isPackaged } });
+  window.setAlwaysOnTop(true, 'screen-saver');
+  window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  window.webContents.on('will-navigate', event => event.preventDefault());
+  window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+  window.on('close', event => { if (!quitting) event.preventDefault(); });
+  void window.loadURL(devURL ? `${devURL}/?handle=1` : 'syncit-app://app/index.html?handle=1');
+  window.once('ready-to-show', () => { if (!window.isDestroyed() && !panelWindow?.isVisible()) window.showInactive(); });
+  return window;
+}
+// A thin handle at the chosen edge of every display. Hovering it, or dragging a file onto it, slides the drawer out.
 function placeHandle() {
   const edge = store.value.drawerEdge ?? 'right';
-  if (testing || edge === 'off' || !store.value.onboardingDone) { if (handleWindow && !handleWindow.isDestroyed()) handleWindow.destroy(); handleWindow = undefined; return; }
-  if (!handleWindow || handleWindow.isDestroyed()) {
-    handleWindow = new BrowserWindow({ width: HANDLE.width, height: HANDLE.height, show: false, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false, focusable: false, skipTaskbar: true, hasShadow: false, alwaysOnTop: true, title: 'Satchel drawer',
-      webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, devTools: !app.isPackaged } });
-    handleWindow.setAlwaysOnTop(true, 'screen-saver');
-    handleWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-    handleWindow.webContents.on('will-navigate', event => event.preventDefault());
-    handleWindow.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
-    handleWindow.on('close', event => { if (!quitting) event.preventDefault(); });
-    void handleWindow.loadURL(devURL ? `${devURL}/?handle=1` : 'syncit-app://app/index.html?handle=1');
-    handleWindow.once('ready-to-show', () => { if (handleWindow && !handleWindow.isDestroyed() && !panelWindow?.isVisible()) handleWindow.showInactive(); });
+  const wanted = (testing && process.env.SYNCIT_TEST_HANDLE !== '1') || edge === 'off' || !store.value.onboardingDone ? [] : screen.getAllDisplays();
+  for (const [id, window] of handleWindows) if (!wanted.some(display => display.id === id)) { if (!window.isDestroyed()) window.destroy(); handleWindows.delete(id); }
+  for (const display of wanted) {
+    let window = handleWindows.get(display.id);
+    if (!window || window.isDestroyed()) { window = createHandle(); handleWindows.set(display.id, window); }
+    const area = display.workArea;
+    window.setBounds({ x: edge === 'left' ? area.x : area.x + area.width - HANDLE.width, y: Math.round(area.y + (area.height - HANDLE.height) / 2), width: HANDLE.width, height: HANDLE.height });
   }
-  const area = screen.getPrimaryDisplay().workArea;
-  handleWindow.setBounds({ x: edge === 'left' ? area.x : area.x + area.width - HANDLE.width, y: Math.round(area.y + (area.height - HANDLE.height) / 2), width: HANDLE.width, height: HANDLE.height });
 }
 // The drawer: the Quick drop window shown flush against the handle's edge as a pile of recent items. It closes by itself
 // once the pointer has left it, unless the user has clicked into it.
 function showDrawer() {
   const edge = store.value.drawerEdge === 'left' ? 'left' : 'right';
   if (!panelWindow || panelWindow.isDestroyed()) panelWindow = createWindow(true);
-  const area = screen.getPrimaryDisplay().workArea;
+  const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
   const [width, height] = panelWindow.getSize();
   panelWindow.setPosition(edge === 'left' ? area.x : area.x + area.width - width, Math.round(area.y + (area.height - height) / 2));
   drawerOpen = true;
   panelWindow.webContents.send('syncit:drawer', true);
   panelWindow.showInactive();
-  handleWindow?.hide();
+  for (const handle of handles()) handle.hide();
   clearInterval(drawerTimer);
   // The drawer closes 1.5 s after the pointer leaves it. Opened from the palette or the CLI, the pointer may not be
   // in it yet: it then stays up to 12 s for the pointer to arrive before closing.
@@ -295,6 +302,17 @@ function registerShortcut(accelerator: string) {
   if (!globalShortcut.register(accelerator, () => panelWindow?.isVisible() ? panelWindow.hide() : showPanel())) throw new Error('That shortcut is already in use. Choose a different shortcut.');
   if (registeredShortcut) globalShortcut.unregister(registeredShortcut);
   registeredShortcut = accelerator;
+}
+let lastNotification = '';
+// An optional system notification when a paired computer sends something; clicking it opens the arrivals in the dashboard.
+function notifyArrival(items: { path: string; by: string }[]) {
+  if (!store.value.arrivalAlerts || !items.length) return;
+  const body = items.length === 1 ? `${path.posix.basename(items[0].path)} arrived from ${items[0].by}` : `${items.length} items arrived from ${items[0].by}`;
+  lastNotification = body;
+  if (testing || !Notification.isSupported()) return;
+  const notification = new Notification({ title: 'Satchel', body, silent: true });
+  notification.on('click', () => { showDashboard(); mainWindow?.webContents.send('syncit:navigate', { filter: 'arrived' }); });
+  notification.show();
 }
 function toast(body: string) { if (Notification.isSupported()) new Notification({ title: 'Satchel', body, silent: true }).show(); }
 let trayMenuSignature = '';
@@ -332,7 +350,7 @@ function setupIPC() {
     try { return await guarded(...args); } catch (error) { throw new Error(errorMessage(error)); }
   }); };
   operations.set('commands', () => [...operations.keys()].sort());
-  operations.set('status', () => ({ version: app.getVersion(), sync: engine.status, windows: windows().map(window => ({ name: window === panelWindow ? 'panel' : window === handleWindow ? 'handle' : 'dashboard', visible: window.isVisible(), bounds: window.getBounds(), alwaysOnTop: window.isAlwaysOnTop(), opacity: window.getOpacity() })), panelMode: store.value.panelMode ?? 'quick' }));
+  operations.set('status', () => ({ version: app.getVersion(), notification: lastNotification, sync: engine.status, windows: windows().map(window => ({ name: window === panelWindow ? 'panel' : handles().includes(window) ? 'handle' : 'dashboard', visible: window.isVisible(), bounds: window.getBounds(), alwaysOnTop: window.isAlwaysOnTop(), opacity: window.getOpacity() })), panelMode: store.value.panelMode ?? 'quick' }));
   operations.set('window', async (mode: string) => {
     if (mode === 'dashboard') showDashboard();
     else if (mode === 'drawer') showDrawer();
@@ -384,6 +402,17 @@ function setupIPC() {
   bind('noteHistory', (relative: string) => library.history(relative)); bind('readNoteVersion', (id: string) => library.readVersion(id));
   bind('readText', async (relative: string) => readTextPreview(await contained(library.root, relative)));
   bind('rename', async (relative: string, name: string) => { const next = await library.rename(relative, name); if (store.value.favorites?.includes(relative)) { await store.update({ favorites: store.value.favorites.map(item => item === relative ? next : item) }); broadcast('syncit:settings', store.value); } return next; });
+  bind('move', async (relatives: unknown, folder: unknown) => {
+    if (!Array.isArray(relatives) || relatives.length > 500 || typeof folder !== 'string') throw new Error('Invalid move');
+    const moved: string[] = [];
+    for (const relative of relatives) {
+      if (typeof relative !== 'string') throw new Error('Invalid path');
+      const next = await library.move(relative, folder);
+      if (store.value.favorites?.includes(relative)) { await store.update({ favorites: store.value.favorites.map(item => item === relative ? next : item) }); broadcast('syncit:settings', store.value); }
+      moved.push(next);
+    }
+    return moved;
+  });
   bind('trash', async (relative: string) => {
     await library.trash(relative);
     if (store.value.favorites?.includes(relative)) { await store.update({ favorites: store.value.favorites.filter(item => item !== relative) }); broadcast('syncit:settings', store.value); }

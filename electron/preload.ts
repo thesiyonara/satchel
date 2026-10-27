@@ -10,7 +10,7 @@ const api: SyncItAPI = {
   importFiles: paths => invoke('importFiles', paths), chooseFiles: () => invoke('chooseFiles'), paste: () => invoke('paste'),
   createNote: text => invoke('createNote', text), readNote: path => invoke('readNote', path), saveNote: (path, text, revision) => invoke('saveNote', path, text, revision),
   noteHistory: path => invoke('noteHistory', path), readNoteVersion: id => invoke('readNoteVersion', id), readText: path => invoke('readText', path),
-  rename: (path, name) => invoke('rename', path, name), trash: path => invoke('trash', path), open: path => invoke('open', path), reveal: path => invoke('reveal', path), dragOut: paths => invoke('dragOut', paths), openDrawer: () => invoke('openDrawer'),
+  rename: (path, name) => invoke('rename', path, name), move: (paths, folder) => invoke('move', paths, folder), trash: path => invoke('trash', path), open: path => invoke('open', path), reveal: path => invoke('reveal', path), dragOut: paths => invoke('dragOut', paths), openDrawer: () => invoke('openDrawer'),
   openFolder: () => invoke('openFolder'), place: placement => invoke('place', placement), unpin: path => invoke('unpin', path),
   settings: patch => invoke('settings', patch), chooseRoot: () => invoke('chooseRoot'), shortcut: () => invoke('shortcut'),
   pairingCode: () => invoke('pairingCode'), copyPairingCode: () => invoke('copyPairingCode'), join: (code, localIP) => invoke('join', code, localIP),
@@ -30,7 +30,7 @@ const api: SyncItAPI = {
     ipcRenderer.on('syncit:prepare-update', handler); return () => ipcRenderer.removeListener('syncit:prepare-update', handler);
   },
   pathsForFiles: files => Array.from(files).map(file => webUtils.getPathForFile(file)).filter(Boolean),
-  onDrawer: callback => listen('syncit:drawer', callback),
+  onDrawer: callback => listen('syncit:drawer', callback), onNavigate: callback => listen('syncit:navigate', callback),
   onLibrary: callback => listen('syncit:library', callback), onSync: callback => listen('syncit:sync', callback), onSettings: callback => listen('syncit:settings', callback)
 };
 contextBridge.exposeInMainWorld('syncit', api);

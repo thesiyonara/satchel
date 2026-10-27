@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- A selection does things now: Shift click selects a range, Ctrl/⌘ A selects everything in view, and the selection bar favorites, moves to a folder, trashes, or clears. Dragging any selected card still drags them all out.
+- Folders inside the app: "Move to folder" on a card or a selection, with a new or existing folder name; top-level folders are listed in the sidebar and filter the grid.
+- An optional system notification when a paired computer sends something, off by default, in Preferences. Clicking it opens the arrivals.
+- The drawer handle sits on every display, and the drawer opens on the display the pointer is on.
+
+### Changed
+- In test mode the sync engine accepts loopback peers, so two instances on one machine can pair for the new two-computer test.
+
 ## 0.5.3 — 2026-10-27
 
 ### Changed

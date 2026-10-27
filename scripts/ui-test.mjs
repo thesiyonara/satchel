@@ -10,7 +10,7 @@ const profile = path.resolve('.cache', `ui-profile-${Date.now()}`);
 const sources = path.resolve('.cache', `ui-sources-${Date.now()}`);
 const artifacts = path.resolve('test-results');
 await mkdir(profile, { recursive: true }); await mkdir(sources, { recursive: true }); await mkdir(artifacts, { recursive: true });
-const application = await electron.launch({ args: ['.'], env: { ...process.env, SYNCIT_TEST_MODE: '1', SYNCIT_TEST_PROFILE: profile, SYNCIT_TEST_PORT: '22127' } });
+const application = await electron.launch({ args: ['.'], env: { ...process.env, SYNCIT_TEST_MODE: '1', SYNCIT_TEST_PROFILE: profile, SYNCIT_TEST_PORT: '22127', SYNCIT_TEST_HANDLE: '1' } });
 const errors = [];
 try {
   const page = await application.firstWindow();
@@ -81,7 +81,8 @@ try {
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.placements.some(p => p.x === 95 && p.y === 80)))).toBeTruthy();
   await page.screenshot({ path: path.join(artifacts, 'pinboard.png') });
   await page.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
-  const panel = await expect.poll(async () => (await application.windows()).length).toBe(2).then(async () => (await application.windows()).find(p => p !== page));
+  const findPanel = async () => (await application.windows()).find(p => p.url().includes('panel=1'));
+  const panel = await expect.poll(async () => (await findPanel()) ? 'ready' : 'waiting').toBe('ready').then(findPanel);
   await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
   await panel.getByRole('button', { name: 'Window opacity' }).click();
   await panel.getByRole('slider', { name: 'Floating window opacity' }).focus();
@@ -98,6 +99,42 @@ try {
   assert.equal((await panel.evaluate(relative => window.syncit.dragOut(relative), imagePath)).files.length, 1, 'the drawer drags items out');
   await panel.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
   await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
+  // The edge handle (created in test mode by SYNCIT_TEST_HANDLE, one per display): moving the pointer onto it opens the drawer as the pile.
+  await panel.getByRole('button', { name: 'Hide floating window' }).click();
+  const panelVisible = () => application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.webContents.getURL().includes('panel=1') && window.isVisible()));
+  await expect.poll(panelVisible).toBe(false);
+  const edgeHandle = (await application.windows()).find(p => p.url().includes('handle=1'));
+  assert.ok(edgeHandle, 'a handle window exists');
+  await edgeHandle.mouse.move(7, 90);
+  await expect.poll(panelVisible, { timeout: 5000 }).toBe(true);
+  await expect(panel.getByRole('heading', { name: 'Drop here' })).toBeVisible();
+  await panel.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
+  await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
+  // Selection: Ctrl/⌘ A selects everything in view; the bar favorites, moves into a folder (which then lists in the sidebar), and back.
+  await page.getByRole('button', { name: /^Everything/ }).click();
+  await page.keyboard.press('Control+a');
+  const bar = page.getByRole('toolbar', { name: 'Selection' });
+  await expect(bar).toBeVisible();
+  await bar.getByRole('button', { name: 'Favorite', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.syncit.initial().then(i => i.settings.favorites?.length || 0))).toBeGreaterThan(1);
+  await page.keyboard.press('Control+a');
+  await bar.getByRole('button', { name: 'Move to folder' }).click();
+  await page.getByRole('textbox', { name: 'Folder name' }).fill('Trips');
+  await page.getByRole('button', { name: 'Move', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.syncit.list().then(s => s.items.length > 0 && s.items.every(item => item.path.startsWith('Trips/'))))).toBe(true);
+  await page.getByRole('button', { name: /^Trips/ }).click();
+  await expect(page.getByRole('heading', { name: 'Trips' })).toBeVisible();
+  await page.getByRole('button', { name: /^Everything/ }).click();
+  await page.getByRole('button', { name: /^Everything/ }).click();
+  await page.keyboard.press('Control+a');
+  await bar.getByRole('button', { name: 'Move to folder' }).click();
+  await page.getByRole('textbox', { name: 'Folder name' }).fill('');
+  await page.getByRole('button', { name: 'Move', exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.syncit.list().then(s => s.items.every(item => !item.path.includes('/'))))).toBe(true);
+  await page.keyboard.press('Control+a');
+  await bar.getByRole('button', { name: 'Remove favorites' }).click();
+  await expect.poll(() => page.evaluate(() => window.syncit.initial().then(i => i.settings.favorites?.length || 0))).toBe(0);
+  await page.keyboard.press('Escape');
   // Preserve the user's clipboard while exercising the real desktop paste route. A locked or remote
   // desktop session makes the Windows clipboard unavailable; those steps are then skipped, not failed.
   const clipboardAvailable = await application.evaluate(async ({ clipboard, ClipboardItem }) => {

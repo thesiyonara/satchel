@@ -15,7 +15,7 @@ import engineHashes from '../shared/engine-integrity.json';
 const execFileAsync = promisify(execFile);
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 type Config = Record<string, any>;
-export interface EngineOptions { executable: string; home: string; settings: () => Settings; updateSettings: (patch: Partial<Settings>) => Promise<void>; changed?: (status: SyncStatus) => void; arrived?: () => void; port?: number; allowLoopback?: boolean; discovery?: boolean }
+export interface EngineOptions { executable: string; home: string; settings: () => Settings; updateSettings: (patch: Partial<Settings>) => Promise<void>; changed?: (status: SyncStatus) => void; arrived?: (items: { path: string; by: string }[]) => void; port?: number; allowLoopback?: boolean; discovery?: boolean }
 export interface PairingCode { version: 1; deviceId: string; folderId: string; name: string; port: number }
 export const deviceIdPattern = /^[A-Z2-7]{7}(?:-[A-Z2-7]{7}){7}$/;
 const folderIdPattern = /^[a-zA-Z0-9-]{1,80}$/;
@@ -263,16 +263,18 @@ export class SyncEngine {
           if (!response.ok) throw new Error(String(response.status));
           const events = await response.json() as { id: number; time: string; data?: { folder: string; path: string; modifiedBy: string; type: string; action: string } }[];
           const folderId = this.options.settings().folderId;
-          let changed = false;
+          const fresh: { path: string; by: string }[] = [];
           for (const event of events) {
             this.lastEvent = Math.max(this.lastEvent, event.id);
             if (!event.data || event.data.folder !== folderId || event.data.type !== 'file' || event.data.action === 'deleted') continue;
-            const peer = this.status.peers.find(candidate => candidate.id === event.data!.modifiedBy);
-            this.arrivals.set(event.data.path.replace(/\\/g, '/'), { at: Date.parse(event.time) || Date.now(), by: peer?.name || 'another computer' });
-            changed = true;
+            // modifiedBy is the short device ID: the first group of the full one.
+            const peer = this.status.peers.find(candidate => candidate.id === event.data!.modifiedBy || candidate.id.split('-')[0] === event.data!.modifiedBy);
+            const entry = { path: event.data.path.replace(/\\/g, '/'), by: peer?.name || 'another computer' };
+            this.arrivals.set(entry.path, { at: Date.parse(event.time) || Date.now(), by: entry.by });
+            fresh.push(entry);
           }
           if (this.arrivals.size > 5000) for (const [key, value] of this.arrivals) { if (Date.now() - value.at > 172800000) this.arrivals.delete(key); }
-          if (changed) this.options.arrived?.();
+          if (fresh.length) this.options.arrived?.(fresh);
         } catch { if (this.stopped || this.eventsAbort !== abort) return; await pause(3000); }
       }
     };
