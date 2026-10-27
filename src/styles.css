@@ -475,3 +475,26 @@ progress { width: 100%; height: 4px; margin-top: 12px; accent-color: var(--green
 .phone-list li > div { flex: 1; min-width: 0; }
 .phone-list li strong { display: block; font-weight: 600; }
 .phone-list li small { display: block; color: var(--muted); font-size: 10px; margin-top: 2px; }
+
+/* Elevation pass: the note editor is a pane beside the collection, search lives in the top bar, and the chrome says each thing once. */
+.topbar .search-box { margin-left: 0; width: min(420px, 50%); height: 36px; }
+.topbar .search-box kbd { margin-left: auto; white-space: nowrap; }
+.toolbar-spacer { flex: 1; }
+.sync-pill.error { color: #e0a060; border-color: #e0a06033; }
+.item-card.open { border-color: var(--green); box-shadow: 0 0 0 1px var(--green); }
+.note-pane { width: clamp(420px, 41vw, 700px); flex-shrink: 0; height: 100vh; border-left: 1px solid var(--line); border-top: 0; border-right: 0; border-bottom: 0; border-radius: 0; box-shadow: none; padding: 22px 32px 18px; background: var(--surface); animation: pane-in .18s ease-out; }
+.note-pane.with-history { width: clamp(680px, 62vw, 1040px); }
+@keyframes pane-in { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+@media (max-width: 1180px) { .note-pane { position: fixed; right: 0; top: 0; bottom: 0; z-index: 100; width: min(640px, 92vw); box-shadow: -24px 0 60px #0008; border-left: 1px solid #3b4552; } .note-pane.with-history { width: min(900px, 95vw); } }
+.note-pane header { margin-bottom: 18px; }
+.note-pane h2 { font-size: 24px; margin-bottom: 14px; }
+.note-pane textarea { font-size: 14.5px; line-height: 1.85; }
+.note-pane .markdown { padding-right: 6px; }
+.note-pane footer { padding-top: 12px; }
+.floating-intro { padding: 18px 18px 12px; }
+.floating-intro h2 { font-size: 22px; letter-spacing: -.8px; margin: 0 0 5px; }
+.floating-intro p { font-size: 11px; }
+.dock-group { display: inline-flex; border: 1px solid #ffffff14; border-radius: 6px; overflow: hidden; margin-right: 4px; }
+.dock-group button { border-radius: 0; padding: 5px 7px; }
+.dock-group button + button { border-left: 1px solid #ffffff14; }
+.empty-results svg { color: var(--muted); }

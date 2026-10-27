@@ -33,6 +33,17 @@ export function parseInline(text: string): Inline[] {
   return result;
 }
 
+export function inlineText(inline: Inline[]) { return inline.map(part => part.type === 'break' ? '\n' : part.text).join(''); }
+/** The note as readable lines without Markdown syntax: headings and emphasis stripped, lists bulleted, code kept. */
+export function plainText(source: string): string {
+  return parseMarkdown(source).map(block => {
+    if (block.type === 'rule') return '';
+    if (block.type === 'code') return block.text;
+    if (block.type === 'list') return block.items.map((item, index) => `${block.ordered ? `${index + 1}.` : '•'} ${inlineText(item)}`).join('\n');
+    return inlineText(block.inline);
+  }).filter(Boolean).join('\n');
+}
+
 export function parseMarkdown(source: string): Block[] {
   const lines = source.replace(/\r\n?/g, '\n').split('\n');
   const blocks: Block[] = [];

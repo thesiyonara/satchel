@@ -1,7 +1,7 @@
 {
   "name": "sync-it",
   "productName": "Sync it",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "description": "Your files, notes, and ideas. Together on your local network.",
   "private": true,
   "type": "module",

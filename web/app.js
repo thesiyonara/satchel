@@ -56,7 +56,8 @@
   const folder = path => path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
   const extOf = name => { const i = name.lastIndexOf('.'); return i < 0 ? '' : name.slice(i).toLowerCase(); };
   const previewOf = item => item.previewKind || (item.kind === 'image' || item.kind === 'video' || item.kind === 'audio' ? item.kind : null);
-  const notePreview = item => (item.preview || '').replace(/^#+\s*/gm, '').split('\n').map(line => line.trim()).filter(line => line && line !== title(item)).join(' ');
+  // Card text without Markdown syntax: headings, emphasis and quote markers go, list markers become bullets.
+  const notePreview = item => (item.preview || '').replace(/^#+\s*/gm, '').replace(/^\s*>\s?/gm, '').replace(/^\s*[-*+]\s+/gm, '• ').replace(/(\*\*|__)(.+?)\1/g, '$2').replace(/(^|[^\w*])[*_]([^*_\n]+)[*_](?![\w*])/g, '$1$2').replace(/`([^`]+)`/g, '$1').split('\n').map(line => line.trim()).filter(line => line && line !== title(item)).join(' ');
   const tint = path => path.split('').reduce((sum, ch) => sum + ch.charCodeAt(0), 0) % 3;
   const canShareFiles = () => typeof navigator.share === 'function' && typeof navigator.canShare === 'function';
 

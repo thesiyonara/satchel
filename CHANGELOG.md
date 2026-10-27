@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.5 — 2026-10-27
+
+### Changed
+- Notes open in a pane beside the collection instead of a dialog over it, so the grid stays in view, the open card is marked, and switching notes is one click. The pane saves on close or switch, including unsaved text.
+- Card previews show the note's text without Markdown syntax (no asterisks or quote markers), in the grid, on the pinboard and on the phone page. A note's leading heading is no longer rendered twice in the editor.
+- The main window says each thing once: search moved to the top bar in place of the breadcrumb, the sync pill appears only for a pairing request or a problem, and the sidebar card and status bar carry the sync state.
+- The dialog opened from the sidebar is called Preferences everywhere, with the tabs Computers & sync and General.
+- Quick drop: a quieter headline, docking buttons grouped, and a labelled Dashboard button. Favorites get a proper empty state.
+
 ## 0.4.4 — 2026-10-27
 
 ### Changed

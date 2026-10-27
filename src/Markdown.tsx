@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { parseMarkdown, type Inline } from './markdown-parse';
+import { inlineText, parseMarkdown, type Inline } from './markdown-parse';
 
 function renderInline(inline: Inline[]): ReactNode[] {
   return inline.map((part, index) => {
@@ -14,8 +14,10 @@ function renderInline(inline: Inline[]): ReactNode[] {
 }
 
 /** Read-only rendering of a note. Built from a parsed tree, so note contents can never inject markup. */
-export function Markdown({ source }: { source: string }) {
-  const blocks = parseMarkdown(source);
+export function Markdown({ source, omitTitle }: { source: string; omitTitle?: string }) {
+  let blocks = parseMarkdown(source);
+  // The editor shows the note's title above the text, so a leading heading that repeats it is not rendered twice.
+  if (omitTitle && blocks[0]?.type === 'heading' && inlineText(blocks[0].inline).trim() === omitTitle.trim()) blocks = blocks.slice(1);
   if (!blocks.length) return <p className="md-empty">Nothing to preview yet.</p>;
   return <>{blocks.map((block, index) => {
     switch (block.type) {

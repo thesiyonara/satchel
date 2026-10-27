@@ -101,10 +101,10 @@ try {
     await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.items.some(i => i.name.startsWith('Screenshot '))))).toBeTruthy();
   } finally { await application.evaluate(async ({ clipboard }) => { if (globalThis.__savedClipboard.length) await clipboard.write(globalThis.__savedClipboard); else clipboard.clear(); }); }
   await page.getByRole('button', { name: 'Preferences', exact: false }).click();
-  await expect(page.getByRole('dialog', { name: 'Settings', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Preferences', exact: true })).toBeVisible();
   await page.getByLabel('Appearance').selectOption('dark');
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.getByRole('button', { name: 'Close settings' }).click();
+  await page.getByRole('button', { name: 'Close preferences' }).click();
   await page.getByRole('button', { name: 'Grid view', exact: true }).click();
   await page.screenshot({ path: path.join(artifacts, 'dashboard-dark.png') });
   // Note history and the read-only Markdown preview.
@@ -122,7 +122,7 @@ try {
   await page.getByRole('button', { name: 'Not paired yet', exact: false }).click();
   await expect(page.getByRole('heading', { name: 'Nearby' })).toBeVisible();
   await page.screenshot({ path: path.join(artifacts, 'computers.png') });
-  await page.getByRole('button', { name: 'Close settings' }).click();
+  await page.getByRole('button', { name: 'Close preferences' }).click();
   // Phone access: turn it on, pair over loopback with the one-time code from the pairing panel, read the collection with the token, remove the phone.
   const phoneRequest = (port, method, pathname, { token, json } = {}) => new Promise((resolve, reject) => {
     const headers = {}; if (token) headers.Authorization = `Bearer ${token}`; if (json) headers['Content-Type'] = 'application/json';
@@ -152,7 +152,7 @@ try {
   await expect.poll(() => phoneRequest(phone.port, 'GET', '/v1/items', { token: paired.json.token }).then(reply => reply.status)).toBe(401);
   await page.getByRole('checkbox', { name: /Let a paired phone/ }).click();
   await expect(page.getByRole('checkbox', { name: /Let a paired phone/ })).not.toBeChecked();
-  await page.getByRole('button', { name: 'Close settings' }).click();
+  await page.getByRole('button', { name: 'Close preferences' }).click();
   const security = await page.evaluate(async () => {
     const payload = '<img src="https://example.com/track" onerror="window.pwned=true"><script>window.pwned=true</script>';
     await window.syncit.createNote(payload);

@@ -52,6 +52,6 @@ try {
   await page.getByRole('button', { name: 'Not paired yet', exact: false }).click();
   await expect(page.getByRole('heading', { name: 'Nearby' })).toBeVisible();
   await demoScreenshot(page, 'computers.png');
-  await page.getByRole('button', { name: 'Close settings' }).click();
+  await page.getByRole('button', { name: 'Close preferences' }).click();
   console.log('Screenshots written to docs/screenshots.');
 } finally { await application.close(); await rm(profile, { recursive: true, force: true }).catch(() => {}); }

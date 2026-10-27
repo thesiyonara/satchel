@@ -15,7 +15,7 @@ try {
   await expect(page.getByRole('checkbox', { name: /Check daily/ })).not.toBeChecked();
   await expect(page.getByRole('checkbox', { name: /Include preview/ })).not.toBeChecked();
   await page.screenshot({ path: path.resolve('test-results/update-settings.png') });
-  await page.getByRole('button', { name: 'Close settings' }).click();
+  await page.getByRole('button', { name: 'Close preferences' }).click();
   await page.getByRole('button', { name: 'New note', exact: true }).click();
   await page.getByLabel('Note text').fill('Must be saved before updating');
   // Exercise the real renderer save handshake, without starting an installer.

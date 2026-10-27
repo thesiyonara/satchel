@@ -8,7 +8,11 @@ import { Markdown } from './Markdown';
 function formatTime(time: number) { return new Date(time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
 function formatSize(bytes: number) { return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(0)} KB`; }
 
-export function NoteEditor({ document: initial, close, notify, runId, root }: { document: NoteDocument; close: () => void; notify: (message: string) => void; runId: string; root: string }) {
+/**
+ * The note editor. In the dashboard it is a pane beside the collection (mode "pane"), so the grid stays in view and
+ * switching notes is one click; in the small Quick drop window it covers the window (mode "overlay").
+ */
+export function NoteEditor({ document: initial, close, notify, runId, root, mode = 'overlay' }: { document: NoteDocument; close: () => void; notify: (message: string) => void; runId: string; root: string; mode?: 'pane' | 'overlay' }) {
   const journal = useRef(draftKey());
   const [text, setText] = useState(initial.text);
   const [document, setDocument] = useState(initial);
@@ -29,6 +33,7 @@ export function NoteEditor({ document: initial, close, notify, runId, root }: { 
   }
   const isMarkdown = /\.md$/i.test(document.path);
   const folder = document.path.includes('/') ? document.path.slice(0, document.path.lastIndexOf('/')) : '';
+  const title = document.path.split('/').at(-1)?.replace(/\.(md|txt)$/i, '') || '';
   async function loadHistory() {
     try { const list = await window.syncit.noteHistory(current.current.path); if (active.current) setVersions(list); }
     catch (error) { if (active.current) { setVersions([]); notify(String(error)); } }
@@ -38,7 +43,7 @@ export function NoteEditor({ document: initial, close, notify, runId, root }: { 
     if (saving.current) { await saving.current; if (dirty.current) return save(); return; }
     if (!dirty.current) return;
     const value = buffer.current;
-    setState('saving');
+    if (active.current) setState('saving');
     let failed = false;
     saving.current = (async () => {
       try {
@@ -47,7 +52,7 @@ export function NoteEditor({ document: initial, close, notify, runId, root }: { 
         if (!dirty.current) clearDraft(journal.current);
         if (active.current) { setDocument(result); setState(dirty.current ? 'changed' : 'saved'); setRemoteChanged(false); }
         if (result.conflict) notify('Both versions kept. Your edits were saved as a conflict copy.');
-        if (history) void loadHistory();
+        if (history && active.current) void loadHistory();
       } catch (error) { failed = true; if (active.current) { setState('error'); setError(String(error)); } }
       finally { saving.current = null; }
     })();
@@ -66,7 +71,8 @@ export function NoteEditor({ document: initial, close, notify, runId, root }: { 
         if (history) void loadHistory();
       }).catch(() => { if (active.current) setRemoteChanged(true); });
     });
-    return () => { active.current = false; clearTimeout(timer.current); clearTimeout(draftTimer.current); if (dirty.current) journalDraft(); unsubscribe(); unregisterEditor(); };
+    // Leaving the editor with unsaved text (another note opened, the view closed) still saves it; the draft journal covers a crash in between.
+    return () => { active.current = false; clearTimeout(timer.current); clearTimeout(draftTimer.current); if (dirty.current) { journalDraft(); void save().catch(() => {}); } unsubscribe(); unregisterEditor(); };
   }, []);
   useEffect(() => {
     const handler = (event: BeforeUnloadEvent) => { if (dirty.current || saving.current) { event.preventDefault(); void save().catch(() => {}); } };
@@ -89,25 +95,25 @@ export function NoteEditor({ document: initial, close, notify, runId, root }: { 
     notify('Version restored. The text it replaced is kept in History.');
   }
   async function finish() { try { await save(); close(); } catch { /* Keep the buffer visible until it can be saved. */ } }
-  return <div className="modal-shade" onMouseDown={event => { if (event.target === event.currentTarget) void finish(); }}>
-    <section className={`note-editor ${history ? 'with-history' : ''}`} role="dialog" aria-modal="true" aria-label="Edit note" onKeyDown={event => { if (event.key === 'Escape') void finish(); if ((event.metaKey || event.ctrlKey) && event.key === 's') { event.preventDefault(); void save().catch(() => {}); } }}>
-      <header><span className="note-label"><FileText size={17} /> NOTE{folder && <span className="note-folder"> · {folder}</span>}</span><div className="row">
-        {isMarkdown && <button className={`icon-button ${preview ? 'active' : ''}`} aria-label={preview ? 'Edit note' : 'Preview Markdown'} aria-pressed={preview} title={preview ? 'Edit' : 'Preview Markdown'} onClick={() => setPreview(value => !value)}>{preview ? <Pencil size={17} /> : <Eye size={17} />}</button>}
-        <button className={`icon-button ${history ? 'active' : ''}`} aria-label="Note history" aria-pressed={history} title="History" onClick={() => setHistory(value => !value)}><History size={17} /></button>
-        <button className="icon-button" title="Open in text editor" aria-label="Open in text editor" onClick={() => { void save().then(() => window.syncit.open(current.current.path)).catch(() => {}); }}><ExternalLink size={17} /></button>
-        <button className="icon-button" aria-label="Close note" onClick={() => void finish()}><X size={20} /></button></div></header>
-      <h2>{document.path.split('/').at(-1)?.replace(/\.(md|txt)$/i, '')}</h2>
-      {remoteChanged && <div className="inline-warning"><AlertTriangle size={16} /> This note changed on disk. Saving keeps both versions.</div>}
-      <div className="note-body">
-        {preview ? <div className="markdown" aria-label="Markdown preview"><Markdown source={text} /></div> : <textarea autoFocus value={text} onChange={event => edit(event.target.value)} placeholder="Write here. Changes save automatically." aria-label="Note text" spellCheck />}
-        {history && <aside className="note-history" aria-label="Note history">
-          <div className="history-head"><strong>History</strong><span>{versions ? `${versions.length} ${versions.length === 1 ? 'version' : 'versions'}` : 'Loading…'}</span></div>
-          {versions && versions.length === 0 && <p>No previous versions yet. A copy is kept on this computer each time this note is saved with changes, and received changes are archived for 30 days.</p>}
-          {versions && versions.length > 0 && <ul>{versions.map(version => <li key={version.id}><button className={selected?.id === version.id ? 'selected' : ''} onClick={() => void showVersion(version)}><span>{formatTime(version.time)}</span><small>{version.source === 'local' ? 'This computer' : 'Received change'} · {formatSize(version.size)}</small></button></li>)}</ul>}
-          {selected && <div className="history-preview"><pre>{versionText === null ? 'Loading…' : versionText || '(empty note)'}</pre><div className="row"><button className="primary" disabled={versionText === null} onClick={restore}>Restore this version</button><button onClick={() => setSelected(null)}>Close</button></div></div>}
-        </aside>}
-      </div>
-      <footer><span className={state === 'error' ? 'error-text' : ''}>{state === 'saved' ? <><Check size={14} /> Saved on this computer</> : state === 'saving' ? <><LoaderCircle className="spin" size={14} /> Saving…</> : state === 'error' ? error : 'Unsaved changes'}</span><span>{text.length.toLocaleString()} characters</span>{state === 'error' && <button onClick={() => void save().catch(() => {})}>Retry save</button>}</footer>
-    </section>
-  </div>;
+  const editor = <section className={`note-editor ${mode === 'pane' ? 'note-pane' : ''} ${history ? 'with-history' : ''}`} role={mode === 'pane' ? 'complementary' : 'dialog'} aria-modal={mode === 'pane' ? undefined : true} aria-label="Note" onKeyDown={event => { if (event.key === 'Escape') void finish(); if ((event.metaKey || event.ctrlKey) && event.key === 's') { event.preventDefault(); void save().catch(() => {}); } }}>
+    <header><span className="note-label"><FileText size={17} /> NOTE{folder && <span className="note-folder"> · {folder}</span>}</span><div className="row">
+      {isMarkdown && <button className={`icon-button ${preview ? 'active' : ''}`} aria-label={preview ? 'Edit note' : 'Preview Markdown'} aria-pressed={preview} title={preview ? 'Edit' : 'Preview Markdown'} onClick={() => setPreview(value => !value)}>{preview ? <Pencil size={17} /> : <Eye size={17} />}</button>}
+      <button className={`icon-button ${history ? 'active' : ''}`} aria-label="Note history" aria-pressed={history} title="History" onClick={() => setHistory(value => !value)}><History size={17} /></button>
+      <button className="icon-button" title="Open in text editor" aria-label="Open in text editor" onClick={() => { void save().then(() => window.syncit.open(current.current.path)).catch(() => {}); }}><ExternalLink size={17} /></button>
+      <button className="icon-button" aria-label="Close note" title="Close · Esc" onClick={() => void finish()}><X size={20} /></button></div></header>
+    <h2>{title}</h2>
+    {remoteChanged && <div className="inline-warning"><AlertTriangle size={16} /> This note changed on disk. Saving keeps both versions.</div>}
+    <div className="note-body">
+      {preview ? <div className="markdown" aria-label="Markdown preview"><Markdown source={text} omitTitle={title} /></div> : <textarea autoFocus value={text} onChange={event => edit(event.target.value)} placeholder="Write here. Changes save automatically." aria-label="Note text" spellCheck />}
+      {history && <aside className="note-history" aria-label="Note history">
+        <div className="history-head"><strong>History</strong><span>{versions ? `${versions.length} ${versions.length === 1 ? 'version' : 'versions'}` : 'Loading…'}</span></div>
+        {versions && versions.length === 0 && <p>No previous versions yet. A copy is kept on this computer each time this note is saved with changes, and received changes are archived for 30 days.</p>}
+        {versions && versions.length > 0 && <ul>{versions.map(version => <li key={version.id}><button className={selected?.id === version.id ? 'selected' : ''} onClick={() => void showVersion(version)}><span>{formatTime(version.time)}</span><small>{version.source === 'local' ? 'This computer' : 'Received change'} · {formatSize(version.size)}</small></button></li>)}</ul>}
+        {selected && <div className="history-preview"><pre>{versionText === null ? 'Loading…' : versionText || '(empty note)'}</pre><div className="row"><button className="primary" disabled={versionText === null} onClick={restore}>Restore this version</button><button onClick={() => setSelected(null)}>Close</button></div></div>}
+      </aside>}
+    </div>
+    <footer><span className={state === 'error' ? 'error-text' : ''}>{state === 'saved' ? <><Check size={14} /> Saved on this computer</> : state === 'saving' ? <><LoaderCircle className="spin" size={14} /> Saving…</> : state === 'error' ? error : 'Unsaved changes'}</span><span>{text.length.toLocaleString()} characters</span>{state === 'error' && <button onClick={() => void save().catch(() => {})}>Retry save</button>}</footer>
+  </section>;
+  if (mode === 'pane') return editor;
+  return <div className="modal-shade" onMouseDown={event => { if (event.target === event.currentTarget) void finish(); }}>{editor}</div>;
 }

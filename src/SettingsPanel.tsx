@@ -14,9 +14,9 @@ export function SettingsPanel({ settings, sync, close, update, notify, initialTa
   useEffect(() => { void window.syncit.initial().then(value => setLoginEnabled(value.loginEnabled)); }, [settings.startAtLogin]);
   const run: Run = async (action, message) => { setBusy(true); try { await action(); if (message) notify(message); } catch (error) { notify(String(error)); } finally { setBusy(false); } };
   const save = (patch: Partial<Settings>) => run(async () => update(await window.syncit.settings(patch)));
-  return <div className="modal-shade"><section className="settings-panel" role="dialog" aria-modal="true" aria-label="Settings">
-    <header><h2>Settings</h2><button className="icon-button" aria-label="Close settings" onClick={close}><X size={21} /></button></header>
-    <div className="settings-tabs"><button className={tab === 'connect' ? 'active' : ''} onClick={() => setTab('connect')}>Computers & sync</button><button className={tab === 'preferences' ? 'active' : ''} onClick={() => setTab('preferences')}>Preferences</button></div>
+  return <div className="modal-shade"><section className="settings-panel" role="dialog" aria-modal="true" aria-label="Preferences">
+    <header><h2>Preferences</h2><button className="icon-button" aria-label="Close preferences" onClick={close}><X size={21} /></button></header>
+    <div className="settings-tabs"><button className={tab === 'connect' ? 'active' : ''} onClick={() => setTab('connect')}>Computers & sync</button><button className={tab === 'preferences' ? 'active' : ''} onClick={() => setTab('preferences')}>General</button></div>
     <div className="settings-content">
       {tab === 'connect' ? <>
         {sync.errors.length > 0 && <div className="inline-error">{sync.errors.map((error, i) => <p key={i}>{error}</p>)}<button onClick={() => void run(() => window.syncit.retrySync())}><RefreshCw size={14} /> Retry connection</button></div>}
