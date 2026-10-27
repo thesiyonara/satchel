@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-10-27
 
 ### Added
 - A drawer at the screen edge: a thin handle on the right, or the left, or off, in Preferences. Drag a file toward it and the drawer slides out as a pile of what is in the satchel; drop, and it closes by itself. Hovering opens it too, and the command palette has "Open the drawer".
