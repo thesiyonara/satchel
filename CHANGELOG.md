@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.1 — 2026-10-27
+
+### Fixed
+- The drawer opened from the command palette or the CLI waits up to twelve seconds for the pointer instead of closing at once; opened from the handle it still closes 1.5 seconds after the pointer leaves.
+
 ## 0.5.0 — 2026-10-27
 
 ### Added

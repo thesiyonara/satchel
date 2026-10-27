@@ -258,13 +258,17 @@ function showDrawer() {
   panelWindow.showInactive();
   handleWindow?.hide();
   clearInterval(drawerTimer);
-  let outside = 0;
+  // The drawer closes 1.5 s after the pointer leaves it. Opened from the palette or the CLI, the pointer may not be
+  // in it yet: it then stays up to 12 s for the pointer to arrive before closing.
+  let outside = 0, entered = false, ticks = 0;
   drawerTimer = setInterval(() => {
     if (!panelWindow || panelWindow.isDestroyed() || !panelWindow.isVisible()) { clearInterval(drawerTimer); return; }
     const point = screen.getCursorScreenPoint(); const bounds = panelWindow.getBounds();
     const inside = point.x >= bounds.x - 12 && point.x <= bounds.x + bounds.width + 12 && point.y >= bounds.y - 12 && point.y <= bounds.y + bounds.height + 12;
-    outside = inside ? 0 : outside + 1;
-    if (outside >= 5 && !panelWindow.isFocused()) { clearInterval(drawerTimer); panelWindow.hide(); }
+    if (inside) entered = true;
+    outside = inside ? 0 : outside + 1; ticks++;
+    if (panelWindow.isFocused()) return;
+    if ((entered && outside >= 5) || (!entered && ticks >= 40)) { clearInterval(drawerTimer); panelWindow.hide(); }
   }, 300);
 }
 function showPanel() { if (!panelWindow || panelWindow.isDestroyed()) panelWindow = createWindow(true); panelWindow.show(); panelWindow.focus(); }
