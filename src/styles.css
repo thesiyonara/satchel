@@ -442,7 +442,11 @@ body, .rail, .main-content, .note-editor, .settings-panel, .floating-workspace, 
 .pile-drop { border: 1.5px dashed var(--line-2); border-radius: 12px; padding: 18px 14px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; color: var(--muted); }
 .pile-drop h2 { margin: 2px 0 0; font-size: 15px; font-weight: 600; color: var(--text); letter-spacing: -.2px; }
 .pile-drop p { margin: 0; font-size: 12.5px; }
-.pile-items { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 2px; }
+.pile-actions { display: flex; gap: 8px; margin-top: 10px; }
+.pile-actions button { padding: 6px 11px; font-size: 12.5px; }
+.pile-items { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 2px; padding-bottom: 14px; mask-image: linear-gradient(#000 calc(100% - 22px), transparent); }
+.pile-items button, .floating-items button { cursor: grab; }
+.selection-chip { line-height: 1.2; }
 .pile-items button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; padding: 5px 6px; border-radius: 8px; text-align: left; font-weight: 400; color: var(--text); }
 .pile-items button:hover { background: var(--subtle); }
 .pile-items img { width: 34px; height: 34px; border-radius: 7px; object-fit: cover; background: var(--subtle); flex-shrink: 0; opacity: 0; transition: opacity .3s var(--ease); }

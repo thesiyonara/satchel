@@ -42,6 +42,7 @@ let panelWindow: BrowserWindow | undefined;
 let handleWindow: BrowserWindow | undefined;
 let drawerTimer: ReturnType<typeof setInterval> | undefined;
 let drawerOpen = false;
+let currentSender: Electron.WebContents | undefined;
 let tray: Tray | undefined;
 let quitting = false;
 let cleanedUp = false;
@@ -327,6 +328,7 @@ function setupIPC() {
     const url = event.senderFrame?.url || '';
     const allowed = windows().some(window => window.webContents === event.sender) && event.senderFrame === event.sender.mainFrame && (devURL ? new URL(url).origin === devURL : url.startsWith('syncit-app://app/'));
     if (!allowed) throw new Error('Unauthorized request');
+    currentSender = event.sender;
     try { return await guarded(...args); } catch (error) { throw new Error(errorMessage(error)); }
   }); };
   operations.set('commands', () => [...operations.keys()].sort());
@@ -397,7 +399,7 @@ function setupIPC() {
     let icon = nativeImage.createFromPath(path.join(assets, 'icon.png'));
     try { const thumbnail = nativeImage.createFromBuffer(await thumbnailFor(list[0], 256, 256)); if (!thumbnail.isEmpty()) icon = thumbnail; } catch { /* notes and plain files use the app icon */ }
     icon = icon.resize({ width: 96, height: 96, quality: 'good' });
-    if (!testing) mainWindow?.webContents.startDrag({ file: files[0], files, icon });
+    if (!testing) (currentSender && !currentSender.isDestroyed() ? currentSender : mainWindow?.webContents)?.startDrag({ file: files[0], files, icon });
     return { files };
   });
   bind('openFolder', async () => { const error = await shell.openPath(store.value.root); if (error) throw new Error(error); });

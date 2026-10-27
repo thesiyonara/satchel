@@ -95,6 +95,7 @@ try {
   await page.evaluate(() => window.syncit.openDrawer());
   await expect(panel.getByRole('heading', { name: 'Drop here' })).toBeVisible();
   await panel.screenshot({ path: path.join(artifacts, 'drawer.png') });
+  assert.equal((await panel.evaluate(relative => window.syncit.dragOut(relative), imagePath)).files.length, 1, 'the drawer drags items out');
   await panel.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
   await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
   // Preserve the user's clipboard while exercising the real desktop paste route. A locked or remote

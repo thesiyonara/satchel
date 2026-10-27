@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.3 — 2026-10-27
+
+### Changed
+- Items in the drawer, and in Quick drop's Recent list, drag out into other apps, the same way cards drag out of the dashboard. Notes in the drawer show their title without the file extension.
+- The drawer takes pasted text and screenshots too: a Paste button and a Write a note button sit under the drop target, Ctrl/⌘ V works once the drawer has focus, and the pile lists twelve recent items instead of eight.
+
 ## 0.5.2 — 2026-10-27
 
 ### Fixed
