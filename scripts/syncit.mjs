@@ -21,7 +21,7 @@ Usage: node syncit.mjs [--profile DIRECTORY] COMMAND [arguments]
   settings JSON                 Change validated preferences
   pause | resume                Stop or resume transfers
   update status|check|download|install  Manage private GitHub updates
-  phone status|pair|cancel|revoke ID    Phone access: paired phones, a pairing code/QR payload, revocation
+  phone status|pair|cancel|revoke ID    Phone access: paired phones, a pairing URL and code, revocation
   screenshot dashboard|panel    Save a UI screenshot in the app profile
   commands                      List supported API operations
   call OPERATION JSON_ARRAY      Advanced API: notes, board, pairing, files, quit

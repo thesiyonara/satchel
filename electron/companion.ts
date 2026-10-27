@@ -16,6 +16,8 @@ import { atomicWrite, contained, errorMessage, readJSON } from './files';
 export interface PhoneDevice extends PhoneDeviceInfo { tokenHash: string }
 export interface CompanionOptions {
   directory: string; port: number; allowLoopback?: boolean;
+  /** Directory holding the web client (index.html, app.js, app.css, manifest.webmanifest, icon.png). */
+  webRoot: string;
   library: () => Library; deviceName: () => string; collectionName: () => string; syncState: () => string;
   thumbnail: (relative: string) => Promise<Buffer>;
   changed?: () => void;
@@ -25,6 +27,13 @@ const MAX_PAIRING_ATTEMPTS = 5;
 const MAX_UPLOAD = 100 * 1024 * 1024;
 const MAX_JSON = 2 * 1024 * 1024;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+// The web client is a fixed set of files; nothing else under the web root is ever served.
+const STATIC_FILES: Record<string, { file: string; type: string }> = {
+  '/': { file: 'index.html', type: 'text/html; charset=utf-8' }, '/index.html': { file: 'index.html', type: 'text/html; charset=utf-8' },
+  '/app.js': { file: 'app.js', type: 'text/javascript; charset=utf-8' }, '/app.css': { file: 'app.css', type: 'text/css; charset=utf-8' },
+  '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json' }, '/icon.png': { file: 'icon.png', type: 'image/png' }
+};
+export const webCSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; manifest-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 class RequestError extends Error { constructor(public status: number, message: string) { super(message); } }
 
@@ -89,13 +98,24 @@ export class Companion {
     server.closeAllConnections();
     await new Promise<void>(resolve => server.close(() => resolve()));
   }
-  /** Start a five-minute, single-use pairing window and return what the phone needs: addresses, port, certificate fingerprint and the code. */
-  offer(): { offer: PhoneOffer; encoded: string } {
+  /** Start a five-minute, single-use pairing window and return what the phone needs: addresses, port, certificate fingerprint, the code, and the URL that pairs the web client. */
+  offer(): { offer: PhoneOffer; encoded: string; url: string } {
     if (!this.server) throw new Error('Turn on phone access first');
     const code = generateCode();
     this.pairing = { code, expires: Date.now() + PAIRING_TTL_MS, attempts: 0 };
-    const offer: PhoneOffer = { version: 1, name: this.options.deviceName(), addresses: localNetworks(this.options.allowLoopback).addresses, port: this.port, fingerprint: this.fingerprint, code, expires: this.pairing.expires };
-    return { offer, encoded: encodeOffer(offer) };
+    const addresses = localNetworks(this.options.allowLoopback).addresses;
+    const host = addresses[0] || (this.options.allowLoopback ? '127.0.0.1' : '');
+    if (!host) throw new Error('This computer has no local network address to pair on');
+    const url = `https://${host}:${this.port}/#pair=${code}`;
+    const offer: PhoneOffer = { version: 1, name: this.options.deviceName(), addresses, port: this.port, fingerprint: this.fingerprint, code, expires: this.pairing.expires, url };
+    return { offer, encoded: encodeOffer(offer), url };
+  }
+  private async serveStatic(pathname: string, response: ServerResponse) {
+    const entry = STATIC_FILES[pathname];
+    if (!entry) throw new RequestError(404, 'Unknown request');
+    const bytes = await fs.readFile(path.join(this.options.webRoot, entry.file));
+    response.writeHead(200, { 'Content-Type': entry.type, 'Content-Length': bytes.length, 'Content-Security-Policy': webCSP, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-cache' });
+    response.end(bytes);
   }
   cancelPairing() { this.pairing = undefined; }
   async revoke(id: unknown) {
@@ -138,6 +158,7 @@ export class Companion {
     if (!localIPAllowed(remote, this.options.allowLoopback)) throw new RequestError(403, 'Phone access only answers on the local network');
     await this.load();
     const url = new URL(request.url || '/', 'https://phone.local');
+    if (request.method === 'GET' && !url.pathname.startsWith('/v1/')) return this.serveStatic(url.pathname, response);
     if (request.method === 'POST' && url.pathname === '/v1/pair') return this.pair(request, response);
     const device = this.authenticate(request);
     if (!device) throw new RequestError(401, 'Pair this phone with the computer first');

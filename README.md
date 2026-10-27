@@ -26,7 +26,7 @@ Sync it is a desktop app for Windows and macOS. It keeps a normal folder, the **
 - Untrusted devices: give a NAS an encryption password and it holds an encrypted copy it cannot read.
 - Conflicts keep both versions. Deleted files go to the Recycle Bin or Trash, and received overwrites keep 30 days of versions.
 - Tray menu, command palette, and an authenticated local CLI for scripting.
-- Phone access (preview): an opt-in LAN service lets a paired phone browse the collection; an iPhone app scaffold is in `mobile/ios`.
+- Phone access: turn it on in Preferences and scan the QR code with your phone's camera. The browser opens a small app served by your computer over your network: browse, read and edit notes, download files on demand, upload photos. Add it to the Home Screen; nothing is stored on the phone.
 - In-app updates, downloaded from this repository's releases and verified against published checksums.
 
 | Pinboard | Note with Markdown preview | Quick drop |

@@ -53,6 +53,10 @@ Actual in-place replacement through the interactive Windows installer still need
 
 The final packaged app passed the CLI smoke test and a live authenticated update check. The UI update handshake also rejected a save while its isolated collection was unavailable, retained the editor buffer, and saved successfully after restoring that folder.
 
+## Phone web client 2026-10-27
+
+`web/` is served by the Phone access service and `npm run test:web` drives it end to end: the real app serves the page over TLS, an isolated Chromium session (Electron's own, separate partition, trusting only the test host) opens the pairing URL, pairs, lists the collection, edits a note under the revision rule, creates a note, uploads a file, searches, fetches an original with the token, and unpairs. The unit suite checks that only the five client files are served without a token and that the pairing URL carries the one-time code. Not yet done on a real iPhone: the first-visit certificate warning and Add to Home Screen; those need a phone on the same Wi-Fi.
+
 ## Footprint check 2026-10-27
 
 Measured with Electron's `app.getAppMetrics()` on a throwaway profile holding 40 notes: idle CPU 0.1% in the main process and 0 elsewhere, main-process heap 11 MB, total working set about 430 MB across Chromium's browser, GPU, utility and renderer processes (Syncthing runs as a separate child and is not included). Every timer, interval and listener in `electron/` and `src/` has a matching cleanup. Changes made for weight: status is pushed to windows only when it differs (0 pushes in 20 idle seconds, previously about 13), engine polling drops from 1.5 s to 10 s while all windows are hidden and resumes on show, Syncthing's full rescan is hourly, the library's own full rescan is every 10 minutes, and the editor journals drafts at most every 250 ms. Unit, update-UI and integration suites pass after the change.

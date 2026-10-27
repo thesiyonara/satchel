@@ -114,9 +114,10 @@ try {
   await expect.poll(() => page.evaluate(() => window.syncit.phoneInfo().then(info => info.running && info.fingerprint)), { timeout: 20000 }).toBeTruthy();
   await page.getByRole('button', { name: 'Pair a phone' }).click();
   await expect(page.getByRole('img', { name: 'Pairing QR code' })).toBeVisible();
+  await expect(page.getByText('Point the phone’s camera at this code')).toBeVisible();
   await page.screenshot({ path: path.join(artifacts, 'phone-access.png') });
   const phone = await page.evaluate(() => window.syncit.phoneInfo());
-  const code = (await page.locator('.phone-pairing code').first().textContent()).trim();
+  const code = (await page.locator('.phone-pairing .pairing-code').textContent()).trim();
   assert.equal((await phoneRequest(phone.port, 'GET', '/v1/items')).status, 401, 'The phone API needs a token');
   const paired = await phoneRequest(phone.port, 'POST', '/v1/pair', { json: { code, name: 'Test phone' } });
   assert.equal(paired.status, 201); assert.equal(paired.fingerprint, phone.fingerprint, 'The live certificate matches the fingerprint shown for pinning');

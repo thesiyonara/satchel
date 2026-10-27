@@ -1,0 +1,10 @@
+{
+  "name": "Sync it",
+  "short_name": "Sync it",
+  "description": "Your collection on this computer, from your phone.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0e1116",
+  "theme_color": "#0e1116",
+  "icons": [{ "src": "icon.png", "sizes": "512x512", "type": "image/png" }]
+}

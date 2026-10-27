@@ -71,7 +71,7 @@ async function start() {
   const executable = app.isPackaged ? path.join(process.resourcesPath, 'engine', process.platform === 'win32' ? 'syncthing.exe' : 'syncthing') : path.join(app.getAppPath(), 'vendor', `${process.platform === 'win32' ? 'win' : 'mac'}-${process.arch}`, process.platform === 'win32' ? 'syncthing.exe' : 'syncthing');
   engine = new SyncEngine({ executable, home: path.join(app.getPath('userData'), 'engine'), settings: () => store.value, updateSettings: patch => store.update(patch), port: testing ? Number(process.env.SYNCIT_TEST_PORT || 22127) : undefined, discovery: testing ? false : undefined,
     changed: status => { broadcast('syncit:sync', status); tray?.setToolTip(`Sync it · ${status.state === 'synced' ? 'Up to date' : status.state}`); refreshTray(); } });
-  companion = new Companion({ directory: app.getPath('userData'), port: store.value.phonePort ?? 22028, allowLoopback: testing, library: () => library, deviceName: () => store.value.deviceName, collectionName: () => path.basename(store.value.root), syncState: () => engine.status.state, thumbnail: thumbnailFor });
+  companion = new Companion({ directory: app.getPath('userData'), port: store.value.phonePort ?? 22028, allowLoopback: testing, webRoot: path.join(app.getAppPath(), 'web'), library: () => library, deviceName: () => store.value.deviceName, collectionName: () => path.basename(store.value.root), syncState: () => engine.status.state, thumbnail: thumbnailFor });
   if (store.value.phoneAccess) void companion.start().catch(() => {});
   setupProtocols(); setupIPC();
   session.defaultSession.webRequest.onBeforeRequest((details, callback) => callback({ cancel: !rendererRequestAllowed(details.url, devURL) }));
@@ -332,7 +332,8 @@ function setupIPC() {
     }
     await store.update(valid);
     nativeTheme.themeSource = store.value.theme; applyPanelPreferences(valid.panelMode !== undefined);
-    if (valid.deviceName || valid.localDiscovery !== undefined || valid.syncPaused !== undefined) { await engine.configure(); await engine.refresh(); }
+    // Before the engine is up, start() applies the stored settings itself; reconfiguring a running engine is the only live step.
+    if ((valid.deviceName || valid.localDiscovery !== undefined || valid.syncPaused !== undefined) && engine.status.deviceId) { await engine.configure(); await engine.refresh(); }
     if (valid.phoneAccess !== undefined || valid.phonePort !== undefined) { await companion.stop(); companion.port = store.value.phonePort ?? 22028; if (store.value.phoneAccess) await companion.start(); }
     refreshTray(); broadcast('syncit:settings', store.value); return store.value;
   });

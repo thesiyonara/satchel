@@ -24,6 +24,7 @@
     "test:ui": "node scripts/ui-test.mjs",
     "test:features": "node scripts/features-test.mjs",
     "test:updates": "node scripts/update-test.mjs",
+    "test:web": "node scripts/web-test.mjs",
     "screenshots": "node scripts/screenshots.mjs",
     "fetch:engine": "node scripts/fetch-engine.mjs",
     "dist:win": "npm run build && node scripts/fetch-engine.mjs win32 x64 && electron-builder --win --x64",
@@ -69,6 +70,7 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
+      "web/**/*",
       "!**/*.map",
       "!**/*.log",
       "package.json"

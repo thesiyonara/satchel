@@ -30,7 +30,7 @@ test('phone access pairs once with a short-lived code, pins its certificate, and
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'syncit-phone-'));
   const root = path.join(dir, 'collection'); await fs.mkdir(root);
   const library = new Library(root); await library.initialize();
-  const companion = new Companion({ directory: dir, port: 0, allowLoopback: true, library: () => library, deviceName: () => 'Desk', collectionName: () => 'collection', syncState: () => 'synced', thumbnail: async relative => Buffer.from(`png:${relative}`) });
+  const companion = new Companion({ directory: dir, port: 0, allowLoopback: true, webRoot: path.resolve('web'), library: () => library, deviceName: () => 'Desk', collectionName: () => 'collection', syncState: () => 'synced', thumbnail: async relative => Buffer.from(`png:${relative}`) });
   t.after(async () => { await companion.stop(); await library.close(); await fs.rm(dir, { recursive: true, force: true }); });
   await companion.start();
   const port = companion.port; assert.ok(port > 0);
@@ -39,8 +39,15 @@ test('phone access pairs once with a short-lived code, pins its certificate, and
   // Nothing works before pairing, and pairing requires an open window.
   assert.equal((await call(port, 'GET', '/v1/items')).status, 401);
   assert.equal((await call(port, 'POST', '/v1/pair', { json: { code: 'ABCDEFGH', name: 'Phone' } })).status, 403);
-  const { offer, encoded } = companion.offer();
+  // The web client is served without a token; everything under /v1 still needs one.
+  const page = await call(port, 'GET', '/');
+  assert.equal(page.status, 200); assert.ok(page.body.toString('utf8').includes('<script src="app.js">'));
+  assert.equal((await call(port, 'GET', '/app.js')).status, 200); assert.equal((await call(port, 'GET', '/manifest.webmanifest')).status, 200);
+  assert.equal((await call(port, 'GET', '/icon.png')).status, 200);
+  for (const blocked of ['/../package.json', '/web/app.js', '/phone-key.pem', '/v1/status']) assert.notEqual((await call(port, 'GET', blocked)).status, 200, blocked);
+  const { offer, encoded, url } = companion.offer();
   assert.equal(offer.fingerprint, companion.fingerprint); assert.equal(offer.port, port); assert.equal(encoded, encodeOffer(offer));
+  assert.match(url, new RegExp(`^https://[0-9.]+:${port}/#pair=${offer.code}$`)); assert.equal(offer.url, url);
   assert.match(offer.code, /^[A-Z2-9]{8}$/); assert.ok(offer.addresses.includes('127.0.0.1') || offer.addresses.length >= 0);
   for (let attempt = 0; attempt < 5; attempt++) assert.equal((await call(port, 'POST', '/v1/pair', { json: { code: 'WRONGCOD', name: 'Phone' } })).status, 403);
   assert.equal((await call(port, 'POST', '/v1/pair', { json: { code: offer.code, name: 'Phone' } })).status, 429, 'five wrong codes close the window');

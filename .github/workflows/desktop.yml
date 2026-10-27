@@ -30,6 +30,8 @@ jobs:
       - if: runner.os == 'Windows'
         run: npm run test:updates
       - if: runner.os == 'Windows'
+        run: npm run test:web
+      - if: runner.os == 'Windows'
         run: npm run dist:win
       - if: runner.os == 'Windows'
         run: node scripts/package-smoke.mjs

@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Phone access serves a web app: scanning the pairing QR code opens the collection in the phone's browser, pairs it, and offers listing, search, note editing, new notes, photo upload, file download and unpair. Add to Home Screen for an icon. `npm run test:web` covers it end to end.
+
+### Fixed
+- Changing the device name or sync toggles before the sync engine has started no longer fails; the engine applies the stored settings when it starts.
+
 ## 0.4.0
 
 Initial clean public baseline.

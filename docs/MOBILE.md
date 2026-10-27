@@ -34,11 +34,19 @@ Errors are `{ error }` with 400, 401, 403, 404, 413 or 429.
 
 CLI: `node scripts/syncit.mjs phone status|pair|cancel|revoke ID`. `pair` returns the offer and its encoded QR payload, which is useful for testing a client without the dashboard.
 
-## iPhone app
+## The phone client is a web page
 
-`mobile/ios` contains a SwiftUI scaffold: pairing by QR scan or typed code, a collection list with thumbnails, a note viewer and editor with the same revision-based save, file download to the share sheet, and photo upload. `SyncItKit` holds the models, the API client with certificate pinning (`URLSessionDelegate` compares the server certificate's SHA-256 to the pinned fingerprint), the QR payload parser and Keychain storage. It targets iOS 17 and needs an Xcode project created around it; see `mobile/ios/README.md`. None of it has been compiled or run yet.
+The service also serves a small web app at `https://<computer>:22028/` (`web/index.html`, `app.js`, `app.css`, `manifest.webmanifest`, `icon.png`, bundled with the desktop app). The pairing QR code is simply `https://<address>:22028/#pair=<code>`: pointing the phone's camera at it opens the page in the browser, which pairs with the one-time code, drops the code from the address, and keeps the bearer token in that site's storage. **Add to Home Screen** gives it an icon and a standalone window.
 
-Multiple computers: the phone keeps one credential per paired computer and tries them in order, so it works through whichever computer is on. Pair the phone with each computer separately; the collection is the same.
+What it does: list the collection with search over names, folders and note text; open and edit notes with the same revision rule as the desktop (a stale save becomes a conflict copy); create notes; show image previews and download any file on demand, which hands it to the browser's download or share sheet; upload a photo or file from the phone; unpair. Nothing is cached beyond the current page; closing it leaves no copy of the collection on the phone.
+
+Security: the page is served with a strict Content Security Policy (`default-src 'none'`, scripts and styles only from the same origin, no inline code), builds its interface with DOM APIs so collection contents can never inject markup, sends the token only in an `Authorization` header (no cookies, so no cross-site request forgery), and the service serves only its five fixed files; everything under `/v1/` still needs the token. The certificate is self-signed, so the browser warns once per computer; the fingerprint shown under Phone access is there to compare against the browser's certificate details. One computer per page: pair the phone with each computer you want to reach and keep one icon per computer.
+
+Tested end to end by `npm run test:web`: the real desktop app serves the page over TLS to an isolated browser session that pairs by URL, lists, edits a note, creates one, uploads a file, searches, downloads, and unpairs.
+
+## Native iPhone app (optional, not built)
+
+`mobile/ios` keeps a SwiftUI scaffold for a native client: pairing by QR scan or typed code, certificate pinning, a collection list with thumbnails, note editing, file sharing and photo upload, with one credential per paired computer in the Keychain. It needs an Xcode project created around it (see `mobile/ios/README.md`) and has not been compiled. The web client covers the same ground without the App Store; the native scaffold stays for anyone who wants pinning, offline caching or notifications later.
 
 ## Decisions and what is deferred
 

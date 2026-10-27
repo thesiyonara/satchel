@@ -18,8 +18,8 @@ export interface Settings {
 }
 /** A phone paired for on-demand access. The phone holds a bearer token; only its hash is stored. */
 export interface PhoneDeviceInfo { id: string; name: string; pairedAt: number; lastSeen?: number }
-/** What a phone needs to pair: where to connect, which certificate to pin, and a one-time code. Encoded as "syncit-phone:<base64url JSON>" in a QR code. */
-export interface PhoneOffer { version: 1; name: string; addresses: string[]; port: number; fingerprint: string; code: string; expires: number }
+/** What a phone needs to pair: where to connect, which certificate to pin, and a one-time code. `url` opens the web client and pairs on load; the QR code carries it. */
+export interface PhoneOffer { version: 1; name: string; addresses: string[]; port: number; fingerprint: string; code: string; expires: number; url: string }
 export interface PhoneInfo { enabled: boolean; running: boolean; port: number; fingerprint: string; addresses: string[]; devices: PhoneDeviceInfo[]; pairing: boolean }
 export interface Peer { id: string; name: string; connected: boolean; completion: number; encrypted: boolean }
 export interface PendingPeer { id: string; name: string; address: string }
