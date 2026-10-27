@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.7 — 2026-10-27
+
+### Added
+- Drag a card out of the window to hand the file to Explorer, Finder or another app, with its thumbnail as the drag image. Dropping it back onto Sync it does nothing but say the file is already in the collection.
+
 ## 0.4.6 — 2026-10-27
 
 ### Fixed

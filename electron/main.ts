@@ -326,6 +326,16 @@ function setupIPC() {
   });
   bind('open', async (relative: string) => { const target = await contained(library.root, relative); assertSafeToOpen(target); if (!(await fs.lstat(target)).isFile()) throw new Error('Open folders with “Show in folder”'); const error = await shell.openPath(target); if (error) throw new Error(error); });
   bind('reveal', async (relative: string) => shell.showItemInFolder(await contained(library.root, relative)));
+  // Dragging a card out of the window starts an OS drag of the file itself, with its thumbnail as the drag image when one exists.
+  bind('dragOut', async (relative: string) => {
+    const file = await contained(library.root, relative);
+    if (!(await fs.lstat(file)).isFile()) throw new Error('Only files can be dragged out');
+    let icon = nativeImage.createFromPath(path.join(assets, 'icon.png'));
+    try { const thumbnail = nativeImage.createFromBuffer(await thumbnailFor(relative, 256, 256)); if (!thumbnail.isEmpty()) icon = thumbnail; } catch { /* notes and plain files use the app icon */ }
+    icon = icon.resize({ width: 96, height: 96, quality: 'good' });
+    if (!testing) mainWindow?.webContents.startDrag({ file, icon });
+    return { file };
+  });
   bind('openFolder', async () => { const error = await shell.openPath(store.value.root); if (error) throw new Error(error); });
   bind('place', (placement: BoardPlacement) => library.place(placement)); bind('unpin', (relative: string) => library.unpin(relative));
   bind('panel', panelAction);

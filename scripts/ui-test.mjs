@@ -47,6 +47,11 @@ try {
   await page.locator('[data-testid="item-card"]').first().dragTo(page.locator('.page-heading'));
   await page.waitForTimeout(800);
   assert.equal(await page.locator('[data-testid="item-card"]').count(), before, 'An in-app drag adds nothing');
+  // Dragging a card out hands the OS the real file (the drag itself is skipped in test mode); paths outside the collection are refused.
+  const imagePath = await page.locator('.item-card.image').first().getAttribute('data-path');
+  const dragged = await page.evaluate(relative => window.syncit.dragOut(relative), imagePath);
+  assert.ok(dragged.file.endsWith(imagePath.replace(/\//g, path.sep)) && path.isAbsolute(dragged.file), JSON.stringify(dragged));
+  await assert.rejects(page.evaluate(() => window.syncit.dragOut('../settings.json')));
   await page.getByRole('textbox', { name: 'Search the collection' }).fill('bookshop');
   await expect(page.locator('[data-testid="item-card"]')).toHaveCount(1);
   await page.getByRole('button', { name: 'Clear search' }).click();

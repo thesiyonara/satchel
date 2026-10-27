@@ -57,7 +57,7 @@ If discovery is blocked, use **Pair with a code or device ID**: copy a pairing c
 
 ## Everyday use
 
-- Drop files or folders into the dashboard, into Quick drop, or straight into the collection folder with Explorer or Finder. App imports copy the original.
+- Drop files or folders into the dashboard, into Quick drop, or straight into the collection folder with Explorer or Finder. App imports copy the original. Drag a card out of the dashboard to hand the file to another app.
 - Paste text or a screenshot to create a note or a PNG. The clipboard is read only when you paste.
 - Notes autosave. Plain text and Markdown up to 1 MB open in the editor; larger files open in their default app.
 - Pin cards from a card's menu or from the strip under the pinboard. Drag the handle to move, the corner to resize.

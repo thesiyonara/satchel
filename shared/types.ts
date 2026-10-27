@@ -38,6 +38,7 @@ export interface SyncItAPI {
   initial(): Promise<InitialState>;
   list(): Promise<LibrarySnapshot>;
   importFiles(paths: string[]): Promise<void>;
+  dragOut(path: string): Promise<{ file: string }>;
   chooseFiles(): Promise<void>;
   paste(): Promise<{ path: string; kind: ItemKind } | null>;
   createNote(text?: string): Promise<NoteDocument>;
