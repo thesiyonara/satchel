@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- macOS packages are built for Apple silicon only; the Intel build is dropped for now.
+
 ## 0.4.10 — 2026-10-27
 
 ### Fixed

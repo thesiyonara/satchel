@@ -28,7 +28,7 @@
     "screenshots": "node scripts/screenshots.mjs",
     "fetch:engine": "node scripts/fetch-engine.mjs",
     "dist:win": "npm run build && node scripts/fetch-engine.mjs win32 x64 && electron-builder --win --x64 --publish never",
-    "dist:mac": "npm run build && node scripts/fetch-engine.mjs darwin arm64 && node scripts/fetch-engine.mjs darwin x64 && electron-builder --mac --arm64 --x64 --publish never",
+    "dist:mac": "npm run build && node scripts/fetch-engine.mjs darwin arm64 && electron-builder --mac --arm64 --publish never",
     "cli": "node scripts/syncit.mjs",
     "release:prepare": "node scripts/release.mjs",
     "privacy:check": "node scripts/privacy-check.mjs"

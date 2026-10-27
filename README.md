@@ -39,7 +39,7 @@ Sync it is a desktop app for Windows and macOS. It keeps a normal folder, the **
 Download the package for your computer from the [latest release](https://github.com/thesiyonara/sync-it/releases/latest):
 
 - **Windows 10 or 11:** `Sync-it-X.Y.Z-win-x64.exe`, a normal installer.
-- **macOS 13 or newer:** `Sync-it-X.Y.Z-mac-arm64.dmg` for Apple Silicon or `Sync-it-X.Y.Z-mac-x64.dmg` for Intel. Drag Sync it to Applications.
+- **macOS 13 or newer on Apple silicon:** `Sync-it-X.Y.Z-mac-arm64.dmg`. Drag Sync it to Applications. Intel Macs are not built for yet.
 
 Builds are not yet signed with a developer identity, so Windows SmartScreen and macOS Gatekeeper warn on first launch. On Windows choose **More info → Run anyway**; on macOS right-click the app and choose **Open**, or allow it under System Settings → Privacy & Security. Every release ships a `SHA256SUMS-X.Y.Z.txt` you can check the download against.
 
