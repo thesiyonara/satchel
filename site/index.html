@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Satchel</title>
+  <meta name="description" content="One shared folder for your Windows and Mac computers, open from your phone too. It syncs over your own network, not the internet.">
+  <meta name="referrer" content="no-referrer">
+  <link rel="icon" href="img/icon.png">
+  <link rel="apple-touch-icon" href="img/icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="top">
+    <nav class="wrap" aria-label="Main">
+      <a class="wordmark" href="./">
+        <svg width="28" height="28" viewBox="0 0 48 48" aria-hidden="true" fill="none"><clipPath id="m1"><rect x="6" y="6" width="36" height="36" rx="11"/></clipPath><rect x="6" y="6" width="36" height="36" rx="11" fill="currentColor"/><path d="M44 -2 L52 6 L6 52 L-2 44 Z" fill="#e0491e" clip-path="url(#m1)"/></svg>
+        <span>Satchel</span>
+      </a>
+      <div class="links">
+        <a href="#how">How it works</a>
+        <a href="#phone">Phone</a>
+        <a href="https://github.com/thesiyonara/satchel">GitHub</a>
+        <a class="button" href="#download">Download</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero wrap">
+      <h1>One shared folder for your Windows and Mac computers, open from your phone too.</h1>
+      <p class="lede">It syncs over your own network, not the internet.</p>
+      <div class="actions">
+        <a class="button" data-asset="win-x64.exe" href="https://github.com/thesiyonara/satchel/releases/latest">Download for Windows</a>
+        <a class="button" data-asset="mac-arm64.dmg" href="https://github.com/thesiyonara/satchel/releases/latest">Download for Mac (Apple silicon)</a>
+      </div>
+      <p class="fine" id="release-line">Free and open source. Windows 10 and later, macOS 13 and later on Apple silicon.</p>
+      <figure class="shot">
+        <img src="img/dashboard.png" alt="The Satchel window: a grid of notes, photos and files, with the collection and its sync state in the sidebar" width="1533" height="980">
+      </figure>
+    </section>
+
+    <section id="how" class="wrap row">
+      <div class="text">
+        <h2>One folder</h2>
+        <p>You get one folder on each computer, and the app keeps them the same. Files stay ordinary files on your disk, so any other program can use them.</p>
+        <ol class="steps">
+          <li>Install Satchel on each computer.</li>
+          <li>Pair them once. Each shows the other's device ID, you confirm it, and they find each other on the network from then on.</li>
+          <li>Use the folder. From Satchel, from Explorer or Finder, from any app.</li>
+        </ol>
+      </div>
+      <figure class="shot small">
+        <img src="img/pinboard.png" alt="The pinboard view: cards placed freely on a board, the same layout on every computer" width="1533" height="980">
+      </figure>
+    </section>
+
+    <section class="band">
+      <div class="wrap row reverse">
+        <figure class="shot small">
+          <img src="img/computers.png" alt="Preferences, Computers and sync: paired computers, nearby computers and the pairing code" width="1533" height="980">
+        </figure>
+        <div class="text">
+          <h2>Your network, not the internet</h2>
+          <p>Changes go straight between your computers. There is no account, no relay and no telemetry. The bundled Syncthing engine encrypts every transfer, and a computer you do not fully trust can hold an encrypted copy it cannot read.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap row">
+      <div class="text">
+        <h2>Notes and a pinboard</h2>
+        <p>A note editor with history, a shared pinboard, and search over everything in the folder. Notes are Markdown files; nothing is locked into the app.</p>
+      </div>
+      <figure class="shot small">
+        <img src="img/note.png" alt="A note open beside the grid, with its Markdown preview and history" width="1533" height="980">
+      </figure>
+    </section>
+
+    <section class="wrap row reverse">
+      <figure class="shot small narrow">
+        <img src="img/drawer.png" alt="The drawer: a drop target and the most recent items, slid out from the edge of the screen" width="454" height="718">
+      </figure>
+      <div class="text">
+        <h2>Quick drop and the drawer</h2>
+        <p>A thin handle sits at the screen edge. Drag a file toward it and the drawer slides out; drop, and it closes by itself. Paste text or a screenshot, or drag something back out into another app. A hotkey, Ctrl or ⌘ Shift Space, opens it anywhere.</p>
+      </div>
+    </section>
+
+    <section id="phone" class="wrap row">
+      <div class="text">
+        <h2>Your phone</h2>
+        <p>Scan a code, and the phone opens the folder in the browser over your network. Read and edit notes, download files when you need them, upload photos. Nothing is stored on the phone. Add it to the Home Screen and it opens like an app.</p>
+      </div>
+      <figure class="phone">
+        <img src="img/phone.png" alt="The phone page: the collection as a grid of notes and photos" width="473" height="978">
+      </figure>
+    </section>
+
+    <section id="download" class="dark">
+      <div class="wrap row">
+        <div class="text">
+          <h2>Open source</h2>
+          <p>Satchel is MIT licensed and developed in the open on GitHub. Installers for Windows and Apple silicon Macs come with published checksums, so you can check what you downloaded. The Windows installer is not code-signed yet, so SmartScreen will ask once.</p>
+        </div>
+        <div class="downloads">
+          <a class="button light" data-asset="win-x64.exe" href="https://github.com/thesiyonara/satchel/releases/latest">Download for Windows</a>
+          <a class="button light" data-asset="mac-arm64.dmg" href="https://github.com/thesiyonara/satchel/releases/latest">Download for Mac (Apple silicon)</a>
+          <a class="plain" data-asset="SHA256SUMS" href="https://github.com/thesiyonara/satchel/releases/latest">Checksums</a>
+          <a class="plain" href="https://github.com/thesiyonara/satchel/releases">All releases and notes</a>
+          <a class="plain" href="https://github.com/thesiyonara/satchel">View the source on GitHub</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <span>Satchel is open source under the MIT license.</span>
+    <span class="fine">This page asks GitHub for the latest release to fill the download buttons. Nothing else is loaded from anywhere.</span>
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>

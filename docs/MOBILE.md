@@ -1,10 +1,10 @@
-# Phone access and the iPhone app (groundwork)
+# Phone access
 
 ## Shape of the feature
 
 The computers hold the collection and sync it between themselves. A phone is a **client of whichever computer is reachable**, not a third copy: it browses the collection, opens notes, downloads a file when asked, and can add a note or a photo. It stores nothing beyond a small cache and the credentials for each paired computer. That keeps phone storage out of the sync, avoids a Syncthing port on iOS (there is no official one), and means the phone sees the same collection through either computer.
 
-The desktop side of this is implemented and tested on Windows; the iOS app exists as a scaffold under `mobile/ios` that has not been built yet.
+The desktop side is implemented and tested on Windows. The phone is a web client served by the desktop, never a replica; there is no native app.
 
 ## Desktop: the phone access service
 
@@ -48,13 +48,9 @@ Security: the page is served with a strict Content Security Policy (`default-src
 
 Tested end to end by `npm run test:web`: the real desktop app serves the page over TLS to an isolated browser session that pairs by URL, lists, edits a note, creates one, uploads a file, searches, downloads, and unpairs.
 
-## Native iPhone app (optional, not built)
-
-`mobile/ios` keeps a SwiftUI scaffold for a native client: pairing by QR scan or typed code, certificate pinning, a collection list with thumbnails, note editing, file sharing and photo upload, with one credential per paired computer in the Keychain. It needs an Xcode project created around it (see `mobile/ios/README.md`) and has not been compiled. The web client covers the same ground without the App Store; the native scaffold stays for anyone who wants pinning, offline caching or notifications later.
-
 ## Decisions and what is deferred
 
 - **No background sync on the phone** and no push: the phone pulls when opened. Offline, it shows its last list and cached notes read-only.
 - **No internet relay.** Phone access is LAN-only, like everything else. A later option could reuse a trusted computer as a relay over a VPN the user already runs; nothing here depends on cloud services.
 - **Conflicts** follow the desktop rule: saving with a stale revision keeps both versions.
-- **Not yet done:** building and testing the iOS app; a native Mac check of the service (it is platform-neutral Node code); mDNS or Bonjour discovery of computers from the phone (the QR carries addresses, which is enough for a first version); range requests for large downloads.
+- **Not yet done:** a native Mac check of the service (it is platform-neutral Node code); mDNS or Bonjour discovery of computers from the phone (the QR carries addresses, which is enough for a first version); range requests for large downloads.

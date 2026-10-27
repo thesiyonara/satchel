@@ -67,7 +67,7 @@ The updater now downloads directly from this repository's public GitHub releases
 
 ## Phone access groundwork 2026-10-26 (unreleased)
 
-The desktop now has an opt-in Phone access service (`electron/companion.ts`): local TLS certificate with fingerprint pinning, QR/code pairing, hashed bearer tokens, and a JSON API for items, notes, files, thumbnails and uploads. `tests/companion.test.ts` covers certificate generation and the served fingerprint, the 401 before pairing, five wrong codes closing the window, single-use codes, token hashing on disk, every endpoint, path containment, unknown tokens, self-unpairing and revocation. The UI suite enables the service in the live app, pairs over loopback with the code shown in the pairing panel, reads the collection with the token and removes the phone. The iPhone app in `mobile/ios` is a SwiftUI scaffold that has not been compiled or run; building it on a Mac with Xcode is the next step, followed by pairing a real phone over Wi-Fi.
+The desktop now has an opt-in Phone access service (`electron/companion.ts`): local TLS certificate with fingerprint pinning, QR/code pairing, hashed bearer tokens, and a JSON API for items, notes, files, thumbnails and uploads. `tests/companion.test.ts` covers certificate generation and the served fingerprint, the 401 before pairing, five wrong codes closing the window, single-use codes, token hashing on disk, every endpoint, path containment, unknown tokens, self-unpairing and revocation. The UI suite enables the service in the live app, pairs over loopback with the code shown in the pairing panel, reads the collection with the token and removes the phone.
 
 ## Design and feature round 2026-10-26 (unreleased)
 

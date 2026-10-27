@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- The website, in `site/`, published to GitHub Pages: what the app is, real screenshots, and download buttons that point at the latest release.
+- "Open the drawer" in the tray menu, a line about the handle at the end of setup, and the Delete key asks to trash the current selection.
+
+### Changed
+- Releases carry each installer a second time under the old Sync-it name, so installs older than 0.5.0 still see updates. This bridge goes away in 0.7.
+
+### Removed
+- The unbuilt SwiftUI scaffold under `mobile/ios`. The phone is served by the desktop as a web client; a native app can start fresh from the Phone access API if ever wanted.
+
 ## 0.6.0 — 2026-10-27
 
 ### Added

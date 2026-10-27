@@ -323,7 +323,7 @@ function refreshTray() {
   if (signature === trayMenuSignature) return;
   trayMenuSignature = signature;
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Open dashboard', click: showDashboard }, { label: 'Quick drop', click: showPanel },
+    { label: 'Open dashboard', click: showDashboard }, { label: 'Quick drop', click: showPanel }, { label: 'Open the drawer', click: showDrawer },
     { label: 'Capture clipboard', click: () => { void (async () => { try { const result = await (operations.get('paste')!() as Promise<{ kind: string } | null>); toast(result ? result.kind === 'image' ? 'Screenshot added to the collection.' : 'Note added to the collection.' : 'The clipboard has no text or image.'); } catch (error) { toast(errorMessage(error)); } })(); } },
     { type: 'separator' },
     { label: paused ? 'Resume sync' : 'Pause sync', enabled: peers > 0 || paused, click: () => { void operations.get('settings')!({ syncPaused: !paused }); } },

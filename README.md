@@ -6,6 +6,8 @@ One shared folder for all your computers. It syncs over your own network, not th
 [![Latest release](https://img.shields.io/github/v/release/thesiyonara/satchel?display_name=tag)](https://github.com/thesiyonara/satchel/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-informational)](LICENSE)
 
+[Website](https://thesiyonara.github.io/satchel/) · [Download the latest release](https://github.com/thesiyonara/satchel/releases/latest)
+
 ![The dashboard: a grid of notes and files with the collection and connection state in the sidebar](docs/screenshots/dashboard.png)
 
 ## What it is
@@ -94,7 +96,7 @@ npm run screenshots   # regenerates docs/screenshots from a throwaway profile
 
 Packaging: `npm run dist:win` on Windows, `npm run dist:mac` on a Mac (`bash scripts/build-mac.sh` also verifies the bundle). `npm run fetch:engine` downloads the pinned Syncthing release, extracts the exact executable, checks its header and fails if `shared/engine-integrity.json` disagrees. Releases are built by GitHub Actions from a `vX.Y.Z` tag; see [docs/RELEASING.md](docs/RELEASING.md).
 
-Layout: `electron/` is the main process (files, settings, Syncthing supervision, IPC, windows, tray, phone access, updates); `src/` the React renderer; `shared/` the typed bridge; `scripts/` build, release and test drivers; `mobile/ios` the iPhone scaffold; `docs/` the design, security, testing, CLI, updates and mobile notes.
+Layout: `electron/` is the main process (files, settings, Syncthing supervision, IPC, windows, tray, phone access, updates); `src/` the React renderer; `shared/` the typed bridge; `scripts/` build, release and test drivers; `site/` the website; `docs/` the design, security, testing, CLI, updates and phone notes.
 
 Contributions are welcome; read [CONTRIBUTING.md](CONTRIBUTING.md) first. Changes are listed in [CHANGELOG.md](CHANGELOG.md).
 

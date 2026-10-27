@@ -66,8 +66,13 @@ export function App() {
   useEffect(() => window.syncit.onDrawer(setPile), []);
   useEffect(() => window.syncit.onNavigate(target => { if (target.filter === 'arrived') { setView('grid'); setFilter('arrived'); setFolder(null); } }), []);
   useEffect(() => { const handler = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelected([]); }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, []);
-  const visibleRef = useRef<LibraryItem[]>([]);
-  useEffect(() => { const handler = (event: KeyboardEvent) => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a' && !isPanel && !(event.target as HTMLElement).closest('input, textarea, [contenteditable="true"]') && !document.querySelector('.modal-shade, .note-pane')) { event.preventDefault(); setSelected(visibleRef.current.map(item => item.path)); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, []);
+  const visibleRef = useRef<LibraryItem[]>([]); const selectedRef = useRef<string[]>([]);
+  // Ctrl/⌘ A selects everything in view; Delete asks to trash the selection. Neither applies inside text fields or while a dialog or note is open.
+  useEffect(() => { const handler = (event: KeyboardEvent) => {
+    if (isPanel || (event.target as HTMLElement).closest('input, textarea, [contenteditable="true"]') || document.querySelector('.modal-shade, .note-pane')) return;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') { event.preventDefault(); setSelected(visibleRef.current.map(item => item.path)); }
+    else if ((event.key === 'Delete' || event.key === 'Backspace') && selectedRef.current.length) { event.preventDefault(); setDeleting(visibleRef.current.filter(item => selectedRef.current.includes(item.path))); }
+  }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, []);
   const [busy, setBusy] = useState(false);
   const [rename, setRename] = useState<LibraryItem | null>(null); const [newName, setNewName] = useState('');
   const [deleting, setDeleting] = useState<LibraryItem[] | null>(null);
@@ -136,7 +141,7 @@ export function App() {
   const connectedPeers = sync.peers.filter(peer => peer.connected).length;
   const peerSummary = sync.peers.length === 0 ? 'Not paired yet' : sync.peers.length === 1 ? sync.peers[0].name : `${sync.peers.length} computers · ${connectedPeers} online`;
   const peerDetail = sync.pending.length ? `${sync.pending.length} ${sync.pending.length === 1 ? 'request' : 'requests'} waiting` : sync.peers.length === 0 ? (sync.nearby.length ? `${sync.nearby.length} nearby · pair a computer` : 'Pair a computer') : labels[sync.state];
-  visibleRef.current = visible;
+  visibleRef.current = visible; selectedRef.current = selected;
   const heading = view === 'board' ? 'Pinboard' : folder && filter === 'all' ? folder : filterTitles[filter];
   const folders = [...new Set(library.items.map(item => item.path.split('/')[0]).filter((part, _i, _a) => library.items.some(item => item.path.startsWith(part + '/'))))].sort((a, b) => a.localeCompare(b));
   const selectedItems = library.items.filter(item => selected.includes(item.path));
@@ -201,6 +206,6 @@ export function App() {
       <label className="toggle-row"><div><strong>Start Satchel at login</strong><small>Keeps syncing from the tray or menu bar.</small></div><input type="checkbox" checked={loginChoice} onChange={event => setLoginChoice(event.target.checked)} /></label>
       <label className="toggle-row"><div><strong>Desktop shortcut to the collection folder</strong><small>Use Explorer or Finder on the same files.</small></div><input type="checkbox" checked={shortcutChoice} onChange={event => setShortcutChoice(event.target.checked)} /></label>
       <button className="primary" disabled={busy} onClick={() => void run(async () => { const next = await window.syncit.settings({ onboardingDone: true, startAtLogin: loginChoice }); setSettings(next); if (shortcutChoice) await window.syncit.shortcut(); }, 'Collection ready. Pair another computer under Computers & sync.')}>Create collection <ArrowRight size={17} /></button>
-      <small>Pair other computers afterwards from the sidebar. Nothing is sent outside your local network.</small></section></div>}
+      <small>A thin handle at the right edge of the screen is the drawer: drag files to it from anywhere. Pair other computers afterwards from the sidebar. Nothing is sent outside your local network.</small></section></div>}
   </div>;
 }

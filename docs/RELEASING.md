@@ -37,3 +37,11 @@ The `dist:*` scripts pass `--publish never` to electron-builder: on a version ta
 ## Signing
 
 Builds currently carry no developer identity: Windows SmartScreen and macOS Gatekeeper will warn on first launch. Adding a Windows code-signing certificate (`win.certificateSubjectName` or `CSC_LINK`) and an Apple Developer ID with notarization in `package.json`'s `build` section removes those warnings; the updater needs no change.
+
+## Bridge for installs older than 0.5.0
+
+The app was called Sync it before 0.5.0, and that updater looks for assets named `Sync-it-<version>-win-x64.exe` and `Sync-it-<version>-mac-arm64.dmg` next to `SHA256SUMS-<version>.txt`. `scripts/ci-release.sh` uploads each installer a second time under that name and lists both in the checksum file. Remove that step in 0.7, once no 0.4.x install is left.
+
+## Website
+
+`site/` is a static page published to GitHub Pages by `.github/workflows/pages.yml` on every push to master that touches it. The download buttons ask the GitHub API for the latest release in the visitor's browser; without an answer they link to the releases page.
