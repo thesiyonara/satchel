@@ -5,6 +5,7 @@ import { _electron as electron, expect } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
+import { wavBytes } from './test-media.mjs';
 const profile = path.resolve('.cache', `web-profile-${Date.now()}`); await mkdir(profile, { recursive: true });
 const app = await electron.launch({ args: ['.'], env: { ...process.env, SYNCIT_TEST_MODE: '1', SYNCIT_TEST_PROFILE: profile, SYNCIT_TEST_PORT: '22327' } });
 try {
@@ -50,18 +51,40 @@ try {
   await (await chooser).setFiles(photo);
   await expect(phone.getByText('IMG_0001.png added to the collection.')).toBeVisible({ timeout: 15000 });
   await expect.poll(() => desktop.evaluate(() => window.syncit.list().then(library => library.items.some(item => item.path === 'IMG_0001.png' && item.kind === 'image')))).toBeTruthy();
-  await phone.getByRole('searchbox', { name: 'Search the collection' }).fill('IMG');
-  await expect(phone.locator('.item')).toHaveCount(1);
-  await phone.getByRole('button', { name: /IMG_0001/ }).click();
+  // Audio and video play on the phone through a streamed link with range support.
+  const tone = path.join(profile, 'tone.wav'); await writeFile(tone, wavBytes(1));
+  const chooser2 = phone.waitForEvent('filechooser');
+  await phone.getByRole('button', { name: 'Add photo or file' }).click();
+  await (await chooser2).setFiles(tone);
+  await expect(phone.getByText('tone.wav added to the collection.')).toBeVisible({ timeout: 15000 });
+  await phone.getByRole('button', { name: /tone\.wav/ }).click();
+  await expect.poll(() => phone.evaluate(() => { const media = document.querySelector('audio'); return media ? Number.isFinite(media.duration) && media.duration > 0.5 : false; }), { timeout: 15000 }).toBeTruthy();
+  await phone.getByRole('button', { name: 'Back' }).click();
+  // Text-like files preview as read-only text; photos get a tile grid and a full-size view streamed from the computer.
+  const dataFile = path.join(profile, 'readings.json'); await writeFile(dataFile, JSON.stringify({ sensor: 'kitchen', values: [1, 2, 3] }, null, 2));
+  const chooser3 = phone.waitForEvent('filechooser');
+  await phone.getByRole('button', { name: 'Add photo or file' }).click();
+  await (await chooser3).setFiles(dataFile);
+  await expect(phone.getByText('readings.json added to the collection.')).toBeVisible({ timeout: 15000 });
+  await phone.getByRole('button', { name: /readings\.json/ }).click();
+  await expect(phone.getByLabel('File text')).toContainText('"sensor": "kitchen"');
+  await phone.getByRole('button', { name: 'Back' }).click();
+  await phone.getByRole('tab', { name: /Photos/ }).click();
+  await expect(phone.locator('.tile')).toHaveCount(1);
+  await phone.getByRole('button', { name: 'IMG_0001.png' }).click();
+  await expect.poll(() => phone.evaluate(() => { const image = document.querySelector('img.preview-image'); return image && image.naturalWidth > 0 && image.getAttribute('src').startsWith('/v1/stream?ticket='); }), { timeout: 15000 }).toBeTruthy();
   await expect(phone.getByRole('button', { name: 'Download original' })).toBeVisible();
   // The download button fetches the original with the stored token; check that path directly, since the test session blocks real downloads.
   const downloaded = await phone.evaluate(async () => { const response = await fetch('/v1/file?path=IMG_0001.png', { headers: { Authorization: `Bearer ${localStorage.getItem('syncit-phone-token')}` } }); return { ok: response.ok, size: (await response.blob()).size, disposition: response.headers.get('content-disposition') }; });
   assert.ok(downloaded.ok && downloaded.size > 1000 && downloaded.disposition.includes('IMG_0001.png'), JSON.stringify(downloaded));
-  // Unpair from the phone; the token stops working and the computer no longer lists it.
+  // Unpair from the phone's Computer screen; the token stops working and the computer no longer lists it.
   await phone.getByRole('button', { name: 'Back' }).click();
+  await phone.getByRole('tab', { name: /All/ }).click();
+  await phone.getByRole('button', { name: 'Computer' }).click();
+  await expect(phone.getByRole('heading', { name: 'Desk' })).toBeVisible();
   phone.once('dialog', dialog => dialog.accept());
   await phone.getByRole('button', { name: 'Unpair' }).click();
   await expect(phone.getByRole('heading', { name: 'Phone access' })).toBeVisible();
   await expect.poll(() => desktop.evaluate(() => window.syncit.phoneInfo().then(info => info.devices.length))).toBe(0);
-  console.log('Phone web client passed: pairing by URL, listing, note edit with revision, new note, upload, search, download, unpair.');
+  console.log('Phone web client passed: pairing by URL, listing, note edit with revision, new note, upload, audio playback, text preview, photo grid and full-size view, search, download, unpair.');
 } finally { await app.close(); }

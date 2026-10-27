@@ -1,4 +1,4 @@
-export type ItemKind = 'note' | 'image' | 'file';
+export type ItemKind = 'note' | 'image' | 'video' | 'audio' | 'file';
 export interface LibraryItem {
   path: string; name: string; kind: ItemKind; size: number; modifiedAt: number;
   preview?: string; conflict: boolean;
@@ -44,6 +44,7 @@ export interface SyncItAPI {
   readNote(path: string): Promise<NoteDocument>;
   saveNote(path: string, text: string, revision: string): Promise<NoteDocument>;
   noteHistory(path: string): Promise<NoteVersion[]>;
+  readText(path: string): Promise<string>;
   readNoteVersion(id: string): Promise<string>;
   rename(path: string, name: string): Promise<string>;
   trash(path: string): Promise<void>;

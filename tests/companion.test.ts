@@ -6,11 +6,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { Library } from '../electron/library';
 import { Companion, encodeOffer } from '../electron/companion';
+import { wavBytes } from '../scripts/test-media.mjs';
 
 type Reply = { status: number; body: Buffer; fingerprint: string };
-function call(port: number, method: string, pathname: string, options: { token?: string; json?: unknown; raw?: Buffer } = {}): Promise<Reply> {
+function call(port: number, method: string, pathname: string, options: { token?: string; json?: unknown; raw?: Buffer; headers?: Record<string, string> } = {}): Promise<Reply> {
   return new Promise((resolve, reject) => {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...(options.headers || {}) };
     if (options.token) headers.Authorization = `Bearer ${options.token}`;
     if (options.json !== undefined) headers['Content-Type'] = 'application/json';
     // The phone pins the certificate fingerprint from the pairing offer instead of trusting any authority.
@@ -30,7 +31,7 @@ test('phone access pairs once with a short-lived code, pins its certificate, and
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'syncit-phone-'));
   const root = path.join(dir, 'collection'); await fs.mkdir(root);
   const library = new Library(root); await library.initialize();
-  const companion = new Companion({ directory: dir, port: 0, allowLoopback: true, webRoot: path.resolve('web'), library: () => library, deviceName: () => 'Desk', collectionName: () => 'collection', syncState: () => 'synced', thumbnail: async relative => Buffer.from(`png:${relative}`) });
+  const companion = new Companion({ directory: dir, port: 0, allowLoopback: true, webRoot: path.resolve('web'), library: () => library, deviceName: () => 'Desk', collectionName: () => 'collection', syncState: () => 'synced', thumbnail: async (relative, width = 600) => Buffer.from(`png:${relative}:${width}`), text: async relative => `text:${relative}` });
   t.after(async () => { await companion.stop(); await library.close(); await fs.rm(dir, { recursive: true, force: true }); });
   await companion.start();
   const port = companion.port; assert.ok(port > 0);
@@ -80,7 +81,22 @@ test('phone access pairs once with a short-lived code, pins its certificate, and
   assert.equal(download.status, 200); assert.equal(download.body.toString('utf8'), 'jpeg bytes');
   assert.equal((await call(port, 'GET', '/v1/file?path=../phone-key.pem', { token })).status, 400, 'paths stay inside the collection');
   assert.equal((await call(port, 'GET', '/v1/file?path=.syncit/board', { token })).status, 400, 'internal paths are refused');
-  assert.equal((await call(port, 'GET', '/v1/thumbnail?path=IMG_0001.jpg', { token })).body.toString('utf8'), 'png:IMG_0001.jpg');
+  assert.equal((await call(port, 'GET', '/v1/thumbnail?path=IMG_0001.jpg', { token })).body.toString('utf8'), 'png:IMG_0001.jpg:600');
+  assert.equal((await call(port, 'GET', '/v1/preview?path=IMG_0001.jpg', { token })).body.toString('utf8'), 'png:IMG_0001.jpg:1800');
+  assert.equal(json(await call(port, 'GET', '/v1/text?path=IMG_0001.jpg', { token })).text, 'text:IMG_0001.jpg');
+  assert.equal((await call(port, 'POST', '/v1/media-ticket', { token, json: { path: 'IMG_0001.jpg' } })).status, 201, 'images stream too, for full-size viewing');
+  // Media streams through a short-lived, path-bound ticket with range support, since media elements cannot send the token.
+  const wav = wavBytes(1);
+  assert.equal(json(await call(port, 'POST', '/v1/upload?name=tone.wav', { token, raw: wav })).path, 'tone.wav');
+  assert.equal((await call(port, 'POST', '/v1/media-ticket', { token, json: { path: created.path } })).status, 400, 'notes are read through the text route, not streamed');
+  const ticket = json(await call(port, 'POST', '/v1/media-ticket', { token, json: { path: 'tone.wav' } }));
+  assert.match(ticket.url, /^\/v1\/stream\?ticket=[a-f0-9]{32}$/);
+  const whole = await call(port, 'GET', ticket.url);
+  assert.equal(whole.status, 200); assert.equal(whole.body.length, wav.length); assert.ok(whole.body.equals(wav));
+  const part = await call(port, 'GET', ticket.url, { headers: { Range: 'bytes=44-143' } });
+  assert.equal(part.status, 206); assert.equal(part.body.length, 100); assert.ok(part.body.equals(wav.subarray(44, 144)));
+  assert.equal((await call(port, 'GET', ticket.url, { headers: { Range: 'bytes=999999-' } })).status, 416);
+  assert.equal((await call(port, 'GET', '/v1/stream?ticket=' + 'a'.repeat(32))).status, 403, 'unknown tickets are refused');
   assert.equal((await call(port, 'GET', '/v1/items', { token: 'f'.repeat(64) })).status, 401, 'unknown tokens are rejected');
   // Unpairing from the phone or revoking from the computer ends access immediately.
   assert.equal((await call(port, 'DELETE', '/v1/session', { token })).status, 200);

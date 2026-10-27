@@ -12,6 +12,7 @@ test('renderer network policy is deny-by-default including loopback controls and
   for (const url of ['https://example.com/collect', 'http://127.0.0.1:8384/rest/config', 'ws://127.0.0.1:5173', 'file:///C:/secret.txt', 'syncit-app://evil/file', 'syncit-media://other/file', 'javascript:alert(1)']) assert.equal(rendererRequestAllowed(url), false, url);
   assert.equal(rendererRequestAllowed('syncit-app://app/index.html'), true);
   assert.equal(rendererRequestAllowed('syncit-media://image/thumbnail?path=a.png'), true);
+  assert.equal(rendererRequestAllowed('syncit-media://media/stream?path=a.mp4'), true);
   assert.equal(rendererRequestAllowed('http://127.0.0.1:5173/src/main.tsx', 'http://127.0.0.1:5173'), true);
   assert.equal(rendererRequestAllowed('http://127.0.0.1:5174', 'http://127.0.0.1:5173'), false);
 });

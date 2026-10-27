@@ -4,13 +4,13 @@ import { randomUUID } from 'node:crypto';
 import chokidar, { type FSWatcher } from 'chokidar';
 import type { BoardPlacement, LibraryItem, LibrarySnapshot, NoteDocument, NoteVersion } from '../shared/types';
 import { atomicWrite, cleanName, contained, errorMessage, hash, isInternal, linkOrClaim, safeRelative } from './files';
+import { mediaKind } from './media';
 
 const NOTE_LIMIT = 1024 * 1024;
 export const RECOVERY_KEEP_PER_NOTE = 20;
 export const RECOVERY_MAX_AGE_MS = 30 * 86400 * 1000;
 const recoveryPattern = /^(.*)-(\d{13})-[a-f0-9]{6}\.md$/;
 const RESCAN_INTERVAL_MS = 10 * 60000;
-const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp', '.avif']);
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 export class Library {
   private watcher?: FSWatcher;
@@ -61,7 +61,7 @@ export class Library {
       const stat = await fs.lstat(full);
       if (!stat.isFile()) return null;
       const name = path.basename(relative); const ext = path.extname(name).toLowerCase();
-      const kind = ['.md', '.txt'].includes(ext) && stat.size <= NOTE_LIMIT ? 'note' : imageExtensions.has(ext) ? 'image' : 'file';
+      const kind = ['.md', '.txt'].includes(ext) && stat.size <= NOTE_LIMIT ? 'note' : mediaKind(name) || 'file';
       const preview = kind === 'note' ? (await fs.readFile(full, 'utf8')).slice(0, 32_000) : undefined;
       return { path: relative, name, kind, size: stat.size, modifiedAt: stat.mtimeMs, preview, conflict: name.includes('.sync-conflict-') };
     } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT' || /outside|unsafe|Linked/.test((error as Error).message)) return null; throw error; }

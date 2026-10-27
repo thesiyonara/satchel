@@ -9,7 +9,7 @@ const api: SyncItAPI = {
   initial: () => invoke('initial'), list: () => invoke('list'),
   importFiles: paths => invoke('importFiles', paths), chooseFiles: () => invoke('chooseFiles'), paste: () => invoke('paste'),
   createNote: text => invoke('createNote', text), readNote: path => invoke('readNote', path), saveNote: (path, text, revision) => invoke('saveNote', path, text, revision),
-  noteHistory: path => invoke('noteHistory', path), readNoteVersion: id => invoke('readNoteVersion', id),
+  noteHistory: path => invoke('noteHistory', path), readNoteVersion: id => invoke('readNoteVersion', id), readText: path => invoke('readText', path),
   rename: (path, name) => invoke('rename', path, name), trash: path => invoke('trash', path), open: path => invoke('open', path), reveal: path => invoke('reveal', path),
   openFolder: () => invoke('openFolder'), place: placement => invoke('place', placement), unpin: path => invoke('unpin', path),
   settings: patch => invoke('settings', patch), chooseRoot: () => invoke('chooseRoot'), shortcut: () => invoke('shortcut'),

@@ -1,6 +1,7 @@
 import { _electron as electron, expect } from '@playwright/test';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import https from 'node:https';
+import { wavBytes } from './test-media.mjs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 
@@ -43,17 +44,40 @@ try {
   await page.getByRole('textbox', { name: 'Search the collection' }).fill('bookshop');
   await expect(page.locator('[data-testid="item-card"]')).toHaveCount(1);
   await page.getByRole('button', { name: 'Clear search' }).click();
+  // Audio and video open in an in-app player streamed from the collection.
+  const tone = path.join(sources, 'tone.wav'); await writeFile(tone, wavBytes(1));
+  await page.evaluate(async source => window.syncit.importFiles([source]), tone);
+  await page.getByRole('button', { name: 'Open tone.wav' }).click();
+  await expect(page.getByRole('dialog', { name: 'Media player' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => { const media = document.querySelector('.media-modal audio'); return media ? Number.isFinite(media.duration) && media.duration > 0.5 : false; }), { timeout: 15000 }).toBeTruthy();
+  await page.screenshot({ path: path.join(artifacts, 'media-player.png') });
+  await page.getByRole('button', { name: 'Close preview' }).click();
+  // Text-like files preview read-only inside the app.
+  const dataFile = path.join(sources, 'readings.json'); await writeFile(dataFile, JSON.stringify({ sensor: 'kitchen', values: [1, 2, 3] }, null, 2));
+  await page.evaluate(async source => window.syncit.importFiles([source]), dataFile);
+  await page.getByRole('button', { name: 'Open readings.json' }).click();
+  await expect(page.getByRole('dialog', { name: 'Text preview' })).toBeVisible();
+  await expect(page.getByLabel('File text')).toContainText('"sensor": "kitchen"');
+  await page.getByRole('button', { name: 'Close preview' }).click();
+  // The Quick drop window carries its own opacity control.
   const itemPaths = await page.locator('[data-testid="item-card"]').evaluateAll(cards => cards.map(card => card.getAttribute('data-path')));
   await page.evaluate(async paths => { for (const [i, path] of paths.slice(0, 3).entries()) await window.syncit.place({ version: 1, path, x: 35 + i * 260, y: 45 + i % 2 * 70, width: 240, height: 275, updatedAt: Date.now() }); }, itemPaths);
   await page.getByRole('button', { name: 'Pinboard view', exact: true }).click();
   await expect(page.locator('.board-card')).toHaveCount(3);
-  const handle = page.locator('.board-handle').first(); const box = await handle.boundingBox();
+  const handle = page.locator('.board-handle', { hasText: itemPaths[0].split('/').at(-1) }); const box = await handle.boundingBox(); // the card placed at (35, 45)
   await page.mouse.move(box.x + 35, box.y + 12); await page.mouse.down(); await page.mouse.move(box.x + 95, box.y + 47, { steps: 6 }); await page.mouse.up();
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.placements.some(p => p.x === 95 && p.y === 80)))).toBeTruthy();
   await page.screenshot({ path: path.join(artifacts, 'pinboard.png') });
   await page.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
   const panel = await expect.poll(async () => (await application.windows()).length).toBe(2).then(async () => (await application.windows()).find(p => p !== page));
   await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
+  await panel.getByRole('button', { name: 'Window opacity' }).click();
+  await panel.getByRole('slider', { name: 'Floating window opacity' }).focus();
+  await panel.keyboard.press('ArrowLeft'); await panel.keyboard.press('ArrowLeft'); await panel.keyboard.press('ArrowLeft'); await panel.keyboard.press('ArrowLeft');
+  await expect.poll(() => page.evaluate(() => window.syncit.initial().then(i => i.settings.panelOpacity))).toBe(0.8);
+  await panel.keyboard.press('End');
+  await expect.poll(() => page.evaluate(() => window.syncit.initial().then(i => i.settings.panelOpacity))).toBe(1);
+  await panel.getByRole('button', { name: 'Window opacity' }).click();
   await panel.screenshot({ path: path.join(artifacts, 'quick-drop.png') });
   // Preserve the user's clipboard while exercising the real desktop paste route. A locked or remote
   // desktop session makes the Windows clipboard unavailable; those steps are then skipped, not failed.

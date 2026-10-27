@@ -12,6 +12,7 @@ import type { PhoneDeviceInfo, PhoneOffer } from '../shared/types';
 import type { Library } from './library';
 import { localIPAllowed, localNetworks } from './sync-engine';
 import { atomicWrite, contained, errorMessage, readJSON } from './files';
+import { openRange, previewKind, streamable } from './media';
 
 export interface PhoneDevice extends PhoneDeviceInfo { tokenHash: string }
 export interface CompanionOptions {
@@ -19,7 +20,8 @@ export interface CompanionOptions {
   /** Directory holding the web client (index.html, app.js, app.css, manifest.webmanifest, icon.png). */
   webRoot: string;
   library: () => Library; deviceName: () => string; collectionName: () => string; syncState: () => string;
-  thumbnail: (relative: string) => Promise<Buffer>;
+  thumbnail: (relative: string, width?: number, height?: number) => Promise<Buffer>;
+  text: (relative: string) => Promise<string>;
   changed?: () => void;
 }
 const PAIRING_TTL_MS = 5 * 60000;
@@ -33,7 +35,8 @@ const STATIC_FILES: Record<string, { file: string; type: string }> = {
   '/app.js': { file: 'app.js', type: 'text/javascript; charset=utf-8' }, '/app.css': { file: 'app.css', type: 'text/css; charset=utf-8' },
   '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json' }, '/icon.png': { file: 'icon.png', type: 'image/png' }
 };
-export const webCSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; manifest-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
+export const webCSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; media-src 'self'; connect-src 'self'; manifest-src 'self'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'";
+const MEDIA_TICKET_TTL_MS = 10 * 60000;
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 class RequestError extends Error { constructor(public status: number, message: string) { super(message); } }
 
@@ -58,6 +61,8 @@ export class Companion {
   private registry: PhoneDevice[] = [];
   private loaded = false;
   private lastSeenWrites = new Map<string, number>();
+  // <video> and <audio> cannot send an Authorization header, so playback uses short-lived tickets bound to one path.
+  private tickets = new Map<string, { path: string; expires: number }>();
   fingerprint = '';
   port: number;
   constructor(private options: CompanionOptions) { this.port = options.port; }
@@ -160,6 +165,7 @@ export class Companion {
     const url = new URL(request.url || '/', 'https://phone.local');
     if (request.method === 'GET' && !url.pathname.startsWith('/v1/')) return this.serveStatic(url.pathname, response);
     if (request.method === 'POST' && url.pathname === '/v1/pair') return this.pair(request, response);
+    if (request.method === 'GET' && url.pathname === '/v1/stream') return this.stream(url, request, response);
     const device = this.authenticate(request);
     if (!device) throw new RequestError(401, 'Pair this phone with the computer first');
     void this.touch(device);
@@ -167,12 +173,25 @@ export class Companion {
     const relative = url.searchParams.get('path') || '';
     switch (`${request.method} ${url.pathname}`) {
       case 'GET /v1/status': return this.reply(response, 200, { deviceName: this.options.deviceName(), collection: this.options.collectionName(), state: this.options.syncState(), phone: { id: device.id, name: device.name }, phones: this.registry.length });
-      case 'GET /v1/items': { const snapshot = await library.snapshot(); return this.reply(response, 200, { items: snapshot.items.map(item => ({ ...item, preview: item.preview?.slice(0, 400) })), placements: snapshot.placements, error: snapshot.error }); }
+      case 'GET /v1/items': { const snapshot = await library.snapshot(); return this.reply(response, 200, { items: snapshot.items.map(item => ({ ...item, preview: item.preview?.slice(0, 400), previewKind: previewKind(item.name) })), placements: snapshot.placements, error: snapshot.error }); }
       case 'GET /v1/note': return this.reply(response, 200, await library.readNote(relative));
       case 'POST /v1/note': { const body = await this.readJSONBody(request); return this.reply(response, 201, await library.createNote(body.text as string | undefined)); }
       case 'PUT /v1/note': { const body = await this.readJSONBody(request); if (typeof body.revision !== 'string') throw new RequestError(400, 'A note revision is required'); return this.reply(response, 200, await library.saveNote(body.path as string, body.text as string, body.revision)); }
       case 'GET /v1/file': return this.sendFile(library, relative, response);
+      case 'POST /v1/media-ticket': {
+        const body = await this.readJSONBody(request);
+        const target = await contained(library.root, body.path as string);
+        if (!streamable(target)) throw new RequestError(400, 'Only images, video, audio and PDF files can be streamed');
+        const now = Date.now();
+        for (const [ticket, entry] of this.tickets) if (entry.expires < now) this.tickets.delete(ticket);
+        if (this.tickets.size >= 200) throw new RequestError(429, 'Too many open media sessions');
+        const ticket = randomBytes(16).toString('hex');
+        this.tickets.set(ticket, { path: body.path as string, expires: now + MEDIA_TICKET_TTL_MS });
+        return this.reply(response, 201, { url: `/v1/stream?ticket=${ticket}`, expires: now + MEDIA_TICKET_TTL_MS });
+      }
       case 'GET /v1/thumbnail': { const png = await this.options.thumbnail(relative); response.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length, 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff' }); response.end(png); return; }
+      case 'GET /v1/preview': { const png = await this.options.thumbnail(relative, 1800, 1800); response.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length, 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff' }); response.end(png); return; }
+      case 'GET /v1/text': return this.reply(response, 200, { path: relative, text: await this.options.text(relative) });
       case 'POST /v1/upload': { const bytes = await this.readBody(request, MAX_UPLOAD); return this.reply(response, 201, { path: await library.addBytes(url.searchParams.get('name') || '', bytes) }); }
       case 'DELETE /v1/session': await this.save(this.registry.filter(entry => entry.id !== device.id)); return this.reply(response, 200, { ok: true });
       default: throw new RequestError(404, 'Unknown request');
@@ -193,6 +212,16 @@ export class Companion {
     await this.save([...this.registry, device]);
     this.pairing = undefined;
     this.reply(response, 201, { token, id: device.id, deviceName: this.options.deviceName(), collection: this.options.collectionName(), fingerprint: this.fingerprint });
+  }
+  private async stream(url: URL, request: IncomingMessage, response: ServerResponse) {
+    const ticket = url.searchParams.get('ticket') || '';
+    const entry = /^[a-f0-9]{32}$/.test(ticket) ? this.tickets.get(ticket) : undefined;
+    if (!entry || entry.expires < Date.now()) { this.tickets.delete(ticket); throw new RequestError(403, 'This media link has expired. Open the item again.'); }
+    const target = await contained(this.options.library().root, entry.path);
+    const range = await openRange(target, request.headers.range);
+    response.writeHead(range.status, range.headers);
+    if (!range.stream) { response.end(); return; }
+    await new Promise<void>((resolve, reject) => { range.stream!.on('error', reject); response.on('close', () => resolve()); range.stream!.pipe(response); });
   }
   private async sendFile(library: Library, relative: string, response: ServerResponse) {
     const target = await contained(library.root, relative);

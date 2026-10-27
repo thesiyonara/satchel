@@ -239,6 +239,24 @@ progress { width: 100%; height: 4px; margin-top: 12px; accent-color: var(--green
 .image-modal header, .image-modal footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 15px 20px; font-size: 12px; }
 .image-modal header strong { overflow-wrap: anywhere; }
 .image-modal img { object-fit: contain; min-height: 0; flex: 1; background: var(--subtle); }
+.media-modal video { width: 100%; max-height: 70vh; min-height: 0; flex: 1; background: #000; outline: none; }
+.media-modal audio { width: 100%; margin: 24px 0; }
+.media-modal.audio { max-width: 560px; }
+.media-modal .media-error { margin: 0 20px 10px; }
+.media-modal.pdf, .media-modal.text { width: 90vw; max-width: 1100px; height: 88vh; }
+.media-modal .pdf-frame { flex: 1; min-height: 0; border: 0; background: var(--subtle); }
+.media-modal .text-preview { flex: 1; min-height: 0; margin: 0; overflow: auto; padding: 16px 20px; font: 12px/1.6 'Cascadia Mono', Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--bg); color: var(--text); }
+.media-modal .file-preview-large { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 50px 20px; color: var(--muted); font-size: 12px; }
+.pdf-card { position: relative; }
+.pdf-card .pdf-thumb { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
+.pdf-card .file-glyph, .pdf-card h3, .pdf-card > span { position: relative; z-index: 1; }
+.pdf-card h3, .pdf-card > span { background: color-mix(in srgb, var(--surface) 80%, transparent); padding: 2px 6px; border-radius: 4px; }
+.media-modal footer .row { gap: 8px; }
+.video-preview { background: #000; }
+.video-preview .play-badge { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #0009; color: #fff; }
+.item-card.video footer { border-top: 1px solid var(--line); padding-top: 11px; padding-bottom: 11px; }
+.audio-glyph { color: #a28ac9; }
+.audio-glyph span { background: #2f2944; color: #c6b3e8; }
 .onboarding-shade { backdrop-filter: blur(12px); background: color-mix(in srgb, var(--bg) 70%, transparent); }
 .onboarding { width: 540px; max-width: 95vw; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 30px 36px 26px; text-align: left; box-shadow: var(--shadow); }
 .onboarding > .brand { margin-bottom: 26px; }
@@ -376,6 +394,9 @@ progress { width: 100%; height: 4px; margin-top: 12px; accent-color: var(--green
 .floating-tabs { display:flex; padding:8px 18px; gap:16px; border-top:1px solid #ffffff0b; }.floating-tabs button { display:flex; align-items:center; gap:5px; border:0; background:transparent; padding:4px 0; color:#798493; font-size:9px; letter-spacing:1.4px; }.floating-tabs button.active { color:#ff9775; }
 .floating-items { flex:1; min-height:0; overflow:auto; padding:0 12px; }.floating-items button { width:100%; display:flex; align-items:center; gap:8px; border:0; background:transparent; padding:10px 6px; color:#9ba5b1; border-bottom:1px solid #ffffff08; text-align:left; }.floating-items button span { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; color:var(--text,#e4e8ed); font-size:12px; }.floating-items p { padding:10px 6px; color:#788390; font-size:12px; }
 .floating-footer { display:flex; align-items:center; gap:7px; padding:12px 17px; font-size:10px; color:#8994a1; border-top:1px solid #ffffff0b; }.floating-footer > span:last-child { margin-left:auto; font-family:monospace; font-size:8px; letter-spacing:1px; }
+.floating-opacity { display:flex; align-items:center; gap:10px; padding:8px 14px; border-bottom:1px solid #ffffff0b; color:#8a939f; font-size:10px; }
+.floating-opacity input { flex:1; margin:0; padding:0; border:0; background:transparent; box-shadow:none; accent-color:#ff7952; height:18px; }
+.floating-opacity span { min-width:34px; text-align:right; font-family:monospace; }
 .is-mini .capture-composer { margin-top:10px; }.is-mini .capture-composer textarea { height:70px; }.is-mini .floating-tools { margin-top:auto; padding-top:5px; padding-bottom:6px; }
 .favorite-mark { position:absolute; top:12px; right:12px; color:#ff9775; pointer-events:none; z-index:2; }.item-card { position:relative; }
 .favorites-nav { display:flex; align-items:center; gap:10px; margin:4px 0; padding:10px 12px; border:0; border-radius:8px; color:var(--text-muted,#929cab); background:transparent; font-size:13px; text-align:left; }.favorites-nav span { margin-left:auto; font-size:11px; }.favorites-nav.active { color:#ff9978; background:#ff795212; }

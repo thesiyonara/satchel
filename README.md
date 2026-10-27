@@ -18,7 +18,8 @@ Sync it is a desktop app for Windows and macOS. It keeps a normal folder, the **
 
 ## Features
 
-- Grid of notes, images and files with folder context, search over names, folders and note text, and filters for favorites and conflicts.
+- Grid of notes, images, videos, audio and files with folder context, search over names, folders and note text, and filters for favorites and conflicts.
+- Previews inside the app: images (including iPhone HEIC and TIFF through the operating system's renderer), video and audio with seeking, PDFs, and text-like files. Office documents and archives open in their default app.
 - Note editor with autosave, read-only Markdown preview, and **History** to preview and restore earlier versions, including versions archived from received changes.
 - Shared pinboard: card positions sync; zoom stays local.
 - Quick drop: a floating window (Ctrl/⌘ Shift Space) to write a note, paste a screenshot or drop files from anywhere.

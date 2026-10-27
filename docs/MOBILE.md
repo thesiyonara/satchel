@@ -26,7 +26,11 @@ Off by default. **Preferences → Phone access** turns it on; the app then serve
 | `POST /v1/note` | `{ text }` | the created note |
 | `PUT /v1/note` | `{ path, text, revision }` | the saved note; a stale revision produces a conflict copy, as on the desktop |
 | `GET /v1/file?path=` | | the file bytes, `Content-Disposition: attachment` |
-| `GET /v1/thumbnail?path=` | | PNG preview, same limits as the desktop grid |
+| `GET /v1/thumbnail?path=` | | PNG preview of an image, video or PDF, same limits as the desktop grid |
+| `GET /v1/preview?path=` | | larger OS-rendered PNG, used for images the phone's browser cannot decode (HEIC, TIFF) |
+| `GET /v1/text?path=` | | `{ path, text }` for text-like files up to 1 MB (CSV, JSON, code, logs) |
+| `POST /v1/media-ticket` | `{ path }` | `{ url, expires }`: a ten-minute link for one video or audio file, because media elements cannot send the token |
+| `GET /v1/stream?ticket=` | `Range` header honoured | the media bytes (200, 206 or 416); no token needed, the ticket is the credential |
 | `POST /v1/upload?name=` | raw bytes | `{ path }` under a cleaned, non-colliding name |
 | `DELETE /v1/session` | | unpairs this phone |
 

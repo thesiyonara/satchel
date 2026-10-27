@@ -96,6 +96,15 @@ test('pairing codes have bounded, validated identities and reject internet IPs',
   assert.equal(validateEncryptionPassword('long enough'), 'long enough');
   for (const value of ['short', 'bad\ncontrol', 42, 'x'.repeat(129)]) assert.throws(() => validateEncryptionPassword(value));
 });
+test('video and audio files are their own kinds', async t => {
+  const { root, library } = await fixture(t);
+  for (const name of ['clip.MP4', 'talk.m4a', 'tone.wav', 'archive.zip', 'photo.jpg', 'shot.HEIC', 'report.pdf', 'data.json']) await fs.writeFile(path.join(root, name), 'x');
+  const kinds = Object.fromEntries((await library.snapshot()).items.map(item => [item.name, item.kind]));
+  assert.deepEqual(kinds, { 'clip.MP4': 'video', 'talk.m4a': 'audio', 'tone.wav': 'audio', 'archive.zip': 'file', 'photo.jpg': 'image', 'shot.HEIC': 'image', 'report.pdf': 'file', 'data.json': 'file' });
+  const { previewKind, browserRenders } = await import('../shared/media');
+  assert.equal(previewKind('report.pdf'), 'pdf'); assert.equal(previewKind('data.json'), 'text'); assert.equal(previewKind('archive.zip'), null);
+  assert.equal(browserRenders('photo.jpg'), true); assert.equal(browserRenders('shot.HEIC'), false);
+});
 test('the index follows changes made outside the app without a full rescan', async t => {
   const { root, library } = await fixture(t);
   assert.equal((await library.snapshot()).items.length, 0);
