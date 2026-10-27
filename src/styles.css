@@ -420,4 +420,14 @@ button:active:not(:disabled) { transform: scale(.98); }
 .note-pane { animation: pane-in var(--base) var(--ease); }
 body, .rail, .main-content, .note-editor, .settings-panel, .floating-workspace, .search-box, input, textarea, select { transition: background-color .25s var(--ease), color .25s var(--ease), border-color .25s var(--ease); }
 .spin { animation: spin 1.2s linear infinite; }
+
+/* Fit: nothing is cut off or wraps where it should not. */
+.file-preview { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 13px; row-gap: 2px; align-items: center; }
+.file-preview .file-glyph { grid-row: 1 / span 2; }
+.file-preview h3 { grid-column: 2; }
+.file-preview > span { grid-column: 2; margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.search-box input { text-overflow: ellipsis; }
+.is-mini .capture-composer textarea { height: 60px; }
+.is-mini .floating-tools { padding-top: 3px; padding-bottom: 4px; }
+.topbar-actions .icon-button, .view-switch button { flex-shrink: 0; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } }

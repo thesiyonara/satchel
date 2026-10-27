@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.10 — 2026-10-27
+
+### Fixed
+- Nothing is cut off any more: file cards keep name and size on their own lines, the search placeholder trims with an ellipsis in narrow windows, the minimal Quick drop window no longer clips its tool row, and the phone page uses one column on narrow phones. Checked with an overflow audit at three window sizes, with long names, across the grid, the note pane with history, the pinboard, Preferences, the palette and both Quick drop modes.
+
 ## 0.4.9 — 2026-10-27
 
 ### Changed
