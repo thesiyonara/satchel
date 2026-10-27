@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.1 — 2026-10-27
 
 ### Added
 - The website, in `site/`, published to GitHub Pages: what the app is, real screenshots, and download buttons that point at the latest release.
