@@ -1,6 +1,6 @@
 # Sync it
 
-Keeps your files and notes the same on all your computers, over your own Wi-Fi. No account, no cloud.
+One shared folder for all your computers. It syncs over your own network, not the internet.
 
 [![Checks](https://github.com/thesiyonara/sync-it/actions/workflows/ci.yml/badge.svg)](https://github.com/thesiyonara/sync-it/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/thesiyonara/sync-it?display_name=tag)](https://github.com/thesiyonara/sync-it/releases/latest)

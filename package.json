@@ -2,7 +2,7 @@
   "name": "sync-it",
   "productName": "Sync it",
   "version": "0.4.10",
-  "description": "Keeps your files and notes the same on all your computers, over your own Wi-Fi. No account, no cloud.",
+  "description": "One shared folder for all your computers. It syncs over your own network, not the internet.",
   "private": true,
   "type": "module",
   "author": "Sync it contributors",
