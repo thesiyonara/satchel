@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.4 — 2026-10-27
+
+### Changed
+- The phone page got a proper design: a two-column card grid where notes read like index cards with their first lines, photos and videos fill their squares with a gradient caption, and other files show their type; a floating + button with a sheet for New note and Add photo or file; a full-bleed viewer for photos and videos; and a Share button on iPhone that hands a file to the system share sheet. Lists load with a shimmer, screens animate in, and the dark and light palettes match the desktop app.
+
 ## 0.4.3 — 2026-10-27
 
 ### Fixed
