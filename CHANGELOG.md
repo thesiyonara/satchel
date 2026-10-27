@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.6 — 2026-10-27
+
+### Fixed
+- Dragging something that is already in the window, such as a thumbnail or a card, no longer creates a note holding the app's own media link or imports anything. Thumbnails are not draggable, and drops that start inside the window are ignored.
+
 ## 0.4.5 — 2026-10-27
 
 ### Changed

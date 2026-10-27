@@ -41,6 +41,12 @@ try {
   await expect.poll(() => page.locator('.image-preview img').evaluate(image => image.naturalWidth)).toBeGreaterThan(0);
   if (await page.getByRole('button', { name: 'Dismiss message' }).isVisible()) await page.getByRole('button', { name: 'Dismiss message' }).click();
   await page.screenshot({ path: path.join(artifacts, 'dashboard.png') });
+  // Dragging something that is already in the window (a thumbnail here) must not import anything or create a note.
+  const before = await page.locator('[data-testid="item-card"]').count();
+  await page.locator('.item-card.image img').first().dragTo(page.locator('.collection-caption'));
+  await page.locator('[data-testid="item-card"]').first().dragTo(page.locator('.page-heading'));
+  await page.waitForTimeout(800);
+  assert.equal(await page.locator('[data-testid="item-card"]').count(), before, 'An in-app drag adds nothing');
   await page.getByRole('textbox', { name: 'Search the collection' }).fill('bookshop');
   await expect(page.locator('[data-testid="item-card"]')).toHaveCount(1);
   await page.getByRole('button', { name: 'Clear search' }).click();
