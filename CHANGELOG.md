@@ -1,9 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.6.3 — 2026-10-28
 
 ### Fixed
 - The Apple silicon app starts its sync helper after installation. The helper is signed and checksum-verified before packaging, and the app signing step preserves those exact bytes.
+
+### Added
+- Mac releases verify the final app signature and helper checksum before creating installers, then run the packaged app to check helper startup. The release workflow requires both Mac and Windows package checks to pass.
+
+### Changed
+- Upgrading from 0.6.1 or 0.6.2 restores Mac sync without resetting the collection, settings, or existing pairings.
 
 ## 0.6.2 — 2026-10-28
 
