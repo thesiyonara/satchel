@@ -468,7 +468,7 @@ body, .rail, .main-content, .note-editor, .settings-panel, .floating-workspace, 
 .pile-expand { border: 0; background: transparent; color: var(--accent-text); justify-content: flex-start; padding: 6px 4px; font-size: 12.5px; }
 .pile ~ .floating-tools { display: none; }
 /* A folder in the grid: opens one level down. The caption shows the way back up. */
-.folder-card { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; text-align: left; font-weight: 400; color: var(--text); cursor: pointer; width: 100%; }
+.folder-card { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 10px; padding: 12px 14px; text-align: left; font-weight: 400; color: var(--text); cursor: pointer; width: 100%; }
 .folder-card:hover { border-color: var(--line-2); background: var(--subtle); }
 .folder-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .folder-icon { width: 30px; height: 30px; border-radius: 7px; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; flex-shrink: 0; }
