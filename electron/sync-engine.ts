@@ -11,6 +11,7 @@ import type { NearbyDevice, PairingOptions, Settings, SyncStatus, IncomingItem }
 import { atomicWrite, errorMessage } from './files';
 import { secureDirectory } from './security';
 import engineHashes from '../shared/engine-integrity.json';
+import signedEngineHashes from '../shared/engine-signed-integrity.json';
 
 const execFileAsync = promisify(execFile);
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -122,8 +123,9 @@ export class SyncEngine {
     try {
       const digest = createHash('sha256');
       for await (const chunk of createReadStream(this.options.executable)) digest.update(chunk);
-      const expected = engineHashes[`${process.platform}-${process.arch}` as keyof typeof engineHashes];
-      if (!expected || digest.digest('hex') !== expected) throw new Error('The sync helper failed its integrity check. Reinstall Satchel from a trusted build.');
+      const key = `${process.platform}-${process.arch}`;
+      const expected = (signedEngineHashes as Record<string, string[]>)[key] || [(engineHashes as Record<string, string>)[key]];
+      if (!expected.includes(digest.digest('hex'))) throw new Error('The sync helper failed its integrity check. Reinstall Satchel from a trusted build.');
       // Packaging or extraction can drop the execute bit on macOS; restore it for the verified helper only.
       if (process.platform !== 'win32') await fs.access(this.options.executable, fsConstants.X_OK).catch(() => fs.chmod(this.options.executable, 0o755));
       await secureDirectory(this.options.home);

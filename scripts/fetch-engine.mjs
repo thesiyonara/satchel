@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile, chmod } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import AdmZip from 'adm-zip';
+import { execFileSync } from 'node:child_process';
 // Usage: node scripts/fetch-engine.mjs [platform] [arch] [--write-pins]
 // --write-pins records the extracted executable's SHA-256 in shared/engine-integrity.json
 // (only when bumping the pinned Syncthing version). Without it a mismatch fails the build.
@@ -67,3 +68,16 @@ if (pins[pinKey] !== executableDigest) {
   console.log(`Updated runtime pin ${pinKey}`);
 }
 console.log(`Verified engine ready: ${dir} (${exe} sha256 ${executableDigest})`);
+// Sign only after verifying the untouched upstream executable. Always start from the archive:
+// signing an already signed Mach-O can produce different bytes. Pin the complete signed file,
+// and keep electron-builder from signing it again when it signs the enclosing app.
+const signedPins = JSON.parse(await readFile('shared/engine-signed-integrity.json', 'utf8'));
+if (signedPins[pinKey]) {
+  if (process.platform !== 'darwin') throw new Error('Prepare the signed macOS helper on a Mac');
+  const target = path.join(dir, exe);
+  execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', '--identifier', 'local.syncit.syncthing', '--timestamp=none', target], { stdio: 'inherit' });
+  execFileSync('/usr/bin/codesign', ['--verify', '--strict', target], { stdio: 'inherit' });
+  const signedDigest = createHash('sha256').update(await readFile(target)).digest('hex');
+  if (!signedPins[pinKey].includes(signedDigest)) throw new Error(`Signed helper pin mismatch: expected ${signedPins[pinKey].join(' or ')}, got ${signedDigest}. Review the signing output before updating its pin.`);
+  console.log(`Verified signed engine: ${signedDigest}`);
+}

@@ -14,6 +14,20 @@ import type { Settings } from '../shared/types';
 
 async function waitFor(condition: () => Promise<boolean>, message: string, timeout = 30000) { const start = Date.now(); while (Date.now() - start < timeout) { if (await condition().catch(() => false)) return; await new Promise(resolve => setTimeout(resolve, 200)); } throw new Error(`Timed out: ${message}`); }
 async function port(): Promise<number> { return new Promise(resolve => { const server = net.createServer(); server.listen(0, '127.0.0.1', () => { const port = (server.address() as net.AddressInfo).port; server.close(() => resolve(port)); }); }); }
+test('a modified pinned helper is rejected before it can generate a profile', async t => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'syncit-tampered-engine-'));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const name = process.platform === 'win32' ? 'syncthing.exe' : 'syncthing';
+  const original = path.resolve('vendor', `${process.platform === 'win32' ? 'win' : 'mac'}-${process.arch}`, name);
+  const executable = path.join(dir, name);
+  await fs.copyFile(original, executable);
+  await fs.appendFile(executable, 'tampered');
+  const home = path.join(dir, 'engine');
+  const engine = new SyncEngine({ executable, home, settings: () => { throw new Error('Must reject before reading settings'); }, updateSettings: async () => {} });
+  await assert.rejects(engine.start(), /integrity check/);
+  assert.equal(engine.status.state, 'error');
+  await assert.rejects(fs.access(home));
+});
 test('real Syncthing pair: offline-safe LAN configuration, two-way files, layouts, conflict, resume, recovery', { timeout: 180000 }, async t => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'syncit-integration-'));
   const engines: SyncEngine[] = []; const libraries: Library[] = [];

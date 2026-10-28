@@ -97,6 +97,7 @@
       }
     ],
     "asar": true,
+    "afterSign": "scripts/verify-mac-package.cjs",
     "win": {
       "target": [
         "nsis"
@@ -118,6 +119,7 @@
       "category": "public.app-category.productivity",
       "minimumSystemVersion": "13.0",
       "identity": "-",
+      "signIgnore": ["/Contents/Resources/engine/syncthing$"],
       "hardenedRuntime": false,
       "extendInfo": {
         "NSLocalNetworkUsageDescription": "Satchel connects to your paired computer on the local network to sync your files and notes."

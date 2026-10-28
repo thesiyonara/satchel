@@ -7,7 +7,11 @@ import { XMLParser } from 'fast-xml-parser';
 import { getCurrentFuseWire, FuseV1Options, FuseState } from '@electron/fuses';
 
 // Packaged builds intentionally cannot be controlled through Electron's debugger.
-const executable = path.resolve('release/win-unpacked/Satchel.exe');
+const mac = process.platform === 'darwin';
+const output = path.resolve(process.argv[2] || 'release');
+const bundle = path.join(output, `mac${process.arch === 'arm64' ? '-arm64' : ''}/Satchel.app`);
+const executable = mac ? path.join(bundle, 'Contents/MacOS/Satchel') : path.join(output, 'win-unpacked/Satchel.exe');
+const resources = mac ? path.join(bundle, 'Contents/Resources') : path.join(output, 'win-unpacked/resources');
 const fuses = await getCurrentFuseWire(executable);
 for (const option of [FuseV1Options.RunAsNode, FuseV1Options.EnableNodeOptionsEnvironmentVariable, FuseV1Options.EnableNodeCliInspectArguments]) assert.equal(fuses[option], FuseState.DISABLE);
 for (const option of [FuseV1Options.EnableEmbeddedAsarIntegrityValidation, FuseV1Options.OnlyLoadAppFromAsar]) assert.equal(fuses[option], FuseState.ENABLE);
@@ -32,7 +36,7 @@ try {
   const denied = await fetch(`http://${gui.address}/rest/config`);
   assert.ok([401, 403].includes(denied.status));
   const execute = promisify(execFile);
-  const cli = async (...args) => JSON.parse((await execute(process.execPath, [path.resolve('release/win-unpacked/resources/cli/syncit.mjs'), '--profile', profile, ...args], { windowsHide: true })).stdout);
+  const cli = async (...args) => JSON.parse((await execute(process.execPath, [path.join(resources, 'cli/syncit.mjs'), '--profile', profile, ...args], { windowsHide: true })).stdout);
   const created = await cli('capture', 'Packaged CLI verification');
   const update = await cli('update', 'status');
   assert.equal(update.phase, 'idle');
@@ -48,11 +52,15 @@ try {
   await new Promise(resolve => setTimeout(resolve, 600));
   assert.equal((await cli('status')).windows.find(window => window.name === 'panel').visible, false);
   await cli('call', 'quit', '[]');
-  for (let attempt = 0; child.exitCode === null && attempt < 80; attempt++) await new Promise(resolve => setTimeout(resolve, 100));
-  assert.notEqual(child.exitCode, null, 'CLI quit must close the packaged app');
+  // Engine shutdown can include a 6s API timeout plus its bounded process-exit grace period.
+  for (let attempt = 0; child.exitCode === null && child.signalCode === null && attempt < 200; attempt++) await new Promise(resolve => setTimeout(resolve, 100));
+  assert.equal(child.exitCode, 0, 'CLI quit must close the packaged app cleanly');
   await assert.rejects(readFile(path.join(profile, 'control.json')));
-  console.log('Packaged Windows startup passed: ASAR integrity, five fuse settings, bundled verified helper, authenticated controls, installed CLI note capture/read and minimal-window control.');
+  console.log('Packaged startup passed: ASAR integrity, five fuse settings, bundled verified helper, authenticated controls, installed CLI note capture/read and minimal-window control.');
 } finally {
   if (gui) await fetch(`http://${gui.address}/rest/system/shutdown`, { method: 'POST', headers: { 'X-API-Key': gui.apikey } }).catch(() => {});
-  if (child.exitCode === null) execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+  if (child.exitCode === null) {
+    if (mac) child.kill('SIGTERM');
+    else execFileSync('taskkill', ['/PID', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+  }
 }
