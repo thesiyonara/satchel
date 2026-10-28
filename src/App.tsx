@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDownToLine, ArrowRight, CheckCheck, Clipboard, File, FileText, Film, Folder, FolderOpen, Image, LayoutGrid, Link2, LoaderCircle, MoreHorizontal, Music, PanelTop, Pin, Play, Plus, Search, Trash2, WifiOff, X, AlertTriangle, Pencil, ExternalLink, Star, Command } from 'lucide-react';
-import type { InitialState, ItemKind, LibraryItem, LibrarySnapshot, NoteDocument, Settings, SyncStatus, UpdateState } from '../shared/types';
+import type { IncomingItem, InitialState, ItemKind, LibraryItem, LibrarySnapshot, NoteDocument, Settings, SyncStatus, UpdateState } from '../shared/types';
 import { NoteEditor } from './NoteEditor';
 import { SettingsPanel } from './SettingsPanel';
 import { Board } from './Board';
@@ -9,7 +9,8 @@ import { QuickPanel } from './QuickPanel';
 import { CommandPalette } from './CommandPalette';
 import { saveBeforeUpdate } from './save-before-update';
 import { PreviewBody, previewLabel } from './Preview';
-import { previewKind } from '../shared/media';
+import { mediaKind, previewKind } from '../shared/media';
+import { formatSize } from '../shared/format';
 import { plainText } from './markdown-parse';
 import { Mark } from './Mark';
 
@@ -19,7 +20,7 @@ export const labels: Record<SyncStatus['state'], string> = { starting: 'Starting
 type Filter = ItemKind | 'all' | 'conflict' | 'favorite' | 'arrived';
 const filterTitles: Record<Filter, string> = { all: 'Everything', favorite: 'Favorites', conflict: 'Conflicts', arrived: 'From other computers', note: 'Notes', image: 'Images', video: 'Videos', audio: 'Audio', file: 'Files' };
 
-export function size(bytes: number) { if (bytes < 1024) return `${bytes} B`; if (bytes < 1048576) return `${(bytes / 1024).toFixed(0)} KB`; return `${(bytes / 1048576).toFixed(1)} MB`; }
+export const size = formatSize;
 function since(time: number) { const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000)); return minutes < 1 ? 'Just now' : minutes < 60 ? `${minutes}m ago` : minutes < 1440 ? `${Math.floor(minutes / 60)}h ago` : new Date(time).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
 function title(item: LibraryItem) { return item.kind === 'note' ? item.name.replace(/\.(md|txt)$/i, '') : item.name; }
 function folderOf(path: string) { const index = path.lastIndexOf('/'); return index < 0 ? '' : path.slice(0, index); }
@@ -121,6 +122,17 @@ export function App() {
     if (paths.length) { await run(() => window.syncit.importFiles(paths), `${paths.length} ${paths.length === 1 ? 'item' : 'items'} added to the collection.`); if (isPanel && pile) setTimeout(() => void window.syncit.panel('hide'), 1400); }
     else { const text = event.dataTransfer.getData('text/plain'); if (text.trim() && !/^syncit-(media|app):/i.test(text.trim())) await run(() => window.syncit.createNote(text), 'Note added to the collection.'); }
   }
+  // A file another computer is sending: its name, who sends it and how far it has come, in place of the card it will become.
+  function renderIncoming(item: IncomingItem) {
+    const kind: ItemKind = mediaKind(item.name) || (/\.(md|txt)$/i.test(item.name) ? 'note' : 'file');
+    const Icon = { note: FileText, image: Image, video: Film, audio: Music, file: File }[kind];
+    const percent = item.size > 0 ? Math.min(100, Math.round(item.done / item.size * 100)) : 0;
+    return <article className="item-card incoming" data-testid="incoming-card" aria-label={`${item.name} is arriving`}>
+      <div className="incoming-head"><span className="incoming-icon"><Icon size={16} /></span><strong title={item.path}>{item.name}</strong><LoaderCircle size={14} className="spin" /></div>
+      <small>Arriving{item.from ? ` from ${item.from}` : ''} · {item.done > 0 ? `${size(item.done)} of ${size(item.size)}` : item.size > 0 ? size(item.size) : 'waiting'}</small>
+      <div className={`incoming-bar ${item.done > 0 ? '' : 'indeterminate'}`} role="progressbar" aria-valuenow={percent} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${Math.max(2, percent)}%` }} /></div>
+    </article>;
+  }
   function renderCard(item: LibraryItem, dragOut = false) {
     const color = item.path.split('').reduce((sum, character) => sum + character.charCodeAt(0), 0) % 3;
     const folder = folderOf(item.path);
@@ -138,9 +150,11 @@ export function App() {
   const query = search.toLowerCase();
   const visible = library.items.filter(item => (!folder || item.path.startsWith(folder + '/')) && (filter === 'all' || (filter === 'favorite' ? settings.favorites?.includes(item.path) : filter === 'conflict' ? item.conflict : filter === 'arrived' ? !!item.arrivedFrom : item.kind === filter)) && `${item.path} ${item.preview || ''}`.toLowerCase().includes(query));
   const counts = { favorite: library.items.filter(item => settings.favorites?.includes(item.path)).length, note: library.items.filter(i => i.kind === 'note').length, image: library.items.filter(i => i.kind === 'image').length, video: library.items.filter(i => i.kind === 'video').length, audio: library.items.filter(i => i.kind === 'audio').length, file: library.items.filter(i => i.kind === 'file').length, conflict: library.items.filter(i => i.conflict).length, arrived: library.items.filter(i => i.arrivedFrom).length };
+  const arriving = (filter === 'all' || filter === 'arrived') && !search ? sync.incoming.filter(item => !folder || item.path.startsWith(folder + '/')) : [];
+  const receiving = sync.incoming.length ? `Receiving ${sync.incoming.length === 1 ? sync.incoming[0].name : `${sync.incoming.length} files`}${sync.inRate > 0 ? ` · ${size(sync.inRate)}/s` : ''}` : '';
   const connectedPeers = sync.peers.filter(peer => peer.connected).length;
   const peerSummary = sync.peers.length === 0 ? 'Not paired yet' : sync.peers.length === 1 ? sync.peers[0].name : `${sync.peers.length} computers · ${connectedPeers} online`;
-  const peerDetail = sync.pending.length ? `${sync.pending.length} ${sync.pending.length === 1 ? 'request' : 'requests'} waiting` : sync.peers.length === 0 ? (sync.nearby.length ? `${sync.nearby.length} nearby · pair a computer` : 'Pair a computer') : labels[sync.state];
+  const peerDetail = sync.pending.length ? `${sync.pending.length} ${sync.pending.length === 1 ? 'request' : 'requests'} waiting` : sync.peers.length === 0 ? (sync.nearby.length ? `${sync.nearby.length} nearby · pair a computer` : 'Pair a computer') : receiving || labels[sync.state];
   visibleRef.current = visible; selectedRef.current = selected;
   const heading = view === 'board' ? 'Pinboard' : folder && filter === 'all' ? folder : filterTitles[filter];
   const folders = [...new Set(library.items.map(item => item.path.split('/')[0]).filter((part, _i, _a) => library.items.some(item => item.path.startsWith(part + '/'))))].sort((a, b) => a.localeCompare(b));
@@ -157,14 +171,14 @@ export function App() {
   return <div className={isPanel ? 'quick-app' : 'app-shell'} inert={preparingUpdate || undefined} {...captureHandlers}>
     {preparingUpdate && <div className="modal-shade" style={{ zIndex: 2000 }}><section className="small-dialog"><h2>Preparing the update…</h2><p>Saving notes and stopping sync.</p></section></div>}
     {!isPanel && update && ['available', 'ready'].includes(update.phase) && <button className="update-notice" onClick={() => setSettingsTab('preferences')}>Update {update.availableVersion} {update.phase === 'ready' ? 'ready to install' : 'available'} <ArrowRight size={13} /></button>}
-    {isPanel ? <QuickPanel settings={settings} items={library.items} status={labels[sync.state]} platform={initial.platform} open={item => void run(() => openItem(item))} paste={paste} notify={notify} pile={pile} expand={() => { setPile(false); void window.syncit.showPanel(); }} media={media} /> : <>
+    {isPanel ? <QuickPanel settings={settings} items={library.items} incoming={sync.incoming} status={receiving || labels[sync.state]} platform={initial.platform} open={item => void run(() => openItem(item))} paste={paste} notify={notify} pile={pile} expand={() => { setPile(false); void window.syncit.showPanel(); }} media={media} /> : <>
       <aside className="rail">
         <button className="rail-head" title={settings.root} onClick={() => setSettingsTab('preferences')}><strong>{name}</strong><small>{settings.deviceName}{sync.peers.length > 0 && ` · ${peerSummary}`}</small></button>
-        <nav aria-label="Collection">{navButton('all', LayoutGrid, 'Everything', library.items.length)}{navButton('note', FileText, 'Notes', counts.note)}{navButton('image', Image, 'Images', counts.image)}{counts.video > 0 && navButton('video', Film, 'Videos', counts.video)}{counts.audio > 0 && navButton('audio', Music, 'Audio', counts.audio)}{navButton('file', File, 'Files', counts.file)}{counts.arrived > 0 && navButton('arrived', ArrowDownToLine, 'From other computers', counts.arrived)}{counts.conflict > 0 && navButton('conflict', AlertTriangle, 'Conflicts', counts.conflict)}
+        <nav aria-label="Collection">{navButton('all', LayoutGrid, 'Everything', library.items.length)}{navButton('note', FileText, 'Notes', counts.note)}{navButton('image', Image, 'Images', counts.image)}{counts.video > 0 && navButton('video', Film, 'Videos', counts.video)}{counts.audio > 0 && navButton('audio', Music, 'Audio', counts.audio)}{navButton('file', File, 'Files', counts.file)}{(counts.arrived > 0 || sync.incoming.length > 0) && navButton('arrived', ArrowDownToLine, 'From other computers', counts.arrived + sync.incoming.length)}{counts.conflict > 0 && navButton('conflict', AlertTriangle, 'Conflicts', counts.conflict)}
           {folders.length > 0 && <><div className="nav-gap" /><small className="nav-label">Folders</small>{folders.slice(0, 12).map(name => <button key={name} className={view === 'grid' && folder === name ? 'active' : ''} onClick={() => { setView('grid'); setFilter('all'); setFolder(name); }}>{name}<span>{library.items.filter(item => item.path.startsWith(name + '/')).length}</span></button>)}</>}
           <div className="nav-gap" /><button className={view === 'board' ? 'active' : ''} onClick={() => { setView('board'); setFilter('all'); setSearch(''); setFolder(null); }}>Pinboard<span>{library.placements.length}</span></button>{navButton('favorite', Star, 'Favorites', counts.favorite)}</nav>
         <div className="rail-foot">
-          <button className="rail-sync" title={peerDetail} onClick={() => setSettingsTab('connect')}><span className={`status-dot ${sync.state === 'synced' ? 'green' : sync.state === 'error' ? 'red' : ''}`} />{sync.peers.length === 0 ? 'Not paired yet' : sync.pending.length ? peerDetail : labels[sync.state]}{sync.pending.length > 0 && <b>{sync.pending.length}</b>}</button>
+          <button className="rail-sync" title={peerDetail} onClick={() => setSettingsTab('connect')}><span className={`status-dot ${sync.state === 'synced' ? 'green' : sync.state === 'error' ? 'red' : ''}`} />{sync.peers.length === 0 ? 'Not paired yet' : sync.pending.length ? peerDetail : receiving || labels[sync.state]}{sync.pending.length > 0 && <b>{sync.pending.length}</b>}</button>
           {sync.peers.length === 0 && <button onClick={() => setSettingsTab('connect')}>Pair a computer</button>}
           <button onClick={() => setSettingsTab('preferences')}>Preferences</button>
         </div>
@@ -173,7 +187,7 @@ export function App() {
         {library.error && <div className="page-error"><AlertTriangle size={18} /><span>{library.error}</span><button onClick={() => void refresh()}>Retry</button></div>}
         {sync.pending.length > 0 && <button className="pair-banner" onClick={() => setSettingsTab('connect')}><Link2 size={18} />{sync.pending[0].name} asks to join this collection.<span>Review request <ArrowRight size={15} /></span></button>}
         {view === 'board' ? <Board items={visible} placements={library.placements} renderCard={renderCard} notify={notify} /> : <div className="collection-scroll"><div className="collection-caption"><h1>{search ? 'Results' : heading}</h1><b>· {visible.length} {visible.length === 1 ? 'item' : 'items'}</b>{selected.length > 0 && <div className="selection-bar" role="toolbar" aria-label="Selection"><b>{selected.length} selected</b><button onClick={() => void run(async () => { for (const item of selectedItems) await window.syncit.favorite(item.path, !allFavorites); }, allFavorites ? 'Removed from favorites.' : 'Added to favorites.')}><Star size={13} />{allFavorites ? 'Remove favorites' : 'Favorite'}</button><button onClick={() => { setMoving(selected); setMoveTarget(''); }}><Folder size={13} />Move to folder</button><button className="danger" onClick={() => setDeleting(selectedItems)}><Trash2 size={13} />Move to Trash</button><button onClick={() => setSelected([])} aria-label="Clear selection"><X size={13} />Clear</button><small>Drag any selected card to drag them all out.</small></div>}<div className="caption-right"><span>Latest first{library.items.length ? ` · ${size(library.items.reduce((sum, item) => sum + item.size, 0))} on this computer` : ''}</span><button disabled={busy} onClick={() => void run(() => window.syncit.chooseFiles())}>Add files</button></div></div>
-          {visible.length ? <div className="card-grid">{visible.map(item => <div key={item.path}>{renderCard(item, true)}</div>)}</div> : search || filter !== 'all' ? <div className="empty-results">{filter === 'favorite' && !search ? <Star size={28} /> : <Search size={28} />}<h3>{search ? 'No matches.' : filter === 'favorite' ? 'No favorites yet.' : filter === 'arrived' ? 'Nothing has arrived from other computers in the last two days.' : `No ${filterTitles[filter].toLowerCase()} yet.`}</h3><p>{search ? 'Search covers file names, folder names and the first 32,000 characters of each note.' : filter === 'favorite' ? 'Star an item from its card menu to keep it one click away here and in Quick drop. Favorites stay on this computer.' : 'Items you add appear here.'}</p></div> : <div className="welcome-empty"><h2>Nothing here yet.</h2><p>Write a note, paste, or drop files anywhere in this window. Everything in the collection folder reaches the computers you pair.</p><div className="row"><button className="primary" onClick={() => void run(async () => setNote(await window.syncit.createNote()))}><Plus size={16} />Write a note</button><button onClick={() => void run(paste)}><Clipboard size={16} />Paste</button><button onClick={() => void run(() => window.syncit.chooseFiles())}>Choose files <ArrowRight size={15} /></button></div></div>}
+          {visible.length || arriving.length ? <div className="card-grid">{arriving.map(item => <div key={'incoming:' + item.path}>{renderIncoming(item)}</div>)}{visible.map(item => <div key={item.path}>{renderCard(item, true)}</div>)}</div> : search || filter !== 'all' ? <div className="empty-results">{filter === 'favorite' && !search ? <Star size={28} /> : <Search size={28} />}<h3>{search ? 'No matches.' : filter === 'favorite' ? 'No favorites yet.' : filter === 'arrived' ? 'Nothing has arrived from other computers in the last two days.' : `No ${filterTitles[filter].toLowerCase()} yet.`}</h3><p>{search ? 'Search covers file names, folder names and the first 32,000 characters of each note.' : filter === 'favorite' ? 'Star an item from its card menu to keep it one click away here and in Quick drop. Favorites stay on this computer.' : 'Items you add appear here.'}</p></div> : <div className="welcome-empty"><h2>Nothing here yet.</h2><p>Write a note, paste, or drop files anywhere in this window. Everything in the collection folder reaches the computers you pair.</p><div className="row"><button className="primary" onClick={() => void run(async () => setNote(await window.syncit.createNote()))}><Plus size={16} />Write a note</button><button onClick={() => void run(paste)}><Clipboard size={16} />Paste</button><button onClick={() => void run(() => window.syncit.chooseFiles())}>Choose files <ArrowRight size={15} /></button></div></div>}
         </div>}
       </main>
     </>}

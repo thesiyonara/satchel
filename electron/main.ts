@@ -9,7 +9,8 @@ import { Library } from './library';
 import { SyncEngine } from './sync-engine';
 import { SettingsStore, validateSettingsPatch } from './settings';
 import { contained, errorMessage, hash, atomicWrite } from './files';
-import type { BoardPlacement, Settings } from '../shared/types';
+import type { BoardPlacement, Settings, SyncStatus } from '../shared/types';
+import { formatSize } from '../shared/format';
 import { appCSP, assertSafeToOpen, rendererRequestAllowed, secureDirectory } from './security';
 import { startControl, type ControlHandlers } from './control';
 import { Updates } from './updates';
@@ -83,8 +84,8 @@ async function start() {
   library = new Library(store.value.root, notifyLibrary, file => shell.trashItem(file), path.join(app.getPath('userData'), 'note-recovery'));
   await library.initialize().catch(() => {}); // Missing roots are reported in the dashboard, never recreated silently.
   const executable = app.isPackaged ? path.join(process.resourcesPath, 'engine', process.platform === 'win32' ? 'syncthing.exe' : 'syncthing') : path.join(app.getAppPath(), 'vendor', `${process.platform === 'win32' ? 'win' : 'mac'}-${process.arch}`, process.platform === 'win32' ? 'syncthing.exe' : 'syncthing');
-  engine = new SyncEngine({ executable, home: path.join(app.getPath('userData'), 'engine'), settings: () => store.value, updateSettings: patch => store.update(patch), port: testing ? Number(process.env.SYNCIT_TEST_PORT || 22127) : undefined, allowLoopback: testing, discovery: testing ? false : undefined,
-    arrived: items => { broadcast('syncit:library'); notifyArrival(items); }, changed: status => { broadcast('syncit:sync', status); tray?.setToolTip(`Satchel · ${status.state === 'synced' ? 'Up to date' : status.state}`); refreshTray(); } });
+  engine = new SyncEngine({ executable, home: path.join(app.getPath('userData'), 'engine'), settings: () => store.value, updateSettings: patch => store.update(patch), port: testing ? Number(process.env.SYNCIT_TEST_PORT || 22127) : undefined, allowLoopback: testing, discovery: testing ? false : undefined, recvLimitKbps: testing && process.env.SYNCIT_TEST_RECV_KBPS ? Number(process.env.SYNCIT_TEST_RECV_KBPS) : undefined,
+    arrived: items => { broadcast('syncit:library'); notifyArrival(items); }, changed: status => { broadcast('syncit:sync', status); notifyIncoming(status); tray?.setToolTip(`Satchel · ${status.incoming.length ? `Receiving ${status.incoming.length === 1 ? status.incoming[0].name : `${status.incoming.length} files`}` : status.state === 'synced' ? 'Up to date' : status.state}`); refreshTray(); } });
   companion = new Companion({ directory: app.getPath('userData'), port: store.value.phonePort ?? (testing ? 22128 : 22028), allowLoopback: testing, webRoot: path.join(app.getAppPath(), 'web'), library: () => library, text: async relative => readTextPreview(await contained(library.root, relative)), deviceName: () => store.value.deviceName, collectionName: () => path.basename(store.value.root), syncState: () => engine.status.state, thumbnail: thumbnailFor });
   if (store.value.phoneAccess) void companion.start().catch(() => {});
   setupProtocols(); setupIPC();
@@ -313,6 +314,22 @@ function notifyArrival(items: { path: string; by: string }[]) {
   const notification = new Notification({ title: 'Satchel', body, silent: true });
   notification.on('click', () => { showDashboard(); mainWindow?.webContents.send('syncit:navigate', { filter: 'arrived' }); });
   notification.show();
+}
+// A large file is announced once when it starts to arrive, so the wait is explained before the file lands; small ones are only announced on arrival.
+const announcedIncoming = new Set<string>();
+function notifyIncoming(status: SyncStatus) {
+  for (const key of announcedIncoming) if (!status.incoming.some(item => item.path === key)) announcedIncoming.delete(key);
+  if (!store.value.arrivalAlerts) return;
+  for (const item of status.incoming) {
+    if (item.size < 10 * 1048576 || announcedIncoming.has(item.path)) continue;
+    announcedIncoming.add(item.path);
+    const body = `${item.name} is arriving${item.from ? ` from ${item.from}` : ''} · ${formatSize(item.size)}`;
+    lastNotification = body;
+    if (testing || !Notification.isSupported()) continue;
+    const notification = new Notification({ title: 'Satchel', body, silent: true });
+    notification.on('click', () => { showDashboard(); mainWindow?.webContents.send('syncit:navigate', { filter: 'arrived' }); });
+    notification.show();
+  }
 }
 function toast(body: string) { if (Notification.isSupported()) new Notification({ title: 'Satchel', body, silent: true }).show(); }
 let trayMenuSignature = '';

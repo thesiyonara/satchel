@@ -33,9 +33,15 @@ export interface PendingPeer { id: string; name: string; address: string }
 export interface NearbyDevice { id: string; addresses: string[] }
 /** Options when approving or connecting a device. An encryption password makes that device an untrusted copy: it stores and relays only encrypted data. */
 export interface PairingOptions { encryptionPassword?: string }
+/** A file another computer has that this one is still receiving. `done` grows as blocks land; `from` is the computer sending it when known. */
+export interface IncomingItem { path: string; name: string; size: number; done: number; from?: string }
 export interface SyncStatus {
   state: 'starting' | 'unpaired' | 'offline' | 'syncing' | 'synced' | 'error' | 'paused';
   deviceId: string; peers: Peer[]; pending: PendingPeer[]; nearby: NearbyDevice[]; pendingItems: number; pendingBytes: number;
+  /** Files on their way to this computer, largest transfers first, up to forty. */
+  incoming: IncomingItem[];
+  /** Bytes per second received from other computers, measured between two polls; 0 when nothing is incoming. */
+  inRate: number;
   localAddresses: string[]; errors: string[]; engineVersion: string;
 }
 export interface InitialState { settings: Settings; library: LibrarySnapshot; sync: SyncStatus; platform: string; loginEnabled: boolean; runId: string; version: string; /** The Quick drop window was opened as the drawer and should show the pile. */ drawer?: boolean }

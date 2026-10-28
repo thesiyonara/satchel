@@ -7,7 +7,7 @@ import net from 'node:net';
 import { randomBytes, createHash } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
-import type { NearbyDevice, PairingOptions, Settings, SyncStatus } from '../shared/types';
+import type { NearbyDevice, PairingOptions, Settings, SyncStatus, IncomingItem } from '../shared/types';
 import { atomicWrite, errorMessage } from './files';
 import { secureDirectory } from './security';
 import engineHashes from '../shared/engine-integrity.json';
@@ -15,7 +15,7 @@ import engineHashes from '../shared/engine-integrity.json';
 const execFileAsync = promisify(execFile);
 const pause = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 type Config = Record<string, any>;
-export interface EngineOptions { executable: string; home: string; settings: () => Settings; updateSettings: (patch: Partial<Settings>) => Promise<void>; changed?: (status: SyncStatus) => void; arrived?: (items: { path: string; by: string }[]) => void; port?: number; allowLoopback?: boolean; discovery?: boolean }
+export interface EngineOptions { executable: string; home: string; settings: () => Settings; updateSettings: (patch: Partial<Settings>) => Promise<void>; changed?: (status: SyncStatus) => void; arrived?: (items: { path: string; by: string }[]) => void; port?: number; allowLoopback?: boolean; discovery?: boolean; /** Test only: throttle what this instance receives, in KiB/s, so a transfer stays visible long enough to observe. */ recvLimitKbps?: number }
 export interface PairingCode { version: 1; deviceId: string; folderId: string; name: string; port: number }
 export const deviceIdPattern = /^[A-Z2-7]{7}(?:-[A-Z2-7]{7}){7}$/;
 const folderIdPattern = /^[a-zA-Z0-9-]{1,80}$/;
@@ -80,7 +80,7 @@ async function freePort(): Promise<number> {
   });
 }
 export class SyncEngine {
-  status: SyncStatus = { state: 'starting', deviceId: '', peers: [], pending: [], nearby: [], pendingItems: 0, pendingBytes: 0, localAddresses: [], errors: [], engineVersion: '2.1.7' };
+  status: SyncStatus = { state: 'starting', deviceId: '', peers: [], pending: [], nearby: [], pendingItems: 0, pendingBytes: 0, incoming: [], inRate: 0, localAddresses: [], errors: [], engineVersion: '2.1.7' };
   private child?: ChildProcess;
   private apiPort = 0;
   private apiKey = '';
@@ -136,7 +136,7 @@ export class SyncEngine {
       await this.recoverOrphan(config.gui, filename);
       this.apiPort = await freePort(); this.apiKey = randomBytes(32).toString('hex');
       config.gui = { ...config.gui, '@_enabled': 'true', '@_tls': 'false', '@_sendBasicAuthPrompt': 'true', address: `127.0.0.1:${this.apiPort}`, apikey: this.apiKey, user: 'syncit-private', password: await bcrypt.hash(randomBytes(32).toString('hex'), 10), authMode: 'static', insecureAdminAccess: 'false', insecureSkipHostcheck: 'false', insecureAllowFrameLoading: 'false', metricsWithoutAuth: 'false' };
-      config.options = { ...config.options, listenAddress: `tcp://0.0.0.0:${this.options.port ?? 22027}`, globalAnnounceEnabled: 'false', globalAnnounceServer: '', localAnnounceEnabled: String(this.options.discovery !== false), relaysEnabled: 'false', natEnabled: 'false', startBrowser: 'false', urAccepted: '-1', urURL: '', crashReportingEnabled: 'false', crashReportingURL: '', autoUpgradeIntervalH: '0', releasesURL: '', stunServer: '', reconnectionIntervalS: '5', progressUpdateIntervalS: '2' };
+      config.options = { ...config.options, listenAddress: `tcp://0.0.0.0:${this.options.port ?? 22027}`, globalAnnounceEnabled: 'false', globalAnnounceServer: '', localAnnounceEnabled: String(this.options.discovery !== false), relaysEnabled: 'false', natEnabled: 'false', startBrowser: 'false', urAccepted: '-1', urURL: '', crashReportingEnabled: 'false', crashReportingURL: '', autoUpgradeIntervalH: '0', releasesURL: '', stunServer: '', reconnectionIntervalS: '5', progressUpdateIntervalS: '1', setLowPriority: 'false' };
       config.options.localAnnounceEnabled = String(this.options.discovery ?? this.options.settings().localDiscovery ?? true);
       const devices = Array.isArray(config.device) ? config.device : config.device ? [config.device] : [];
       const networks = localNetworks(this.options.allowLoopback).networks;
@@ -229,10 +229,13 @@ export class SyncEngine {
         else device.paused = settings.syncPaused ?? false;
       }
       config.options.localAnnounceEnabled = this.options.discovery ?? settings.localDiscovery ?? true;
+      // Progress once a second so an incoming file can be shown as it lands, and no lowered process priority: someone is usually waiting for the transfer.
+      config.options.progressUpdateIntervalS = 1; config.options.setLowPriority = false;
+      if (this.options.recvLimitKbps) { config.options.maxRecvKbps = this.options.recvLimitKbps; config.options.limitBandwidthInLan = true; }
       let folder = config.folders.find((entry: Config) => entry.id === settings.folderId);
       if (!folder) folder = { ...config.defaults.folder, id: settings.folderId, label: 'Satchel', path: settings.root };
       // The watcher plus the app's own scan requests catch changes; the hourly full rescan is a safety net, not the mechanism.
-      Object.assign(folder, { path: settings.root, type: 'sendreceive', fsWatcherEnabled: true, fsWatcherDelayS: 0.5, rescanIntervalS: 3600, ignorePerms: true, maxConflicts: -1, paused: false, minDiskFree: { value: 1, unit: '%' }, versioning: { type: 'staggered', params: { maxAge: String(30 * 86400) }, cleanupIntervalS: 3600, fsPath: '', fsType: 'basic' } });
+      Object.assign(folder, { path: settings.root, type: 'sendreceive', fsWatcherEnabled: true, fsWatcherDelayS: 0.5, rescanIntervalS: 3600, ignorePerms: true, maxConflicts: -1, paused: false, pullerMaxPendingKiB: 65536, minDiskFree: { value: 1, unit: '%' }, versioning: { type: 'staggered', params: { maxAge: String(30 * 86400) }, cleanupIntervalS: 3600, fsPath: '', fsType: 'basic' } });
       shareWithDevices(folder, config.devices);
       config.folders = [folder];
       folder.paused = settings.syncPaused ?? false;
@@ -253,19 +256,36 @@ export class SyncEngine {
   private eventsAbort?: AbortController;
   private lastEvent = 0;
   arrival(relative: string) { const found = this.arrivals.get(relative.replace(/\\/g, '/')); return found && Date.now() - found.at < 172800000 ? found : undefined; }
+  /** What the engine still needs from other computers (its need list) and how far each file has come (its DownloadProgress events). */
+  private need: { path: string; size: number }[] = [];
+  private progress = new Map<string, { done: number; total: number }>();
+  private sources = new Map<string, string>();
+  private lastIn?: { bytes: number; at: number };
+  private incomingList(): IncomingItem[] {
+    return this.need.map(entry => { const progress = this.progress.get(entry.path); return { path: entry.path, name: entry.path.split('/').pop() || entry.path, size: Math.max(entry.size, progress?.total ?? 0), done: Math.min(progress?.done ?? 0, entry.size || progress?.total || 0), from: this.sources.get(entry.path) }; })
+      .sort((a, b) => (b.done > 0 ? 1 : 0) - (a.done > 0 ? 1 : 0) || b.size - a.size).slice(0, 40);
+  }
   private watchEvents() {
     if (this.eventsAbort || this.stopped) return;
     const abort = this.eventsAbort = new AbortController();
     const loop = async () => {
       while (!this.stopped && this.eventsAbort === abort) {
         try {
-          const response = await fetch(`http://127.0.0.1:${this.apiPort}/rest/events?events=RemoteChangeDetected&since=${this.lastEvent}&timeout=30`, { headers: { 'X-API-Key': this.apiKey }, signal: abort.signal });
+          const response = await fetch(`http://127.0.0.1:${this.apiPort}/rest/events?events=RemoteChangeDetected,DownloadProgress&since=${this.lastEvent}&timeout=30`, { headers: { 'X-API-Key': this.apiKey }, signal: abort.signal });
           if (!response.ok) throw new Error(String(response.status));
-          const events = await response.json() as { id: number; time: string; data?: { folder: string; path: string; modifiedBy: string; type: string; action: string } }[];
+          const events = await response.json() as { id: number; type: string; time: string; data?: Config }[];
           const folderId = this.options.settings().folderId;
           const fresh: { path: string; by: string }[] = [];
+          let progressed = false;
           for (const event of events) {
             this.lastEvent = Math.max(this.lastEvent, event.id);
+            if (event.type === 'DownloadProgress') {
+              // Each event carries every file in flight; a file missing from it has finished or stopped.
+              const files = (event.data?.[folderId] || {}) as Record<string, { bytesDone?: number; bytesTotal?: number }>;
+              this.progress = new Map(Object.entries(files).map(([file, info]) => [file.replace(/\\/g, '/'), { done: info.bytesDone ?? 0, total: info.bytesTotal ?? 0 }]));
+              progressed = true;
+              continue;
+            }
             if (!event.data || event.data.folder !== folderId || event.data.type !== 'file' || event.data.action === 'deleted') continue;
             // modifiedBy is the short device ID: the first group of the full one.
             const peer = this.status.peers.find(candidate => candidate.id === event.data!.modifiedBy || candidate.id.split('-')[0] === event.data!.modifiedBy);
@@ -275,6 +295,7 @@ export class SyncEngine {
           }
           if (this.arrivals.size > 5000) for (const [key, value] of this.arrivals) { if (Date.now() - value.at > 172800000) this.arrivals.delete(key); }
           if (fresh.length) this.options.arrived?.(fresh);
+          if (progressed && this.need.length) this.emit({ incoming: this.incomingList() });
         } catch { if (this.stopped || this.eventsAbort !== abort) return; await pause(3000); }
       }
     };
@@ -310,6 +331,13 @@ export class SyncEngine {
         .map(([id, info]) => ({ id, addresses: (info?.addresses || []).filter(address => /^tcp:\/\/\d{1,3}(?:\.\d{1,3}){3}:\d{1,5}$/.test(address)).slice(0, 4) }))
         .sort((a, b) => a.id.localeCompare(b.id)).slice(0, 20);
       let pendingItems = db.needTotalItems ?? 0; let pendingBytes = db.needBytes ?? 0;
+      // The need list names the files on their way here. Directories, deletions and the folder marker are not arrivals.
+      const needed = !isPaused && ((db.needTotalItems ?? 0) > 0 || (db.needBytes ?? 0) > 0) ? await this.api(`/db/need?folder=${folder}&page=1&perpage=40`).catch(() => ({})) : {};
+      this.need = ([...(needed.progress || []), ...(needed.queued || []), ...(needed.rest || [])] as Config[])
+        .filter(entry => entry?.name && !entry.deleted && !entry.invalid && !entry.ignored && !/DIR|SYMLINK/.test(String(entry.type ?? '')) && String(entry.type ?? '') !== '1' && String(entry.type ?? '') !== '4' && !/(^|\/)\.stfolder$/.test(entry.name))
+        .map(entry => ({ path: String(entry.name).replace(/\\/g, '/'), size: Number(entry.size) || 0 }));
+      for (const key of [...this.sources.keys()]) if (!this.need.some(entry => entry.path === key)) this.sources.delete(key);
+      if (!this.need.length) this.progress.clear();
       const allErrors: string[] = (errors.errors || []).map((entry: Config) => `${entry.path}: ${entry.error}`);
       if (db.error) allErrors.push(db.error);
       const peers = await Promise.all(config.devices.filter((device: Config) => device.deviceID !== this.status.deviceId).map(async (device: Config) => {
@@ -320,8 +348,17 @@ export class SyncEngine {
         const encrypted = !!(localFolder?.devices || []).find((entry: Config) => entry.deviceID === device.deviceID)?.encryptionPassword;
         return { id: device.deviceID, name: device.name || 'Other computer', connected, completion: completion.completion ?? 0, encrypted };
       }));
+      // Which computer holds each incoming file, for the first few; the answer is cached while the file stays on the list.
+      await Promise.all(this.need.slice(0, 6).filter(entry => !this.sources.has(entry.path)).map(async entry => {
+        const info = await this.api(`/db/file?folder=${folder}&file=${encodeURIComponent(entry.path)}`).catch(() => ({}));
+        const holder = (info.availability as { id: string }[] | undefined || []).map(entry => peers.find(peer => peer.id === entry.id)).find(Boolean);
+        if (holder) this.sources.set(entry.path, holder.name);
+      }));
+      const inBytes = Number(connections.total?.inBytesTotal) || 0; const now = Date.now();
+      const inRate = this.lastIn && now > this.lastIn.at && inBytes >= this.lastIn.bytes ? (inBytes - this.lastIn.bytes) * 1000 / (now - this.lastIn.at) : 0;
+      this.lastIn = { bytes: inBytes, at: now };
       const state = this.options.settings().syncPaused ? 'paused' : allErrors.length ? 'error' : !peers.length ? 'unpaired' : !peers.some(peer => peer.connected) ? 'offline' : pendingItems > 0 || ['scanning', 'syncing', 'scan-waiting', 'sync-waiting'].includes(db.state) || peers.some(peer => peer.connected && peer.completion < 100) ? 'syncing' : 'synced';
-      this.emit({ state, peers, pending: Object.entries(pending).map(([id, value]) => ({ id, name: (value as Config).name || 'Nearby computer', address: (value as Config).address || '' })), nearby, pendingItems, pendingBytes, errors: allErrors, localAddresses: localNetworks().addresses });
+      this.emit({ state, peers, pending: Object.entries(pending).map(([id, value]) => ({ id, name: (value as Config).name || 'Nearby computer', address: (value as Config).address || '' })), nearby, pendingItems, pendingBytes, incoming: this.incomingList(), inRate: this.need.length ? Math.round(inRate) : 0, errors: allErrors, localAddresses: localNetworks().addresses });
     } catch (error) { this.emit({ state: 'error', errors: [errorMessage(error)] }); }
     finally { this.refreshing = false; }
   }

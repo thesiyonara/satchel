@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, ArrowUpRight, Blend, Clipboard, Expand, FileText, Film, Image, File, Minimize2, Music, Pin, Plus, Star, X } from 'lucide-react';
-import type { LibraryItem, Settings } from '../shared/types';
+import { ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, ArrowUpRight, Blend, Clipboard, Expand, FileText, Film, Image, File, LoaderCircle, Minimize2, Music, Pin, Plus, Star, X } from 'lucide-react';
+import type { IncomingItem, LibraryItem, Settings } from '../shared/types';
+import { mediaKind } from '../shared/media';
+import { formatSize as size } from '../shared/format';
 import { Mark } from './Mark';
 
 const icons = { note: FileText, image: Image, video: Film, audio: Music, file: File };
-export function QuickPanel({ settings, items, status, platform, open, paste, notify, pile, expand, media }: { settings: Settings; items: LibraryItem[]; status: string; platform: string; open: (item: LibraryItem) => void; paste: () => Promise<void>; notify: (message: string) => void; pile: boolean; expand: () => void; media: (item: LibraryItem) => string }) {
+export function QuickPanel({ settings, items, incoming, status, platform, open, paste, notify, pile, expand, media }: { settings: Settings; items: LibraryItem[]; incoming: IncomingItem[]; status: string; platform: string; open: (item: LibraryItem) => void; paste: () => Promise<void>; notify: (message: string) => void; pile: boolean; expand: () => void; media: (item: LibraryItem) => string }) {
   const mini = settings.panelMode === 'mini';
   const key = 'quick-capture:' + settings.root;
   const [text, setText] = useState(() => localStorage.getItem(key) || '');
@@ -40,7 +42,7 @@ export function QuickPanel({ settings, items, status, platform, open, paste, not
       <button aria-label="Hide floating window" onClick={() => void window.syncit.panel('hide')}><X size={15} /></button>
     </div></header>
     {opacityOpen && <div className="floating-opacity"><Blend size={13} /><input type="range" min="60" max="100" step="5" aria-label="Floating window opacity" value={opacity} onChange={event => changeOpacity(Number(event.target.value))} /><span>{opacity}%</span></div>}
-    {pile ? <Pile items={items} open={open} media={media} expand={expand} paste={() => perform(paste)} busy={busy} /> : <>{!mini && <div className="floating-intro"><h2>Add to the collection</h2><p>Write, paste or drop. Everything lands in the collection and on paired computers.</p></div>}
+    {pile ? <Pile items={items} incoming={incoming} open={open} media={media} expand={expand} paste={() => perform(paste)} busy={busy} /> : <>{!mini && <div className="floating-intro"><h2>Add to the collection</h2><p>Write, paste or drop. Everything lands in the collection and on paired computers.</p></div>}
     <form className="capture-composer" onSubmit={event => { event.preventDefault(); void save(); }}>
       <textarea aria-label="Quick capture text" placeholder="Write a note…" value={text} onChange={event => { setText(event.target.value); try { localStorage.setItem(key, event.target.value); } catch { notify('Draft storage is full. Capture this text before closing.'); } }} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); void save(); } }} />
       <div><span>{captured && !text ? 'Saved to the collection' : `${modifier} + Enter to capture`}</span><button className="capture-submit" aria-label="Save quick capture" disabled={busy || !text.trim()}><Plus size={14} />Capture</button></div>
@@ -51,11 +53,12 @@ export function QuickPanel({ settings, items, status, platform, open, paste, not
 }
 
 // The drawer's pile: a place to drop, and the last few things in the satchel, with where they came from.
-function Pile({ items, open, media, expand, paste, busy }: { items: LibraryItem[]; open: (item: LibraryItem) => void; media: (item: LibraryItem) => string; expand: () => void; paste: () => Promise<void>; busy: boolean }) {
+function Pile({ items, incoming, open, media, expand, paste, busy }: { items: LibraryItem[]; incoming: IncomingItem[]; open: (item: LibraryItem) => void; media: (item: LibraryItem) => string; expand: () => void; paste: () => Promise<void>; busy: boolean }) {
   const recent = items.slice(0, 12);
+  const arriving = incoming.slice(0, 4);
   return <div className="pile">
     <div className="pile-drop"><ArrowDownToLine size={20} /><h2>Drop here</h2><p>Files, text or a screenshot. It goes in the satchel on every computer.</p><div className="pile-actions"><button disabled={busy} aria-label="Paste from clipboard" onClick={() => void paste()}><Clipboard size={14} />Paste</button><button onClick={expand}><FileText size={14} />Write a note</button></div></div>
-    <div className="pile-items">{recent.map(item => { const Icon = icons[item.kind]; return <button key={item.path} onClick={() => open(item)} title={item.name} draggable onDragStart={event => { event.preventDefault(); void window.syncit.dragOut(item.path).catch(() => {}); }}>{item.kind === 'image' || item.kind === 'video' ? <img src={media(item)} alt="" loading="lazy" onLoad={event => event.currentTarget.classList.add('loaded')} /> : <span className="pile-icon"><Icon size={15} /></span>}<span className="pile-name">{item.kind === 'note' ? item.name.replace(/\.(md|txt)$/i, '') : item.name}</span>{item.arrivedFrom && <em>from {item.arrivedFrom}</em>}</button>; })}{!recent.length && <p>Nothing in the collection yet.</p>}</div>
+    <div className="pile-items">{arriving.map(item => { const Icon = icons[mediaKind(item.name) || (/\.(md|txt)$/i.test(item.name) ? 'note' : 'file')]; const percent = item.size > 0 ? Math.min(100, Math.round(item.done / item.size * 100)) : 0; return <div key={'incoming:' + item.path} className="pile-incoming" title={item.path}><div><span className="pile-icon"><Icon size={15} /></span><span className="pile-name">{item.name}</span><em>{item.done > 0 ? `${percent}%` : 'arriving'}{item.from ? ` · ${item.from}` : ''}</em><LoaderCircle size={13} className="spin" /></div><div className={`incoming-bar ${item.done > 0 ? '' : 'indeterminate'}`}><span style={{ width: `${Math.max(2, percent)}%` }} /></div></div>; })}{recent.map(item => { const Icon = icons[item.kind]; return <button key={item.path} onClick={() => open(item)} title={item.name} draggable onDragStart={event => { event.preventDefault(); void window.syncit.dragOut(item.path).catch(() => {}); }}>{item.kind === 'image' || item.kind === 'video' ? <img src={media(item)} alt="" loading="lazy" onLoad={event => event.currentTarget.classList.add('loaded')} /> : <span className="pile-icon"><Icon size={15} /></span>}<span className="pile-name">{item.kind === 'note' ? item.name.replace(/\.(md|txt)$/i, '') : item.name}</span>{item.arrivedFrom && <em>from {item.arrivedFrom}</em>}</button>; })}{!recent.length && <p>Nothing in the collection yet.</p>}</div>
     <button className="pile-expand" onClick={expand}>Open the full window<ArrowUpRight size={13} /></button>
   </div>;
 }
