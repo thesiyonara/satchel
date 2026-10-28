@@ -15,9 +15,9 @@ for app in release/mac*/"Satchel.app"; do
   [[ -d "$app" ]] || continue
   arch=$(lipo -archs "$app/Contents/MacOS/Satchel" 2>/dev/null || echo unknown)
   case "$arch" in arm64) key=darwin-arm64 ;; x86_64) key=darwin-x64 ;; *) key=unknown ;; esac
-  expected=$(node -p "require('./shared/engine-signed-integrity.json')['$key'] || require('./shared/engine-integrity.json')['$key'] || ''")
+  expected=$(node -p "(require('./shared/engine-signed-integrity.json')['$key'] || [require('./shared/engine-integrity.json')['$key'] || '']).join(' ')")
   actual=$(shasum -a 256 "$app/Contents/Resources/engine/syncthing" | cut -d' ' -f1)
-  if codesign --verify --deep --strict "$app" && [[ -n "$expected" && "$actual" == "$expected" ]]; then
+  if codesign --verify --deep --strict "$app" && [[ -n "$expected" && " $expected " == *" $actual "* ]]; then
     echo "OK   $app ($arch): signature valid, bundled helper matches its pin"
   else
     echo "FAIL $app ($arch): signature invalid or helper pin mismatch (expected ${expected:-none}, got $actual)"

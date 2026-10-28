@@ -4,7 +4,7 @@
 
 The upstream archive and untouched executable are checked against their original SHA-256 pins first. On Apple silicon, `fetch-engine.mjs` then ad-hoc signs the freshly extracted helper with the fixed identifier `local.syncit.syncthing` and no timestamp, verifies its signature, and checks its complete signed-file hash against `shared/engine-signed-integrity.json`. The runtime requires that signed pin; it does not accept arbitrary signatures or skip the hash check. The app packager leaves this already signed helper unchanged. An after-sign hook checks the final helper hash and the complete app signature before creating installers, and the Mac release job runs the packaged startup test.
 
-When upgrading Syncthing, update the upstream pins using the existing reviewed process, then review and update the signed helper pin on a Mac. Always sign freshly extracted upstream bytes; re-signing an already modified Mach-O can produce different bytes. A different signing output fails the build until its pin is reviewed.
+The signed allowlist contains two complete-file hashes from verified upstream bytes: `0a90af1d…` for macOS 27's signer and `f13aa71e…` for the macOS 26 GitHub runner's signer. Both use the same signing command; the runtime accepts only these exact reviewed files. When upgrading Syncthing, update the upstream pins using the existing reviewed process, then review and update the signed helper pins on the supported Mac build hosts. Always sign freshly extracted upstream bytes; re-signing an already modified Mach-O can produce different bytes. A different signing output fails the build until its pin is reviewed.
 
 ## Phone access (unreleased groundwork)
 

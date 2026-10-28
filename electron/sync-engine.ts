@@ -124,8 +124,8 @@ export class SyncEngine {
       const digest = createHash('sha256');
       for await (const chunk of createReadStream(this.options.executable)) digest.update(chunk);
       const key = `${process.platform}-${process.arch}`;
-      const expected = (signedEngineHashes as Record<string, string>)[key] || (engineHashes as Record<string, string>)[key];
-      if (!expected || digest.digest('hex') !== expected) throw new Error('The sync helper failed its integrity check. Reinstall Satchel from a trusted build.');
+      const expected = (signedEngineHashes as Record<string, string[]>)[key] || [(engineHashes as Record<string, string>)[key]];
+      if (!expected.includes(digest.digest('hex'))) throw new Error('The sync helper failed its integrity check. Reinstall Satchel from a trusted build.');
       // Packaging or extraction can drop the execute bit on macOS; restore it for the verified helper only.
       if (process.platform !== 'win32') await fs.access(this.options.executable, fsConstants.X_OK).catch(() => fs.chmod(this.options.executable, 0o755));
       await secureDirectory(this.options.home);

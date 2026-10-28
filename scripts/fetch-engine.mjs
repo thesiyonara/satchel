@@ -78,6 +78,6 @@ if (signedPins[pinKey]) {
   execFileSync('/usr/bin/codesign', ['--force', '--sign', '-', '--identifier', 'local.syncit.syncthing', '--timestamp=none', target], { stdio: 'inherit' });
   execFileSync('/usr/bin/codesign', ['--verify', '--strict', target], { stdio: 'inherit' });
   const signedDigest = createHash('sha256').update(await readFile(target)).digest('hex');
-  if (signedDigest !== signedPins[pinKey]) throw new Error(`Signed helper pin mismatch: expected ${signedPins[pinKey]}, got ${signedDigest}. Review the signing output before updating its pin.`);
+  if (!signedPins[pinKey].includes(signedDigest)) throw new Error(`Signed helper pin mismatch: expected ${signedPins[pinKey].join(' or ')}, got ${signedDigest}. Review the signing output before updating its pin.`);
   console.log(`Verified signed engine: ${signedDigest}`);
 }
