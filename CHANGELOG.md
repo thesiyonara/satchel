@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.4 — 2026-10-28
 
 ### Changed
 - Folders are browsed one level at a time. Everything shows the files at the top of the collection and a card for each folder, with its item count and a few of its images; opening a folder shows what is inside, and the path above the grid leads back up. Notes, Images, Files, Favorites, From other computers and search still look across every folder.

@@ -1,7 +1,7 @@
 {
   "name": "satchel",
   "productName": "Satchel",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "One shared folder for all your computers. It syncs over your own network, not the internet.",
   "private": true,
   "type": "module",
@@ -119,7 +119,9 @@
       "category": "public.app-category.productivity",
       "minimumSystemVersion": "13.0",
       "identity": "-",
-      "signIgnore": ["/Contents/Resources/engine/syncthing$"],
+      "signIgnore": [
+        "/Contents/Resources/engine/syncthing$"
+      ],
       "hardenedRuntime": false,
       "extendInfo": {
         "NSLocalNetworkUsageDescription": "Satchel connects to your paired computer on the local network to sync your files and notes."
