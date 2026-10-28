@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.6 — 2026-10-29
 
 ### Added
 - An Add button next to New note on the main screen. It opens the system picker for files or for a folder, or pastes the clipboard, and the same entries are in the command palette. Files and folders you add or drop while looking at a folder land in that folder.
