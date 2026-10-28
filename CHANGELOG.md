@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- The screen-edge drawer acknowledges update preparation, so the Install button no longer times out waiting for a non-editor window. The handle pauses interactions during installation and resumes if preparation is cancelled.
+
 ## 0.6.3 — 2026-10-28
 
 ### Fixed
