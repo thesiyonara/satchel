@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.2 — 2026-10-28
 
 ### Added
 - Incoming files are visible while they transfer. The grid shows a card for each file another computer is sending, with the sender, how much has arrived and a progress bar; the drawer lists the same; the sidebar reads "Receiving clip.mp4 · 4.2 MB/s"; the drawer handle carries a moving stripe; and the tray tooltip names the file. With arrival notifications on, a file over 10 MB is announced once when it starts to arrive. The two-computer test throttles the receiving side to watch a 24 MB transfer go through these states.
