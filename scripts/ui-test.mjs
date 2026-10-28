@@ -19,6 +19,14 @@ try {
   await page.screenshot({ path: path.join(artifacts, 'welcome.png') });
   await page.getByRole('button', { name: 'Create collection' }).click();
   await expect(page.getByRole('heading', { name: 'Everything', exact: true })).toBeVisible();
+  // The Add button beside New note offers files, a folder and the clipboard, and closes on a click elsewhere.
+  const addMenu = page.locator('details.add-menu');
+  await addMenu.locator('summary').click();
+  await expect(addMenu.getByRole('button', { name: 'Files…' })).toBeVisible();
+  await expect(addMenu.getByRole('button', { name: 'Folder…' })).toBeVisible();
+  await page.screenshot({ path: path.join(artifacts, 'add-menu.png') });
+  await page.getByRole('heading', { name: 'Everything', exact: true }).click();
+  await expect(addMenu.getByRole('button', { name: 'Files…' })).toBeHidden();
   await page.getByRole('button', { name: 'New note', exact: true }).click();
   await page.getByRole('textbox', { name: 'Note text' }).fill('A place for the in-between\n\nNotes from the desktop. Inspiration for the laptop.\n\n• Capture the thought\n• Give it a little space\n• Pick it up on the other computer');
   await expect(page.getByText('Saved on this computer')).toBeVisible();

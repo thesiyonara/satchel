@@ -7,7 +7,7 @@ const listen = (name: string, callback: (payload: any) => void) => {
 };
 const api: SyncItAPI = {
   initial: () => invoke('initial'), list: () => invoke('list'),
-  importFiles: paths => invoke('importFiles', paths), chooseFiles: () => invoke('chooseFiles'), paste: () => invoke('paste'),
+  importFiles: (paths, into) => invoke('importFiles', paths, into), chooseFiles: (kind, into) => invoke('chooseFiles', kind, into), paste: () => invoke('paste'),
   createNote: text => invoke('createNote', text), readNote: path => invoke('readNote', path), saveNote: (path, text, revision) => invoke('saveNote', path, text, revision),
   noteHistory: path => invoke('noteHistory', path), readNoteVersion: id => invoke('readNoteVersion', id), readText: path => invoke('readText', path),
   rename: (path, name) => invoke('rename', path, name), move: (paths, folder) => invoke('move', paths, folder), trash: path => invoke('trash', path), open: path => invoke('open', path), reveal: path => invoke('reveal', path), dragOut: paths => invoke('dragOut', paths), openDrawer: () => invoke('openDrawer'),

@@ -49,11 +49,13 @@ export interface UpdateState { phase: 'idle' | 'checking' | 'available' | 'curre
 export interface SyncItAPI {
   initial(): Promise<InitialState>;
   list(): Promise<LibrarySnapshot>;
-  importFiles(paths: string[]): Promise<void>;
+  /** Copies files or folders into the collection, at the top or inside `into` (a folder path relative to the collection). */
+  importFiles(paths: string[], into?: string): Promise<void>;
   dragOut(paths: string | string[]): Promise<{ files: string[] }>;
   openDrawer(): Promise<void>;
   onDrawer(callback: (pile: boolean) => void): () => void;
-  chooseFiles(): Promise<void>;
+  /** Opens the system picker for files or for a folder and imports the choice. Resolves to the number of items picked, 0 when cancelled. */
+  chooseFiles(kind?: 'files' | 'folder', into?: string): Promise<number>;
   paste(): Promise<{ path: string; kind: ItemKind } | null>;
   createNote(text?: string): Promise<NoteDocument>;
   readNote(path: string): Promise<NoteDocument>;

@@ -28,10 +28,16 @@ test('hidden files and folders are skipped on import and never listed', async t 
   assert.deepEqual((await library.snapshot()).items.map(item => item.path), ['shoot/clip.mp4']);
   await assert.rejects(fs.access(path.join(root, 'shoot', '.paircut')), { code: 'ENOENT' });
   await assert.rejects(library.importFiles([path.join(source, '.paircut')]), /Hidden files and folders are not imported/);
+  // Imports can land inside an existing folder; a missing folder or a path outside the collection is refused.
+  await fs.writeFile(path.join(dir, 'extra.txt'), 'extra');
+  await library.importFiles([path.join(dir, 'extra.txt')], 'shoot');
+  assert.deepEqual((await library.snapshot()).items.map(item => item.path).sort(), ['shoot/clip.mp4', 'shoot/extra.txt']);
+  await assert.rejects(library.importFiles([path.join(dir, 'extra.txt')], 'gone'), /no longer in the collection/);
+  await assert.rejects(library.importFiles([path.join(dir, 'extra.txt')], '../outside'));
   // A hidden file that reaches the collection another way (another computer, a tool) stays out of the listing.
   await fs.mkdir(path.join(root, '.cache')); await fs.writeFile(path.join(root, '.cache', 'index.json'), '{}'); await fs.writeFile(path.join(root, '.hidden-note.md'), 'secret');
   library['index'] = undefined;
-  assert.deepEqual((await library.snapshot()).items.map(item => item.path), ['shoot/clip.mp4']);
+  assert.deepEqual((await library.snapshot()).items.map(item => item.path).sort(), ['shoot/clip.mp4', 'shoot/extra.txt']);
 });
 test('path validation rejects traversal, reserved files, alternate data streams and absolute paths', () => {
   for (const value of ['../secret', 'a/../../b', 'C:\\secret', '/secret', 'file:stream', '.syncit/board/key', '.stversions/note.md', 'a//b', 'a/./b', 'a\0b', '~syncthing~file.tmp']) assert.throws(() => safeRelative(value), value);

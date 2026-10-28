@@ -393,15 +393,29 @@ function setupIPC() {
   bind('phoneOffer', async () => { if (!store.value.phoneAccess) throw new Error('Turn on phone access first'); await companion.start(); return companion.offer(); });
   bind('phoneCancelPairing', () => companion.cancelPairing());
   bind('revokePhone', (id: string) => companion.revoke(id));
-  bind('importFiles', async (paths: unknown) => {
+  // A destination folder named by the renderer: a relative path inside the collection, checked again by the library.
+  const folderArgument = (value: unknown): string => {
+    if (value === undefined || value === null || value === '') return '';
+    if (typeof value !== 'string' || value.length > 4096) throw new Error('Invalid folder');
+    return value;
+  };
+  bind('importFiles', async (paths: unknown, into?: unknown) => {
     if (!Array.isArray(paths) || paths.length > 1000 || paths.some(file => typeof file !== 'string' || !path.isAbsolute(file))) throw new Error('Invalid dropped files');
     // Private app storage (engine keys, settings, the control secret) must never be copied into the synced collection.
     const normalize = (value: string) => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
     const userData = normalize(app.getPath('userData'));
     if (paths.some(file => { const candidate = normalize(file); return candidate === userData || candidate.startsWith(userData + path.sep); })) throw new Error('Private application data cannot be added to the collection');
-    await library.importFiles(paths);
+    await library.importFiles(paths, folderArgument(into));
   });
-  bind('chooseFiles', async () => { const result = await dialog.showOpenDialog(mainWindow!, { properties: ['openFile', 'multiSelections'] }); if (!result.canceled) await library.importFiles(result.filePaths); });
+  bind('chooseFiles', async (kind?: unknown, into?: unknown) => {
+    // The Add button and Quick drop: a system picker for files or for a folder. Picked items land in the folder being browsed, or at the top of the collection.
+    const folder = kind === 'folder';
+    if (kind !== undefined && kind !== 'files' && !folder) throw new Error('Invalid picker');
+    const result = await dialog.showOpenDialog(mainWindow!, { title: folder ? 'Add a folder to the collection' : 'Add files to the collection', buttonLabel: 'Add', properties: folder ? ['openDirectory', 'multiSelections'] : ['openFile', 'multiSelections'] });
+    if (result.canceled || !result.filePaths.length) return 0;
+    await library.importFiles(result.filePaths, folderArgument(into));
+    return result.filePaths.length;
+  });
   bind('paste', async () => {
     const items = await clipboard.read();
     for (const item of items) if (item.types.includes('image/png')) {

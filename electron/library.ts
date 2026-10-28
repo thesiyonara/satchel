@@ -114,8 +114,11 @@ export class Library {
       catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return name; throw error; }
     }
   }
-  async importFiles(sources: string[]): Promise<void> {
+  async importFiles(sources: string[], into = ''): Promise<void> {
     return this.serial(async () => {
+      // Items land at the top of the collection, or inside the folder being browsed when one is named.
+      const destination = into ? await contained(this.root, into) : this.root;
+      if (into && !(await fs.stat(destination).catch(() => null))?.isDirectory()) throw new Error('That folder is no longer in the collection');
       // Hidden files and folders (dot names) are left behind: dropped directly they are refused, inside a folder they are skipped.
       const visible = sources.filter(source => !isHidden(path.basename(path.resolve(source))));
       if (sources.length && !visible.length) throw new Error('Hidden files and folders are not imported');
@@ -141,7 +144,7 @@ export class Library {
             finally { await fs.unlink(temporary).catch(() => {}); }
           } else throw new Error('Only regular files and folders can be imported');
         };
-        await copy(fullSource, this.root);
+        await copy(fullSource, destination);
       }
       this.index = undefined; // Imports can add whole trees; rebuild on the next snapshot.
       this.changed();

@@ -71,6 +71,13 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 .sync-pill { height: 32px; padding: 0 11px; font-size: 13px; color: var(--accent-text); background: var(--accent-soft); border: 0; gap: 7px; margin-right: 6px; }
 .sync-pill b { font-size: 11px; min-width: 18px; height: 18px; border-radius: 9px; background: var(--accent); color: #fff; display: grid; place-items: center; }
 .new-note { height: 36px; padding: 0 14px 0 11px; margin-left: 8px; white-space: nowrap; flex-shrink: 0; }
+/* The Add button: files, a folder or the clipboard, next to New note. */
+.add-menu { margin-left: 8px; flex-shrink: 0; }
+.topbar-actions .add-menu summary { height: 36px; padding: 0 12px 0 10px; gap: 7px; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13.5px; font-weight: 500; white-space: nowrap; }
+.topbar-actions .add-menu summary:hover { background: var(--subtle); border-color: var(--line-2); color: var(--text); }
+.topbar-actions .add-menu[open] summary { background: var(--subtle); }
+.topbar-actions .add-menu > div { top: 42px; bottom: auto; width: 196px; }
+.topbar-actions .add-menu button[disabled] { opacity: .5; cursor: default; }
 .page-error, .pair-banner { display: flex; align-items: center; gap: 10px; margin: 0 32px 14px 20px; border-radius: 8px; padding: 11px 13px; font-size: 13px; background: var(--surface); border: 1px solid var(--line); }
 .page-error button { margin-left: auto; }
 .pair-banner { background: var(--accent-soft); border-color: transparent; color: var(--accent-text); justify-content: flex-start; }
@@ -408,6 +415,7 @@ button:active:not(:disabled) { transform: scale(.98); }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
 .card-menu > div { animation: menu-in var(--fast) var(--ease); transform-origin: bottom right; }
+.topbar-actions .add-menu > div { transform-origin: top right; }
 @keyframes menu-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 .toast { animation: toast-in var(--base) var(--ease); }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
