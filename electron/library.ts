@@ -3,7 +3,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import chokidar, { type FSWatcher } from 'chokidar';
 import type { BoardPlacement, LibraryItem, LibrarySnapshot, NoteDocument, NoteVersion } from '../shared/types';
-import { atomicWrite, cleanName, contained, errorMessage, hash, isInternal, linkOrClaim, safeRelative } from './files';
+import { atomicWrite, cleanName, contained, errorMessage, hash, isInternal, linkOrClaim, safeRelative, isHidden } from './files';
 import { mediaKind } from './media';
 
 const NOTE_LIMIT = 1024 * 1024;
@@ -58,6 +58,7 @@ export class Library {
   private async describe(relative: string): Promise<LibraryItem | null> {
     try {
       const full = await contained(this.root, relative);
+      if (isHidden(relative)) return null;
       const stat = await fs.lstat(full);
       if (!stat.isFile()) return null;
       const name = path.basename(relative); const ext = path.extname(name).toLowerCase();
@@ -71,7 +72,7 @@ export class Library {
     for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       const relative = path.relative(this.root, full).split(path.sep).join('/');
-      if (isInternal(relative) || entry.isSymbolicLink()) continue;
+      if (isInternal(relative) || isHidden(entry.name) || entry.isSymbolicLink()) continue;
       if (entry.isDirectory()) { for (const [key, item] of await this.walk(full)) found.set(key, item); continue; }
       if (!entry.isFile()) continue;
       const item = await this.describe(relative);
@@ -115,7 +116,10 @@ export class Library {
   }
   async importFiles(sources: string[]): Promise<void> {
     return this.serial(async () => {
-      for (const source of sources) {
+      // Hidden files and folders (dot names) are left behind: dropped directly they are refused, inside a folder they are skipped.
+      const visible = sources.filter(source => !isHidden(path.basename(path.resolve(source))));
+      if (sources.length && !visible.length) throw new Error('Hidden files and folders are not imported');
+      for (const source of visible) {
         const fullSource = path.resolve(source);
         const relative = path.relative(this.root, fullSource);
         if (!relative || (!relative.startsWith('..' + path.sep) && relative !== '..' && !path.isAbsolute(relative))) continue;
@@ -129,7 +133,7 @@ export class Library {
           if (stat.isDirectory()) {
             await fs.mkdir(target);
             for (const entry of await fs.readdir(from)) {
-              if (!isInternal(entry)) await copy(path.join(from, entry), target);
+              if (!isInternal(entry) && !isHidden(entry)) await copy(path.join(from, entry), target);
             }
           } else if (stat.isFile()) {
             const temporary = path.join(into, `.syncit-tmp-${randomUUID()}`);

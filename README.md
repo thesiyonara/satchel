@@ -24,7 +24,8 @@ Files stay ordinary files on your disk, so any other program can use them. There
 - Shared pinboard: card positions sync; zoom stays local.
 - Quick drop: a floating window (Ctrl/⌘ Shift Space) to write a note, paste a screenshot or drop files from anywhere. A thin handle at the screen edge is the drawer: drag a file toward it and it slides out, drop, and it closes by itself.
 - A file on its way from another computer shows up before it lands: a card with the sender, the size and a progress bar, the same line in the drawer, the transfer speed in the sidebar, and a moving stripe on the drawer handle. Once there, it says where it came from on its card, in the drawer, and in the sidebar for two days. System notifications for arrivals, and for large files when they start to arrive, can be turned on in Preferences.
-- Select several cards with Ctrl/⌘ or Shift click, or Ctrl/⌘ A, then favorite, move to a folder, trash or drag them out together. Folders are ordinary folders in the collection and appear in the sidebar.
+- Select several cards with Ctrl/⌘ or Shift click, or Ctrl/⌘ A, then favorite, move to a folder, trash or drag them out together. Folders are ordinary folders in the collection: a dropped folder stays a folder, shows as a card you open to see what is inside, and the path above the grid leads back up. The filters and search look across every folder.
+- Hidden files and folders, the dot-named ones tools leave beside real files, are not imported and never listed.
 - Pairing without a code from a Nearby list, or with a code or device ID when discovery is blocked. Any number of computers; each can be revoked.
 - Untrusted devices: give a NAS an encryption password and it holds an encrypted copy it cannot read.
 - Conflicts keep both versions. Deleted files go to the Recycle Bin or Trash, and received overwrites keep 30 days of versions.

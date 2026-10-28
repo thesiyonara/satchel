@@ -124,13 +124,20 @@ try {
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(s => s.items.length > 0 && s.items.every(item => item.path.startsWith('Trips/'))))).toBe(true);
   await page.getByRole('button', { name: /^Trips/ }).click();
   await expect(page.getByRole('heading', { name: 'Trips' })).toBeVisible();
+  // Everything shows the folder as a card with its count; opening it lists its files, and the caption leads back up.
   await page.getByRole('button', { name: /^Everything/ }).click();
-  await page.getByRole('button', { name: /^Everything/ }).click();
+  await expect(page.locator('[data-testid="item-card"]')).toHaveCount(0);
+  const folderCard = page.getByRole('button', { name: 'Open folder Trips' });
+  await expect(folderCard).toContainText('items');
+  await folderCard.click();
+  await expect(page.getByRole('heading', { name: 'Trips' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Folder path' }).getByRole('button', { name: 'Back to Everything' })).toBeVisible();
   await page.keyboard.press('Control+a');
   await bar.getByRole('button', { name: 'Move to folder' }).click();
   await page.getByRole('textbox', { name: 'Folder name' }).fill('');
   await page.getByRole('button', { name: 'Move', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(s => s.items.every(item => !item.path.includes('/'))))).toBe(true);
+  await page.getByRole('button', { name: /^Everything/ }).click();
   await page.keyboard.press('Control+a');
   await bar.getByRole('button', { name: 'Remove favorites' }).click();
   await expect.poll(() => page.evaluate(() => window.syncit.initial().then(i => i.settings.favorites?.length || 0))).toBe(0);

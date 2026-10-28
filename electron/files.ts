@@ -3,6 +3,10 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 
 export const hash = (value: string | Buffer) => createHash('sha256').update(value).digest('hex');
+/** A hidden file or folder: any path segment starting with a dot. Tools leave these beside real files (.paircut, .git, .cache); they are not imported or listed. */
+export function isHidden(relative: string): boolean {
+  return relative.split(/[\\/]/).some(part => part.length > 1 && part.startsWith('.') && part !== '..');
+}
 export function isInternal(relative: string): boolean {
   return relative.split(/[\\/]/).some(part => /^\.(syncit|stfolder|stignore|stversions|syncthing)(?:$|[.-])|^~syncthing~|^\.DS_Store$|^Thumbs\.db$/i.test(part));
 }

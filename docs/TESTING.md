@@ -86,3 +86,7 @@ Verified on this Windows host after the fixes: typecheck clean; 25 unit/security
 ## Incoming transfers
 
 The engine reads Syncthing's need list and its DownloadProgress events and publishes them as `incoming` on the sync status, with the bytes-per-second received between two polls as `inRate`. `npm run test:pair` starts the receiving instance with `SYNCIT_TEST_RECV_KBPS=3000`, a test-only throttle that makes Syncthing cap what it receives on the loopback link, then sends a 24 MB file and checks the arriving card with its sender, the sidebar line, the recorded notification, a non-zero progress value, the file landing marked as from the laptop, and the card going away.
+
+## Folders and hidden entries
+
+Everything browses one level at a time; the UI suite moves every item into a folder, checks that the top level then shows only the folder card with its count, opens it, finds the folder path above the grid, and moves the items back. `tests/core.test.ts` imports a folder holding a hidden `.paircut` tree and a `.DS_Store` and checks that only the real file is copied and listed, that a hidden item dropped on its own is refused, and that hidden entries already in the collection stay out of the listing.

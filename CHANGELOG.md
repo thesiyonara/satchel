@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+- Folders are browsed one level at a time. Everything shows the files at the top of the collection and a card for each folder, with its item count and a few of its images; opening a folder shows what is inside, and the path above the grid leads back up. Notes, Images, Files, Favorites, From other computers and search still look across every folder.
+- Hidden files and folders are left out. A dropped folder is imported without the dot-named entries inside it (the logs, caches and tool files that sit beside real files), a hidden item dropped on its own is refused with a message, and hidden entries already in the collection are not listed.
+
 ### Fixed
 - The screen-edge drawer acknowledges update preparation, so the Install button no longer times out waiting for a non-editor window. The handle pauses interactions during installation and resumes if preparation is cancelled.
 
