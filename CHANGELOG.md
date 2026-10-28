@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- The Apple silicon app starts its sync helper after installation. The helper is signed and checksum-verified before packaging, and the app signing step preserves those exact bytes.
+
 ## 0.6.2 — 2026-10-28
 
 ### Added
