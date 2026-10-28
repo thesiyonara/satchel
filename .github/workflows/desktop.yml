@@ -27,8 +27,7 @@ jobs:
       - run: npm run test:sync
       - if: runner.os == 'Windows'
         run: npm run test:features
-      - if: runner.os == 'Windows'
-        run: npm run test:updates
+      - run: npm run test:updates
       - if: runner.os == 'Windows'
         run: npm run test:web
       - if: runner.os == 'Windows'

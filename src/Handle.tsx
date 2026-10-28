@@ -5,11 +5,14 @@ import { useEffect, useRef, useState } from 'react';
 export function Handle() {
   const [hot, setHot] = useState(false);
   const [receiving, setReceiving] = useState(false);
+  const [preparingUpdate, setPreparingUpdate] = useState(false);
   useEffect(() => { void window.syncit.initial().then(state => setReceiving(state.sync.incoming.length > 0)).catch(() => {}); return window.syncit.onSync(state => setReceiving(state.incoming.length > 0)); }, []);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // The handle has no editor to save, but participates in the all-window update handshake.
+  useEffect(() => window.syncit.onPrepareUpdate(async prepare => { clearTimeout(timer.current); setPreparingUpdate(prepare); }), []);
   useEffect(() => { document.documentElement.classList.add('handle-page'); return () => document.documentElement.classList.remove('handle-page'); }, []);
   const open = () => { void window.syncit.openDrawer().catch(() => {}); };
-  return <div className={`handle ${hot ? 'hot' : ''} ${receiving ? 'receiving' : ''}`} role="presentation" title={receiving ? 'Satchel drawer · something is arriving' : 'Satchel drawer'}
+  return <div className={`handle ${hot ? 'hot' : ''} ${receiving ? 'receiving' : ''}`} inert={preparingUpdate || undefined} role="presentation" title={receiving ? 'Satchel drawer · something is arriving' : 'Satchel drawer'}
     onMouseEnter={() => { clearTimeout(timer.current); timer.current = setTimeout(open, 350); }}
     onMouseLeave={() => clearTimeout(timer.current)}
     onDragEnter={event => { event.preventDefault(); setHot(true); open(); }}
