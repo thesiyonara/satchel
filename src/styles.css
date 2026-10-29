@@ -136,6 +136,9 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 .card-menu summary { display: flex; cursor: pointer; padding: 5px; border-radius: 6px; color: var(--faint); list-style: none; }
 .card-menu summary::-webkit-details-marker { display: none; }
 .card-menu summary:hover { background: var(--subtle); color: var(--text); }
+.card-menu.down > div { bottom: auto; top: 32px; }
+/* An open menu may reach outside its card, whichever way it opens. */
+.item-card:has(.card-menu[open]), .board-card:has(.card-menu[open]) { overflow: visible; z-index: 5; }
 .card-menu > div { position: absolute; right: 0; bottom: 32px; width: 172px; background: var(--raised); padding: 5px; border: 1px solid var(--line); border-radius: 9px; z-index: 30; box-shadow: var(--shadow); }
 .card-menu button { border: 0; background: transparent; width: 100%; justify-content: flex-start; font-size: 13px; padding: 7px 8px; font-weight: 400; }
 .card-menu button:hover { background: var(--subtle); }
@@ -451,6 +454,7 @@ button:active:not(:disabled) { transform: scale(.98); }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: none; } }
 .card-menu > div { animation: menu-in var(--fast) var(--ease); transform-origin: bottom right; }
+.card-menu.down > div { transform-origin: top right; }
 .topbar-actions .add-menu > div { transform-origin: top right; }
 @keyframes menu-in { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: none; } }
 .toast { animation: toast-in var(--base) var(--ease); }

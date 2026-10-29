@@ -106,3 +106,5 @@ The UI suite opens Quick drop, checks Latest shows tiles, switches to the list a
 ## Polish pass 2026-10-29
 
 Checked with screenshots of every surface in both themes: the main window with the pasteboard column, the note pane, Preferences, Quick drop as tiles and as a list, the minimal window and the drawer. The one layout fault found, the note pane squeezing the grid against the column, is fixed by hiding the column while a note is open; the UI suite asserts the column is gone with a note open and back after. The suite also presses Escape in Quick drop and expects the window to hide.
+
+A unit test covers untitled notes taking their first line as their name on save: whitespace is not a title, a named note keeps its name, and a taken name gets a suffix. The note editor already adopts the path a save returns, which is how conflict copies work, so the rename needs nothing new on the renderer side.

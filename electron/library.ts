@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import chokidar, { type FSWatcher } from 'chokidar';
 import type { BoardPlacement, LibraryItem, LibrarySnapshot, NoteDocument, NoteVersion, Pasteboard, PasteboardClip } from '../shared/types';
 import { atomicWrite, cleanName, contained, errorMessage, hash, isInternal, linkOrClaim, safeRelative, isHidden } from './files';
+import { tidyName } from '../shared/format';
 import { mediaKind } from './media';
 
 const NOTE_LIMIT = 1024 * 1024;
@@ -129,7 +130,7 @@ export class Library {
     try {
       const stat = await fs.stat(file);
       text = stat.size > NOTE_LIMIT ? '' : await fs.readFile(file, 'utf8'); updatedAt = Math.round(stat.mtimeMs);
-      from = (await fs.readFile(await contained(this.root, '.syncit/pasteboard.from', true), 'utf8').catch(() => '')).trim().slice(0, 80) || undefined;
+      from = tidyName((await fs.readFile(await contained(this.root, '.syncit/pasteboard.from', true), 'utf8').catch(() => '')).slice(0, 80)) || undefined;
     } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
     const recent: PasteboardClip[] = [];
     const dir = await contained(this.root, '.syncit/pasteboard', true);
@@ -140,7 +141,7 @@ export class Library {
         if ((await fs.stat(clipFile)).size > NOTE_LIMIT) continue;
         const record = JSON.parse(await fs.readFile(clipFile, 'utf8'));
         if (typeof record?.text !== 'string' || !record.text.trim() || typeof record.time !== 'number') continue;
-        recent.push({ id: name.slice(0, -5), text: record.text, time: record.time, from: typeof record.from === 'string' && record.from ? record.from.slice(0, 80) : undefined });
+        recent.push({ id: name.slice(0, -5), text: record.text, time: record.time, from: typeof record.from === 'string' && tidyName(record.from) ? tidyName(record.from).slice(0, 80) : undefined });
       } catch { /* An incomplete or invalid clip, likely still syncing, is skipped. */ }
     }
     recent.sort((a, b) => b.time - a.time);
@@ -274,7 +275,14 @@ export class Library {
         savedPath = path.posix.join(path.posix.dirname(relative), `${path.basename(target, ext)}.sync-conflict-${Date.now()}-${randomUUID().slice(0, 6)}${ext}`);
       }
       await atomicWrite(await contained(this.root, savedPath), text, savedPath === relative);
-      await this.refreshEntry(savedPath); this.changed();
+      await this.refreshEntry(savedPath);
+      // An untitled note takes its first line as its name once it has one, so the card and the file say what the note is about.
+      if (savedPath === relative && /^Untitled note(-[a-f0-9]{8})?$/i.test(path.basename(relative, path.extname(relative)))) {
+        const firstLine = text.split('\n').find(line => line.trim())?.replace(/^#+\s*/, '').trim().slice(0, 60);
+        const title = firstLine ? cleanName(firstLine) : '';
+        if (title && !/^Untitled note/i.test(title)) savedPath = await this.relocate(relative, await this.availableName(path.dirname(await contained(this.root, relative)), `${title}${path.extname(relative)}`));
+      }
+      this.changed();
       return { path: savedPath, text, revision: hash(text), conflict: current !== revision };
     });
   }
@@ -361,6 +369,11 @@ export class Library {
   async rename(relative: string, name: string): Promise<string> {
     return this.serial(async () => {
       if (typeof name !== 'string' || name !== cleanName(name) || !name.trim()) throw new Error('Choose a valid filename without slashes or reserved characters');
+      return this.relocate(relative, name);
+    });
+  }
+  /** Renames an item in place, taking its history and its pinboard placement along. Runs inside a serial operation. */
+  private async relocate(relative: string, name: string): Promise<string> {
       const original = await contained(this.root, relative);
       const next = path.posix.join(path.posix.dirname(relative), name);
       if (next === relative) return relative;
@@ -377,7 +390,6 @@ export class Library {
         await fs.unlink(oldPlacement);
       } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
       this.changed(); return next;
-    });
   }
   /** Moves an item into a folder of the collection ('' for the top level), creating the folder when needed. */
   async move(relative: string, folder: string): Promise<string> {

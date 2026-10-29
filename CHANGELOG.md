@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- A new note takes its first line as its name the moment it has one, so cards and files no longer read "Untitled note" with a code after it. A note that already has a name keeps it.
+
+### Fixed
+- A sender name stored by an older version with its ".local" suffix is shown without it.
+- A card's menu opens downward when the card sits near the top of the window, instead of off the top edge.
+
 ## 0.6.12 — 2026-10-29
 
 ### Changed

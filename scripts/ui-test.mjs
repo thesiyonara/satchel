@@ -34,6 +34,8 @@ try {
   await expect(page.getByText('Saved on this computer')).toBeVisible();
   await page.getByRole('button', { name: 'Close note', exact: true }).click();
   await expect(page.locator('.pasteboard')).toHaveCount(1);
+  // The note took its first line as its name on save; the card is re-keyed by that path, so wait for it before opening its menu.
+  await expect(page.locator('[data-testid="item-card"]').first()).toHaveAttribute('data-path', 'A place for the in-between.md');
   const first = await page.locator('[data-testid="item-card"]').first().getAttribute('data-path');
   await page.getByLabel(`Actions for ${first}`).click();
   await page.getByRole('button', { name: 'Rename', exact: true }).click();
@@ -105,6 +107,7 @@ try {
   await expect(page.getByRole('button', { name: 'Remove Door code 4411' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Remove Call the studio about Thursday' }).click();
   await expect(page.getByRole('button', { name: 'Remove Call the studio about Thursday' })).toHaveCount(0);
+  await expect(page.locator('.pasteboard-head small')).toContainText('Changed');
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.pasteboard?.text || ''))).toBe('');
   await expect(page.getByRole('button', { name: 'Remove Door code 4411' })).toBeVisible();

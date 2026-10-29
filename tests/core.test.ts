@@ -199,3 +199,19 @@ test('computer names lose the suffix a Mac or a router appends', () => {
   assert.equal(tidyName('Youris-MacBook-Pro-3.local'), 'Youris-MacBook-Pro-3');
   assert.equal(tidyName('desk.lan'), 'desk'); assert.equal(tidyName(' Tiny '), 'Tiny'); assert.equal(tidyName('local.notes'), 'local.notes'); assert.equal(tidyName(''), '');
 });
+
+test('an untitled note takes its first line as its name once it has one', async t => {
+  const { library } = await fixture(t);
+  const blank = await library.createNote('');
+  assert.equal(blank.path, 'Untitled note.md');
+  const still = await library.saveNote(blank.path, '   \n', blank.revision);
+  assert.equal(still.path, 'Untitled note.md', 'Whitespace is not a title');
+  const named = await library.saveNote(still.path, '# Shopping list\nmilk, bread', still.revision);
+  assert.equal(named.path, 'Shopping list.md');
+  assert.equal((await library.readNote('Shopping list.md')).text, '# Shopping list\nmilk, bread');
+  await assert.rejects(library.readNote('Untitled note.md'));
+  const again = await library.saveNote(named.path, 'Groceries\nmilk', named.revision);
+  assert.equal(again.path, 'Shopping list.md', 'A note that has a name keeps it');
+  const second = await library.createNote(''); assert.match(second.path, /^Untitled note(-[a-f0-9]{8})?\.md$/);
+  assert.equal((await library.saveNote(second.path, 'Shopping list', second.revision)).path.startsWith('Shopping list-'), true, 'A taken name gets a suffix');
+});
