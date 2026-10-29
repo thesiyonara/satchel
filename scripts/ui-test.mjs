@@ -157,7 +157,7 @@ try {
   await panel.getByRole('button', { name: 'Tiles', exact: true }).click();
   await expect(panel.locator('.qd-tile').first()).toBeVisible();
   await panel.getByRole('textbox', { name: 'Pasteboard text' }).fill('From the little window');
-  await expect(board).toHaveValue('From the little window');
+  await expect(board).toHaveValue('From the little window', { timeout: 15000 }); // saved after a pause, then seen by the main window's watcher
   await panel.getByRole('textbox', { name: 'Pasteboard text' }).fill('');
   await page.getByRole('button', { name: 'Remove From the little window' }).click();
   await expect(page.getByRole('button', { name: 'Remove From the little window' })).toHaveCount(0);

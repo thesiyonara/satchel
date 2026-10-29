@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- A folder card zoomed small keeps its name readable: the item count steps aside instead of squeezing the name.
+
 ## 0.6.16 — 2026-10-29
 
 ### Added
