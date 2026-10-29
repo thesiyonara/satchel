@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.12 — 2026-10-29
 
 ### Changed
 - A paired computer is named without the ".local" that a Mac appends to its host name, everywhere its name shows: the sidebar, cards that arrived from it, the pasteboard and Quick drop.
