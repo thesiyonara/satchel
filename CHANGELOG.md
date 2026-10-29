@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Pasteboard, in the sidebar next to Pinboard: one text area shared with every paired computer. Paste or type on one computer and it shows up on the others within seconds, in place, with Copy all and Clear. The latest change wins; the text lives in the collection's `.syncit` folder and never shows as an item.
+
 ## 0.6.6 — 2026-10-29
 
 ### Added

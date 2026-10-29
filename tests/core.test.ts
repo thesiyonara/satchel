@@ -19,6 +19,17 @@ async function fixture(t: test.TestContext) {
   t.after(async () => { await library.close(); assert.ok(dir.startsWith(path.join(os.tmpdir(), 'syncit-test-'))); await fs.rm(dir, { recursive: true, force: true }); });
   return { dir, root, library, recycled };
 }
+test('the pasteboard is one shared text file, read with the snapshot and never listed', async t => {
+  const { library } = await fixture(t);
+  assert.deepEqual((await library.snapshot()).pasteboard, { text: '', updatedAt: 0 });
+  const saved = await library.savePasteboard('Door code 4411\nhttps://example.test/room');
+  assert.equal(saved.text, 'Door code 4411\nhttps://example.test/room'); assert.ok(saved.updatedAt > 0);
+  const snapshot = await library.snapshot();
+  assert.equal(snapshot.pasteboard?.text, saved.text);
+  assert.deepEqual(snapshot.items, []);
+  await assert.rejects(library.savePasteboard('x'.repeat(2 * 1024 * 1024)), /smaller than 1 MB/);
+  await assert.rejects(library.savePasteboard(42 as unknown as string), /smaller than 1 MB/);
+});
 test('hidden files and folders are skipped on import and never listed', async t => {
   const { dir, root, library } = await fixture(t);
   const source = path.join(dir, 'shoot'); await fs.mkdir(path.join(source, '.paircut', 'logs'), { recursive: true });

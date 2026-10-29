@@ -90,3 +90,7 @@ The engine reads Syncthing's need list and its DownloadProgress events and publi
 ## Folders and hidden entries
 
 Everything browses one level at a time; the UI suite moves every item into a folder, checks that the top level then shows only the folder card with its count, opens it, finds the folder path above the grid, and moves the items back. `tests/core.test.ts` imports a folder holding a hidden `.paircut` tree and a `.DS_Store` and checks that only the real file is copied and listed, that a hidden item dropped on its own is refused, and that hidden entries already in the collection stay out of the listing.
+
+## Pasteboard
+
+The pasteboard is `.syncit/pasteboard.txt` in the collection: synced like the pinboard placements, never listed, replaced whole on every save and read back with each snapshot. The UI suite types into it, reads it back through `list()`, and clears it. `npm run test:pair` types on the laptop instance and waits for the same text to appear in the desk instance's open pasteboard without a reload (screenshot `test-results/pair-pasteboard.png`). A unit test covers the empty state, the 1 MB limit and that the file never appears as an item.

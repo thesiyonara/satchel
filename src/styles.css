@@ -226,6 +226,16 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 .history-preview .row button { font-size: 12.5px; padding: 6px 10px; }
 
 /* Pinboard */
+/* The pasteboard: one shared text area, filling the main pane. */
+.pasteboard { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; margin: 0 32px 20px 20px; }
+.pasteboard-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+.pasteboard-head h1 { font-size: 12.5px; font-weight: 600; margin: 0; color: var(--text); }
+.pasteboard-head small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+.pasteboard-head .row { display: flex; gap: 6px; flex-shrink: 0; }
+.pasteboard textarea { flex: 1; min-height: 0; width: 100%; resize: none; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); padding: 18px 20px; font-size: 14.5px; line-height: 1.6; color: var(--text); }
+.pasteboard textarea:focus { outline: none; border-color: var(--line-2); }
+.pasteboard textarea::placeholder { color: var(--faint); }
+@media (max-width: 1050px) { .pasteboard { margin-right: 20px; } }
 .board-wrapper { flex: 1; min-height: 0; margin: 0 32px 20px 20px; border: 1px solid var(--line); border-radius: 11px; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); }
 .board-hint { min-height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12.5px; gap: 12px; }
 .board-hint > span { display: flex; align-items: center; gap: 7px; }

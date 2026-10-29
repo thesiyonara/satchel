@@ -2,7 +2,7 @@ import { promises as fs, constants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import chokidar, { type FSWatcher } from 'chokidar';
-import type { BoardPlacement, LibraryItem, LibrarySnapshot, NoteDocument, NoteVersion } from '../shared/types';
+import type { BoardPlacement, LibraryItem, LibrarySnapshot, NoteDocument, NoteVersion, Pasteboard } from '../shared/types';
 import { atomicWrite, cleanName, contained, errorMessage, hash, isInternal, linkOrClaim, safeRelative, isHidden } from './files';
 import { mediaKind } from './media';
 
@@ -103,8 +103,27 @@ export class Library {
           if (hash(record.path) + '.json' === name && items.some(item => item.path === record.path)) placements.push(record);
         } catch { /* Incomplete or invalid remote metadata must never break the library. */ }
       }
-      return { items: items.sort((a, b) => b.modifiedAt - a.modifiedAt || a.path.localeCompare(b.path)), placements };
+      const pasteboard = await this.readPasteboard().catch(() => undefined);
+      return { items: items.sort((a, b) => b.modifiedAt - a.modifiedAt || a.path.localeCompare(b.path)), placements, pasteboard };
     } catch (error) { this.index = undefined; return { items: [], placements, error: errorMessage(error) }; }
+  }
+  /** The shared pasteboard lives in .syncit, so it syncs with the collection but never shows as an item. The latest write from any computer wins; a conflict copy, if Syncthing makes one, stays out of sight there too. */
+  async readPasteboard(): Promise<Pasteboard> {
+    const file = await contained(this.root, '.syncit/pasteboard.txt', true);
+    try {
+      const stat = await fs.stat(file);
+      return { text: stat.size > NOTE_LIMIT ? '' : await fs.readFile(file, 'utf8'), updatedAt: Math.round(stat.mtimeMs) };
+    } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { text: '', updatedAt: 0 }; throw error; }
+  }
+  async savePasteboard(text: unknown): Promise<Pasteboard> {
+    return this.serial(async () => {
+      this.validateText(text);
+      const file = await contained(this.root, '.syncit/pasteboard.txt', true);
+      await fs.mkdir(path.dirname(file), { recursive: true });
+      await atomicWrite(file, text);
+      this.changed();
+      return this.readPasteboard();
+    });
   }
   private async availableName(dir: string, desired: string) {
     const ext = path.extname(desired); const stem = path.basename(desired, ext);
