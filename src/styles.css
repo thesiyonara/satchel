@@ -94,7 +94,7 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 
 /* Cards: notes read as text, images at their own aspect, files as rows. Masonry by content. */
 .collection-scroll { --zoom: 1; }
-.card-grid { column-width: calc(300px * var(--zoom)); column-gap: 16px; transition: column-width var(--base) var(--ease); }
+.card-grid { column-width: calc(260px * var(--zoom)); column-gap: 16px; transition: column-width var(--base) var(--ease); }
 .card-grid > div { break-inside: avoid; margin-bottom: 16px; }
 .caption-right .zoom { margin-left: 4px; }
 .caption-right .zoom button, .board-hint .zoom button { padding: 3px; color: var(--muted); border-radius: 6px; }

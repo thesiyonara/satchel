@@ -1,11 +1,11 @@
 # Changelog
 
-## 0.6.14 — 2026-10-29
+## 0.6.15 — 2026-10-29
 
 ### Changed
 - The minimal Quick drop window is the same window at a third of the height: the same title bar with every button in the same place, the live pasteboard with Copy, Paste and Add files, and the two latest items as rows. The note composer is gone from it; the drawer offers Add files instead of Write a note.
 - New note and Add sit side by side at the same weight on the main screen, and the empty collection offers files and the clipboard before a note.
-- A profile still stored under the app's old name moves to the Satchel folder on start, so the app keeps nothing under the old name.
+- A collection still in the "Sync it" folder next to the home folder moves to "Satchel" beside it on start, with the desktop shortcut following, and a profile still stored under the old name moves too, so nothing is called Sync it any more.
 
 ### Added
 - The grid zooms: Ctrl/⌘ and the wheel, Ctrl/⌘ with + and − (0 for 100%), or the control at the top right of the collection, change how wide cards are, so more or fewer fit the window. The pinboard takes Ctrl/⌘ and the wheel too. Both are remembered per computer.

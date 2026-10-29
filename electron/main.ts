@@ -83,10 +83,27 @@ function notifyLibrary() {
   broadcast('syncit:library');
   clearTimeout(scanTimer); scanTimer = setTimeout(() => { void engine?.scan(); }, 250);
 }
+// The default collection folder was "Sync it" next to the home folder before 0.5. A collection still there moves to "Satchel" beside it before the
+// engine and the library open it, and the desktop shortcut made at setup follows. If the folder is in use the move waits for the next start.
+async function renameLegacyRoot() {
+  const legacy = path.join(os.homedir(), 'Sync it'); const next = path.join(os.homedir(), 'Satchel');
+  if (testing || profileOverride || path.resolve(store.value.root) !== legacy || existsSync(next)) return;
+  try { await fs.rename(legacy, next); await store.update({ root: next }); } catch { return; }
+  const desktop = app.getPath('desktop');
+  for (const name of ['Sync it folder', 'Satchel folder']) {
+    const link = path.join(desktop, process.platform === 'win32' ? `${name}.lnk` : name);
+    if (!existsSync(link)) continue;
+    try {
+      if (process.platform === 'win32') { if (name === 'Sync it folder') await fs.unlink(link); shell.writeShortcutLink(path.join(desktop, 'Satchel folder.lnk'), { target: next, description: 'Your local Satchel collection' }); }
+      else if ((await fs.lstat(link)).isSymbolicLink()) { await fs.unlink(link); await fs.symlink(next, path.join(desktop, 'Satchel folder'), 'dir'); }
+    } catch { /* the folder moved; a shortcut that could not follow is recreated from Preferences */ }
+  }
+}
 async function start() {
   await secureDirectory(app.getPath('userData'));
   store = new SettingsStore(app.getPath('userData'), testing || profileOverride ? path.join(app.getPath('userData'), 'collection') : undefined);
   await store.load(); nativeTheme.themeSource = store.value.theme;
+  await renameLegacyRoot();
   updater = new Updates(app.getPath('userData'), app.getVersion(), state => broadcast('syncit:update', state));
   await updater.clean(); // Installers verified by an earlier session are neither trusted nor kept.
   void pruneThumbnails();
