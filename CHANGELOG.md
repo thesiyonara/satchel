@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.8 — 2026-10-29
 
 ### Changed
 - Updating is one click. The notice at the top of the window, and the button under Preferences, download the release, show the progress, verify it, save open notes and install, with no confirmation step in between. On Windows the installer now runs silently after Satchel quits and starts Satchel again. On a Mac, Satchel updates from the zip archive instead of the disk image: it unpacks the archive, swaps the fresh bundle in for the running one and relaunches, so there is no disk image to open and nothing to drag; when the swap is not possible, the unpacked app is shown in Finder with a message saying what to do.
