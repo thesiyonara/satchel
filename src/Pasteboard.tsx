@@ -36,7 +36,7 @@ export function liveStatus(state: 'synced' | 'typing' | 'saving', board: Pastebo
  * The pasteboard column on the right of the main window: the shared text area with the texts it replaced listed under it.
  * The column folds to a tab on the edge and remembers that per computer.
  */
-export function Pasteboard({ board, notify, since, paired, hidden }: { board?: PasteboardState; notify: (message: string) => void; since: (time: number) => string; paired: number; hidden?: boolean }) {
+export function Pasteboard({ board, notify, since, peers, hidden }: { board?: PasteboardState; notify: (message: string) => void; since: (time: number) => string; peers: string[]; hidden?: boolean }) {
   const [open, setOpen] = useState(() => { try { return localStorage.getItem(OPEN_KEY) !== '0'; } catch { return true; } });
   // While the column is open, every change counts as seen; folded, the tab shows a dot for a change that arrived since.
   useEffect(() => { if (open && board?.updatedAt) { try { localStorage.setItem(SEEN_KEY, String(board.updatedAt)); } catch { /* per-computer convenience only */ } } }, [open, board?.updatedAt]);
@@ -57,7 +57,7 @@ export function Pasteboard({ board, notify, since, paired, hidden }: { board?: P
   if (hidden) return null;
   if (!open) return <aside className="pasteboard closed" aria-label="Pasteboard"><button className="pasteboard-tab" aria-label={unseen ? 'Show pasteboard, changed since you folded it' : 'Show pasteboard'} title={unseen ? 'The pasteboard changed since you folded it' : 'Show the pasteboard'} onClick={() => toggle(true)}><span>Pasteboard</span>{unseen && <i className="unseen" />}</button></aside>;
   return <aside className="pasteboard" aria-label="Pasteboard">
-    <div className="pasteboard-head"><div><h2>Pasteboard</h2><small>{paired > 0 ? <span className="live"><i />Live on {paired === 1 ? 'your other computer' : `${paired} other computers`}</span> : <span className="live off"><i />Syncs once a computer is paired</span>}<br />{liveStatus(live.state, board, since)}</small></div>
+    <div className="pasteboard-head"><div><h2>Pasteboard</h2><small>{peers.length > 0 ? <span className="live" title={peers.join(', ')}><i /><span>Live with {peers.length === 1 ? peers[0] : `${peers.length} computers`}</span></span> : <span className="live off"><i /><span>Syncs once a computer is paired</span></span>}<br />{liveStatus(live.state, board, since)}</small></div>
       <div className="tools"><button className="icon-button" aria-label="Copy all" title="Copy all" disabled={!live.text} onClick={() => void copy(live.text, 'Pasteboard')}><ClipboardCopy size={15} /></button><button className="icon-button" aria-label="Clear" title="Clear the text (it goes to Recent)" disabled={!live.text} onClick={() => { live.replace(''); area.current?.focus(); }}><Eraser size={15} /></button><button className="icon-button" aria-label="Hide pasteboard" title="Hide the pasteboard" onClick={() => toggle(false)}><ChevronRight size={15} /></button></div></div>
     <textarea ref={area} aria-label="Pasteboard text" placeholder="Paste or type here." value={live.text} onChange={event => live.change(event.target.value)} spellCheck={false} />
     <div className="recent-head"><span>Recent</span>{recent.length > 0 && <button onClick={() => void remove()}>Clear list</button>}</div>

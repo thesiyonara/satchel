@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { tidyName } from '../shared/format';
 import { Library, validatePlacement, replaces } from '../electron/library';
 import { cleanName, contained, safeRelative, hash } from '../electron/files';
 import { SettingsStore, validateSettingsPatch } from '../electron/settings';
@@ -192,4 +193,9 @@ test('out-of-space import leaves the original and no partially visible destinati
   finally { fs.copyFile = originalCopy; }
   assert.equal(await fs.readFile(source, 'utf8'), 'original');
   assert.ok(!(await fs.readdir(root)).some(name => name === 'large.bin' || name.startsWith('.syncit-tmp-')));
+});
+
+test('computer names lose the suffix a Mac or a router appends', () => {
+  assert.equal(tidyName('Youris-MacBook-Pro-3.local'), 'Youris-MacBook-Pro-3');
+  assert.equal(tidyName('desk.lan'), 'desk'); assert.equal(tidyName(' Tiny '), 'Tiny'); assert.equal(tidyName('local.notes'), 'local.notes'); assert.equal(tidyName(''), '');
 });

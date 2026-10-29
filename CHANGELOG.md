@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- A paired computer is named without the ".local" that a Mac appends to its host name, everywhere its name shows: the sidebar, cards that arrived from it, the pasteboard and Quick drop.
+- The pasteboard column header says "Live with" the paired computer by name, and keeps to one line. With one computer paired, the sidebar says that computer is offline rather than "paired computers".
+
 ## 0.6.11 — 2026-10-29
 
 ### Fixed

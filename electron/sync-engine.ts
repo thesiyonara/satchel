@@ -7,6 +7,7 @@ import net from 'node:net';
 import { randomBytes, createHash } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
+import { tidyName } from '../shared/format';
 import type { NearbyDevice, PairingOptions, Settings, SyncStatus, IncomingItem } from '../shared/types';
 import { atomicWrite, errorMessage } from './files';
 import { secureDirectory } from './security';
@@ -348,7 +349,7 @@ export class SyncEngine {
         pendingItems += completion.needItems || 0; pendingBytes += completion.needBytes || 0;
         if (connected && completion.remoteState === 'notSharing') allErrors.push(`${device.name || 'Other computer'} has not accepted the collection yet.`);
         const encrypted = !!(localFolder?.devices || []).find((entry: Config) => entry.deviceID === device.deviceID)?.encryptionPassword;
-        return { id: device.deviceID, name: device.name || 'Other computer', connected, completion: completion.completion ?? 0, encrypted };
+        return { id: device.deviceID, name: tidyName(device.name || '') || 'Other computer', connected, completion: completion.completion ?? 0, encrypted };
       }));
       // Which computer holds each incoming file, for the first few; the answer is cached while the file stays on the list.
       await Promise.all(this.need.slice(0, 6).filter(entry => !this.sources.has(entry.path)).map(async entry => {
@@ -360,7 +361,7 @@ export class SyncEngine {
       const inRate = this.lastIn && now > this.lastIn.at && inBytes >= this.lastIn.bytes ? (inBytes - this.lastIn.bytes) * 1000 / (now - this.lastIn.at) : 0;
       this.lastIn = { bytes: inBytes, at: now };
       const state = this.options.settings().syncPaused ? 'paused' : allErrors.length ? 'error' : !peers.length ? 'unpaired' : !peers.some(peer => peer.connected) ? 'offline' : pendingItems > 0 || ['scanning', 'syncing', 'scan-waiting', 'sync-waiting'].includes(db.state) || peers.some(peer => peer.connected && peer.completion < 100) ? 'syncing' : 'synced';
-      this.emit({ state, peers, pending: Object.entries(pending).map(([id, value]) => ({ id, name: (value as Config).name || 'Nearby computer', address: (value as Config).address || '' })), nearby, pendingItems, pendingBytes, incoming: this.incomingList(), inRate: this.need.length ? Math.round(inRate) : 0, errors: allErrors, localAddresses: localNetworks().addresses });
+      this.emit({ state, peers, pending: Object.entries(pending).map(([id, value]) => ({ id, name: tidyName((value as Config).name || '') || 'Nearby computer', address: (value as Config).address || '' })), nearby, pendingItems, pendingBytes, incoming: this.incomingList(), inRate: this.need.length ? Math.round(inRate) : 0, errors: allErrors, localAddresses: localNetworks().addresses });
     } catch (error) { this.emit({ state: 'error', errors: [errorMessage(error)] }); }
     finally { this.refreshing = false; }
   }
