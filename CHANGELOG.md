@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.14 — 2026-10-29
 
 ### Changed
 - The minimal Quick drop window is the same window at a third of the height: the same title bar with every button in the same place, the live pasteboard with Copy, Paste and Add files, and the two latest items as rows. The note composer is gone from it; the drawer offers Add files instead of Write a note.
