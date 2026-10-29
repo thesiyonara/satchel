@@ -39,13 +39,14 @@ try {
   await cli('settings', JSON.stringify({ panelOpacity: .85, alwaysOnTop: true }));
   status = await cli('status'); assert.ok(Math.abs(status.windows.find(w => w.name === 'panel').opacity - .85) < .02);
   await cli('window', 'quick');
-  await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
-  await panel.getByLabel('Quick capture text').fill('Draft stays after hiding');
+  await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
+  await panel.getByLabel('Pasteboard text').fill('Text stays after hiding');
+  await expect.poll(() => cli('call', 'list', '[]').then(result => result.pasteboard?.text || '')).toBe('Text stays after hiding');
   await cli('window', 'hide');
   assert.equal((await cli('status')).windows.find(w => w.name === 'panel').visible, false);
   await cli('window', 'quick');
-  await expect(panel.getByLabel('Quick capture text')).toHaveValue('Draft stays after hiding');
-  await panel.getByLabel('Quick capture text').fill('');
+  await expect(panel.getByLabel('Pasteboard text')).toHaveValue('Text stays after hiding');
+  await panel.getByLabel('Pasteboard text').fill('');
   await cli('settings', JSON.stringify({ panelOpacity: 1 }));
   await panel.screenshot({ path: path.resolve('test-results/floating-workspace.png') });
   const shot = await cli('screenshot', 'panel'); assert.ok((await readFile(shot.path)).length > 100);

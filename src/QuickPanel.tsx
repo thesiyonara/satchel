@@ -1,21 +1,32 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, ArrowUpRight, Blend, Clipboard, Expand, FileText, Film, Image, File, LoaderCircle, Minimize2, Music, Pin, Plus, Star, X } from 'lucide-react';
-import type { IncomingItem, LibraryItem, Settings } from '../shared/types';
+import { ArrowDown, ArrowDownToLine, ArrowLeftToLine, ArrowRightToLine, ArrowUpRight, Blend, Clipboard, ClipboardCopy, Expand, FileText, Film, Image, File, LayoutGrid, List, LoaderCircle, Minimize2, Music, Paperclip, Pin, Plus, X } from 'lucide-react';
+import type { IncomingItem, LibraryItem, Pasteboard as PasteboardState, Settings } from '../shared/types';
 import { mediaKind } from '../shared/media';
 import { formatSize as size } from '../shared/format';
 import { Mark } from './Mark';
+import { liveStatus, useLiveText } from './Pasteboard';
 
 const icons = { note: FileText, image: Image, video: Film, audio: Music, file: File };
-export function QuickPanel({ settings, items, incoming, status, platform, open, paste, notify, pile, expand, media }: { settings: Settings; items: LibraryItem[]; incoming: IncomingItem[]; status: string; platform: string; open: (item: LibraryItem) => void; paste: () => Promise<void>; notify: (message: string) => void; pile: boolean; expand: () => void; media: (item: LibraryItem) => string }) {
+const VIEW_KEY = 'quickDropView';
+/** A short type label for a file without a picture: its extension, up to four letters. */
+function glyph(name: string) { const dot = name.lastIndexOf('.'); return dot > 0 && name.length - dot <= 6 ? name.slice(dot + 1).toUpperCase() : 'FILE'; }
+
+/**
+ * Quick drop: the small window for going back and forth between computers. The live pasteboard on top, with Paste and Add files in its corner,
+ * and under it Latest: what is arriving, what came in from the other computers and what went out from here, as tiles or a list, with Copy and
+ * Open on hover and every tile or row dragging out. The minimal window keeps the note composer, and the drawer keeps its pile.
+ */
+export function QuickPanel({ settings, items, incoming, status, platform, open, paste, notify, pile, expand, media, board, peer, since }: { settings: Settings; items: LibraryItem[]; incoming: IncomingItem[]; status: string; platform: string; open: (item: LibraryItem) => void; paste: () => Promise<void>; notify: (message: string) => void; pile: boolean; expand: () => void; media: (item: LibraryItem) => string; board?: PasteboardState; peer?: string; since: (time: number) => string }) {
   const mini = settings.panelMode === 'mini';
   const key = 'quick-capture:' + settings.root;
   const [text, setText] = useState(() => localStorage.getItem(key) || '');
   const [busy, setBusy] = useState(false);
-  const [favorites, setFavorites] = useState(false);
   const [captured, setCaptured] = useState(false);
   const [opacityOpen, setOpacityOpen] = useState(false);
   const [opacity, setOpacity] = useState(Math.round((settings.panelOpacity ?? 1) * 100));
+  const [view, setView] = useState<'tiles' | 'list'>(() => { try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'tiles'; } catch { return 'tiles'; } });
   const opacityTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const live = useLiveText(board, notify);
   useEffect(() => { setOpacity(Math.round((settings.panelOpacity ?? 1) * 100)); }, [settings.panelOpacity]);
   function changeOpacity(value: number) {
     setOpacity(value);
@@ -32,23 +43,56 @@ export function QuickPanel({ settings, items, incoming, status, platform, open, 
       setCaptured(true);
     });
   }
-  const recent = items.filter(item => !favorites || settings.favorites?.includes(item.path)).slice(0, 5);
+  const switchView = (next: 'tiles' | 'list') => { setView(next); try { localStorage.setItem(VIEW_KEY, next); } catch { /* per-computer convenience only */ } };
+  // Copy puts a note's text or an image on the clipboard; other files are dragged or opened.
+  const copy = async (item: LibraryItem) => {
+    try {
+      if (item.kind === 'note') await navigator.clipboard.writeText(await window.syncit.readText(item.path));
+      else if (item.kind === 'image') { const blob = await (await fetch(media(item).replace('/thumbnail', '/preview'))).blob(); await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]); }
+      else return;
+      notify(`${item.name} copied.`);
+    } catch (error) { notify(`Could not copy: ${String(error)}`); }
+  };
+  const drag = (item: LibraryItem) => (event: React.DragEvent) => { event.preventDefault(); void window.syncit.dragOut(item.path).catch(error => notify(String(error))); };
+  const latest = items.slice(0, view === 'tiles' ? 6 : 5);
+  const arriving = incoming.slice(0, view === 'tiles' ? 3 : 2);
+  const origin = (item: LibraryItem) => item.arrivedFrom ? `from ${item.arrivedFrom}` : peer ? 'from here' : '';
   const modifier = platform === 'darwin' ? '⌘' : 'Ctrl';
+  const actions = (item: LibraryItem) => <span className="qd-acts">{(item.kind === 'note' || item.kind === 'image') && <button aria-label={`Copy ${item.name}`} title="Copy" onClick={event => { event.stopPropagation(); void copy(item); }}><ClipboardCopy size={13} /></button>}<button aria-label={`Open ${item.name}`} title="Open" onClick={event => { event.stopPropagation(); open(item); }}><ArrowUpRight size={13} /></button></span>;
   return <section className={`floating-workspace ${mini ? 'is-mini' : ''}`}>
-    <header className="floating-titlebar"><span className="floating-wordmark"><Mark size={16} />Satchel</span><span className="floating-mode">{pile ? 'Drawer' : mini ? 'Capture' : 'Quick drop'}</span><div>
-      {pile && <button aria-label="Open Quick drop" title="Open the full Quick drop window" onClick={expand}><Expand size={14} /></button>}{!pile && <><button aria-label="Window opacity" aria-pressed={opacityOpen} title={`Opacity ${opacity}%`} onClick={() => setOpacityOpen(value => !value)}><Blend size={14} /></button>
-      <button aria-label="Keep floating window on top" aria-pressed={settings.alwaysOnTop} onClick={() => void perform(() => window.syncit.settings({ alwaysOnTop: !settings.alwaysOnTop }))}><Pin size={14} /></button>
-      <button aria-label={mini ? 'Expand floating window' : 'Minimal floating window'} onClick={() => void perform(() => window.syncit.settings({ panelMode: mini ? 'quick' : 'mini' }))}>{mini ? <Expand size={14} /> : <Minimize2 size={14} />}</button></>}
-      <button aria-label="Hide floating window" onClick={() => void window.syncit.panel('hide')}><X size={15} /></button>
+    <header className="floating-titlebar"><span className="floating-wordmark"><Mark size={16} />{pile ? 'Satchel' : 'Quick drop'}</span>{pile ? <span className="floating-mode">Drawer</span> : mini ? <span className="floating-mode">Capture</span> : <span className="floating-mode qd-peer" title={status}><i className={`status-dot ${peer ? 'green' : ''}`} /><span>{peer || status}</span></span>}<div>
+      {pile && <button aria-label="Open Quick drop" title="Open the full Quick drop window" onClick={expand}><Expand size={14} /></button>}{!pile && <><button aria-label="Window opacity" aria-pressed={opacityOpen} title={`Window · opacity ${opacity}%`} onClick={() => setOpacityOpen(value => !value)}><Blend size={14} /></button>
+      <button aria-label="Keep floating window on top" aria-pressed={settings.alwaysOnTop} title="Keep on top" onClick={() => void perform(() => window.syncit.settings({ alwaysOnTop: !settings.alwaysOnTop }))}><Pin size={14} /></button>
+      <button aria-label={mini ? 'Expand floating window' : 'Minimal floating window'} title={mini ? 'Full window' : 'Minimal window'} onClick={() => void perform(() => window.syncit.settings({ panelMode: mini ? 'quick' : 'mini' }))}>{mini ? <Expand size={14} /> : <Minimize2 size={14} />}</button>
+      {!mini && <button aria-label="Open dashboard" title="Open the main window" onClick={() => void window.syncit.showDashboard()}><ArrowUpRight size={15} /></button>}</>}
+      <button aria-label="Hide floating window" title="Hide" onClick={() => void window.syncit.panel('hide')}><X size={15} /></button>
     </div></header>
-    {opacityOpen && <div className="floating-opacity"><Blend size={13} /><input type="range" min="60" max="100" step="5" aria-label="Floating window opacity" value={opacity} onChange={event => changeOpacity(Number(event.target.value))} /><span>{opacity}%</span></div>}
-    {pile ? <Pile items={items} incoming={incoming} open={open} media={media} expand={expand} paste={() => perform(paste)} busy={busy} /> : <>{!mini && <div className="floating-intro"><h2>Add to the collection</h2><p>Write, paste or drop. Everything lands in the collection and on paired computers.</p></div>}
+    {opacityOpen && <div className="floating-opacity"><Blend size={13} /><input type="range" min="60" max="100" step="5" aria-label="Floating window opacity" value={opacity} onChange={event => changeOpacity(Number(event.target.value))} /><span>{opacity}%</span><button title="Dock to the left edge" aria-label="Dock left" onClick={() => void window.syncit.panel('left')}><ArrowLeftToLine size={14} /></button><button title="Dock to the right edge" aria-label="Dock right" onClick={() => void window.syncit.panel('right')}><ArrowRightToLine size={14} /></button></div>}
+    {pile ? <Pile items={items} incoming={incoming} open={open} media={media} expand={expand} paste={() => perform(paste)} busy={busy} /> : mini ? <>
     <form className="capture-composer" onSubmit={event => { event.preventDefault(); void save(); }}>
       <textarea aria-label="Quick capture text" placeholder="Write a note…" value={text} onChange={event => { setText(event.target.value); try { localStorage.setItem(key, event.target.value); } catch { notify('Draft storage is full. Capture this text before closing.'); } }} onKeyDown={event => { if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); void save(); } }} />
       <div><span>{captured && !text ? 'Saved to the collection' : `${modifier} + Enter to capture`}</span><button className="capture-submit" aria-label="Save quick capture" disabled={busy || !text.trim()}><Plus size={14} />Capture</button></div>
     </form>
-    <div className="floating-tools"><button disabled={busy} aria-label="Paste from clipboard" onClick={() => void perform(paste)}><Clipboard size={14} />Paste</button>{!mini && <button disabled={busy} onClick={() => void perform(() => window.syncit.chooseFiles())}>Add files</button>}<span /><button title="Dock to the left edge" aria-label="Dock left" onClick={() => void window.syncit.panel('left')}><ArrowLeftToLine size={15} /></button><button title="Dock to the right edge" aria-label="Dock right" onClick={() => void window.syncit.panel('right')}><ArrowRightToLine size={15} /></button><button aria-label="Open dashboard" title="Open the main window" onClick={() => void window.syncit.showDashboard()}>Dashboard<ArrowUpRight size={14} /></button></div>
-    {!mini && <><div className="floating-tabs"><button className={!favorites ? 'active' : ''} onClick={() => setFavorites(false)}>Recent</button><button className={favorites ? 'active' : ''} onClick={() => setFavorites(true)}><Star size={11} />Favorites</button></div><div className="floating-items">{recent.map(item => { const Icon = icons[item.kind]; return <button key={item.path} onClick={() => open(item)} draggable onDragStart={event => { event.preventDefault(); void window.syncit.dragOut(item.path).catch(error => notify(String(error))); }}><Icon size={15} /><span>{item.name}</span><ArrowUpRight size={13} /></button>; })}{!recent.length && <p>{favorites ? 'Star items in the dashboard to list them here.' : 'Nothing in the collection yet.'}</p>}</div><footer className="floating-footer"><span className="status-dot" />{status}</footer></>}</>}
+    <div className="floating-tools"><button disabled={busy} aria-label="Paste from clipboard" onClick={() => void perform(paste)}><Clipboard size={14} />Paste</button><span /><button aria-label="Open dashboard" title="Open the main window" onClick={() => void window.syncit.showDashboard()}>Dashboard<ArrowUpRight size={14} /></button></div>
+    </> : <>
+    <div className="qd-board">
+      <textarea aria-label="Pasteboard text" placeholder="Pasteboard" value={live.text} onChange={event => live.change(event.target.value)} spellCheck={false} />
+      <div className="qd-board-bar"><span>Pasteboard · live · {liveStatus(live.state, board, since).replace(/^./, first => first.toLowerCase())}</span><button aria-label="Copy pasteboard" title="Copy" disabled={!live.text} onClick={() => void navigator.clipboard.writeText(live.text).then(() => notify('Pasteboard copied.'), () => notify('The clipboard is unavailable.'))}><ClipboardCopy size={14} /></button><button disabled={busy} aria-label="Paste from clipboard" title="Paste from clipboard into the collection" onClick={() => void perform(paste)}><Clipboard size={14} /></button><button disabled={busy} aria-label="Add files" title="Add files" onClick={() => void perform(() => window.syncit.chooseFiles())}><Paperclip size={14} /></button></div>
+    </div>
+    <div className="qd-head"><h2>Latest</h2><span className="qd-switch"><button className={view === 'tiles' ? 'on' : ''} aria-label="Tiles" aria-pressed={view === 'tiles'} title="Tiles" onClick={() => switchView('tiles')}><LayoutGrid size={13} /></button><button className={view === 'list' ? 'on' : ''} aria-label="List" aria-pressed={view === 'list'} title="List" onClick={() => switchView('list')}><List size={13} /></button></span><button className="qd-all" onClick={() => void window.syncit.showDashboard()}>All</button></div>
+    {view === 'tiles' ? <div className="qd-tiles">
+      {arriving.map(item => { const Icon = icons[mediaKind(item.name) || (/\.(md|txt)$/i.test(item.name) ? 'note' : 'file')]; const percent = item.size > 0 ? Math.min(100, Math.round(item.done / item.size * 100)) : 0; return <div key={'incoming:' + item.path} className="qd-tile arriving" title={`${item.name} · arriving${item.from ? ` from ${item.from}` : ''} · ${size(item.size)}`}><span className="qd-sq"><Icon size={18} /><i className="qd-mark in"><ArrowDown size={9} /></i><em>{item.done > 0 ? `${percent}%` : ''}</em><span className={`qd-prog ${item.done > 0 ? '' : 'indeterminate'}`}><b style={{ width: `${Math.max(2, percent)}%` }} /></span></span><span className="qd-name">{item.name}</span><small>arriving{item.from ? ` · ${item.from}` : ''}</small></div>; })}
+      {latest.map(item => { const Icon = icons[item.kind]; return <div key={item.path} className="qd-tile" title={item.name} draggable onDragStart={drag(item)} onDoubleClick={() => open(item)}>
+        <span className={`qd-sq ${item.kind}`}>{item.kind === 'image' || item.kind === 'video' ? <><Icon size={18} /><img src={media(item)} alt="" loading="lazy" draggable={false} onLoad={event => event.currentTarget.classList.add('loaded')} /></> : item.kind === 'note' ? <span className="qd-text">{item.preview || item.name}</span> : <span className="qd-glyph">{glyph(item.name)}</span>}{item.arrivedFrom && <i className="qd-mark in"><ArrowDown size={9} /></i>}{actions(item)}</span>
+        <span className="qd-name">{item.name}</span><small>{since(item.modifiedAt)}{origin(item) ? ` · ${origin(item)}` : ''}</small>
+      </div>; })}
+      {!latest.length && !arriving.length && <p className="qd-empty">Nothing in the collection yet.</p>}
+    </div> : <div className="qd-list">
+      {arriving.map(item => { const Icon = icons[mediaKind(item.name) || (/\.(md|txt)$/i.test(item.name) ? 'note' : 'file')]; const percent = item.size > 0 ? Math.min(100, Math.round(item.done / item.size * 100)) : 0; return <div key={'incoming:' + item.path} className="qd-row arriving" title={item.path}><span className="qd-icon in"><Icon size={15} /></span><span className="qd-row-name"><strong>{item.name}</strong><small>arriving{item.from ? ` from ${item.from}` : ''} · {item.done > 0 ? `${percent}%` : size(item.size)}</small><span className={`qd-prog ${item.done > 0 ? '' : 'indeterminate'}`}><b style={{ width: `${Math.max(2, percent)}%` }} /></span></span><LoaderCircle size={13} className="spin" /></div>; })}
+      {latest.map(item => { const Icon = icons[item.kind]; return <div key={item.path} className="qd-row" draggable onDragStart={drag(item)} onDoubleClick={() => open(item)}><span className={`qd-icon ${item.arrivedFrom ? 'in' : ''}`}><Icon size={15} /></span><span className="qd-row-name"><strong>{item.name}</strong><small>{since(item.modifiedAt)}{origin(item) ? ` · ${origin(item)}` : ''}</small></span>{actions(item)}</div>; })}
+      {!latest.length && !arriving.length && <p className="qd-empty">Nothing in the collection yet.</p>}
+    </div>}
+    </>}
   </section>;
 }
 

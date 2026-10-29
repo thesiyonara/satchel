@@ -98,3 +98,7 @@ The pasteboard is `.syncit/pasteboard.txt` in the collection, with `.syncit/past
 ## One-click updates
 
 `npm test` covers the Mac bundle swap with a stand-in for `ditto`: the fresh bundle replaces the running one and the old bundle is parked under the updates folder; a bundle running from a translocated path is left alone and the unpacked app handed back; a swap that cannot move the running bundle aside puts the unpacked app back and changes nothing. The Mac release selection now picks the zip archive. The real swap, relaunch and the silent Windows installer run only in packaged builds and were not exercised on this host; the first Mac update to a build with this change still goes through the disk image, and the one after it uses the new path.
+
+## Quick drop as the exchange
+
+The UI suite opens Quick drop, checks Latest shows tiles, switches to the list and back, types into the window's pasteboard and sees the same text in the main window's column, then clears it. The feature suite types into that pasteboard, hides and shows the window through the CLI and finds the text still there (it is the shared text, saved to the collection), and checks the minimal window still captures notes. The drawer's pile is unchanged and keeps its drag-out check.

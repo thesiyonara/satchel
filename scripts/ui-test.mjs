@@ -113,7 +113,7 @@ try {
   await page.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
   const findPanel = async () => (await application.windows()).find(p => p.url().includes('panel=1'));
   const panel = await expect.poll(async () => (await findPanel()) ? 'ready' : 'waiting').toBe('ready').then(findPanel);
-  await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
   await panel.getByRole('button', { name: 'Window opacity' }).click();
   await panel.getByRole('slider', { name: 'Floating window opacity' }).focus();
   await panel.keyboard.press('ArrowLeft'); await panel.keyboard.press('ArrowLeft'); await panel.keyboard.press('ArrowLeft'); await panel.keyboard.press('ArrowLeft');
@@ -121,14 +121,26 @@ try {
   await panel.keyboard.press('End');
   await expect.poll(() => page.evaluate(() => window.syncit.initial().then(i => i.settings.panelOpacity))).toBe(1);
   await panel.getByRole('button', { name: 'Window opacity' }).click();
+  // Latest shows the collection as tiles or a list, the choice kept per computer; the pasteboard in Quick drop is the same live text as the column.
+  await expect(panel.locator('.qd-tile').first()).toBeVisible();
   await panel.screenshot({ path: path.join(artifacts, 'quick-drop.png') });
+  await panel.getByRole('button', { name: 'List', exact: true }).click();
+  await expect(panel.locator('.qd-row').first()).toBeVisible();
+  await expect(panel.locator('.qd-tile')).toHaveCount(0);
+  await panel.getByRole('button', { name: 'Tiles', exact: true }).click();
+  await expect(panel.locator('.qd-tile').first()).toBeVisible();
+  await panel.getByRole('textbox', { name: 'Pasteboard text' }).fill('From the little window');
+  await expect(board).toHaveValue('From the little window');
+  await panel.getByRole('textbox', { name: 'Pasteboard text' }).fill('');
+  await page.getByRole('button', { name: 'Remove From the little window' }).click();
+  await expect(page.getByRole('button', { name: 'Remove From the little window' })).toHaveCount(0);
   // The drawer: opened from the dashboard here, since the edge handle window is not created in test mode. It shows the pile, and Expand returns the full window.
   await page.evaluate(() => window.syncit.openDrawer());
   await expect(panel.getByRole('heading', { name: 'Drop here' })).toBeVisible();
   await panel.screenshot({ path: path.join(artifacts, 'drawer.png') });
   assert.equal((await panel.evaluate(relative => window.syncit.dragOut(relative), imagePath)).files.length, 1, 'the drawer drags items out');
   await panel.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
-  await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
   // The edge handle (created in test mode by SYNCIT_TEST_HANDLE, one per display): moving the pointer onto it opens the drawer as the pile.
   await panel.getByRole('button', { name: 'Hide floating window' }).click();
   const panelVisible = () => application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.webContents.getURL().includes('panel=1') && window.isVisible()));
@@ -139,7 +151,7 @@ try {
   await expect.poll(panelVisible, { timeout: 5000 }).toBe(true);
   await expect(panel.getByRole('heading', { name: 'Drop here' })).toBeVisible();
   await panel.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
-  await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
+  await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
   // Selection: Ctrl/⌘ A selects everything in view; the bar favorites, moves into a folder (which then lists in the sidebar), and back.
   await page.getByRole('button', { name: /^Everything/ }).click();
   await page.keyboard.press('Control+a');
