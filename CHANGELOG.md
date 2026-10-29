@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.13 — 2026-10-29
 
 ### Added
 - A new note takes its first line as its name the moment it has one, so cards and files no longer read "Untitled note" with a code after it. A note that already has a name keeps it.
