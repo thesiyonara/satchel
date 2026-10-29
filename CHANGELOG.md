@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- A long folder name in the sidebar ends in an ellipsis instead of being cut at the edge.
+
 ## 0.6.18 — 2026-10-29
 
 ### Changed

@@ -647,6 +647,7 @@ body, .rail, .main-content, .note-editor, .settings-panel, .floating-workspace, 
 .collection-caption .caption-right button, .selection-bar button { white-space: nowrap; }
 .rail nav button { white-space: nowrap; overflow: hidden; }
 .rail nav button span { flex-shrink: 0; margin-left: 8px; }
+.rail nav button .nav-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-style: normal; text-align: left; }
 .pasteboard-backdrop { position: absolute; inset: 0; z-index: 19; }
 .pasteboard.overlay { position: absolute; top: 0; right: 0; bottom: 0; z-index: 20; max-width: min(360px, 92vw); box-shadow: var(--shadow); animation: pane-in var(--base) var(--ease); }
 .narrow .caption-right > span { display: none; }

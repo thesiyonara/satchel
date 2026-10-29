@@ -120,7 +120,7 @@ try {
   const columnWidth = () => page.locator('.pasteboard').evaluate(element => element.getBoundingClientRect().width);
   await expect.poll(columnWidth).toBe(340); // the column unfolds with a transition; wait for it to settle before reading the edge's position
   const resizer = page.getByRole('separator', { name: 'Pasteboard width' }); const edge = await resizer.boundingBox();
-  await page.mouse.move(edge.x + 3, edge.y + 200); await page.mouse.down(); await page.mouse.move(edge.x - 60, edge.y + 200, { steps: 5 }); await page.mouse.up();
+  await page.mouse.move(edge.x + 3, edge.y + 200); await page.mouse.down(); await page.waitForTimeout(80); await page.mouse.move(edge.x - 60, edge.y + 200, { steps: 12 }); await page.waitForTimeout(80); await page.mouse.up();
   await expect.poll(columnWidth).toBeGreaterThan(380);
   await page.getByRole('button', { name: 'Hide pasteboard' }).click();
   await page.getByRole('button', { name: 'Show pasteboard' }).click();

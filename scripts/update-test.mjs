@@ -33,7 +33,7 @@ try {
   const library = await page.evaluate(() => window.syncit.list());
   assert.ok(library.items.some(item => item.preview === 'Must be saved before updating'));
   await expect(page.getByText('Preparing the update…')).toBeVisible();
-  assert.equal(await page.locator('.app-shell').evaluate(element => element.inert), true);
+  assert.equal(await page.locator('.app-frame').evaluate(element => element.inert), true); // the frame is the root that goes inert; the shell sits inside it
   const handle = application.windows().find(window => new URL(window.url()).searchParams.has('handle'));
   assert.ok(handle, 'A real drawer handle must participate in the handshake');
   await expect(handle.locator('.handle')).toHaveAttribute('inert', '');
