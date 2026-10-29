@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.18 — 2026-10-29
 
 ### Changed
 - One window, three shapes. Satchel has one window and its shape follows its size: wide it is the dashboard, under 560 px wide it is Quick drop, under 330 px tall the minimal window. The Quick drop button, the shortcut and the tray shrink the window to where it last was small, and Expand grows it back, each shape remembering its own place. Small, the window keeps on top and takes the opacity you set; large, it never does. Dragging an edge past a threshold switches the shape with a crossfade.

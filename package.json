@@ -1,7 +1,7 @@
 {
   "name": "satchel",
   "productName": "Satchel",
-  "version": "0.6.17",
+  "version": "0.6.18",
   "description": "One shared folder for all your computers. It syncs over your own network, not the internet.",
   "private": true,
   "type": "module",
