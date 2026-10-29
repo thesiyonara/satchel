@@ -5,6 +5,7 @@ import { mediaKind } from '../shared/media';
 import { formatSize as size } from '../shared/format';
 import { Mark } from './Mark';
 import { liveStatus, useLiveText } from './Pasteboard';
+import { copyItem, copyable } from './copy';
 
 const icons = { note: FileText, image: Image, video: Film, audio: Music, file: File };
 const VIEW_KEY = 'quickDropView';
@@ -40,21 +41,13 @@ export function QuickPanel({ settings, items, incoming, status, open, paste, not
   }, []);
   async function perform(action: () => Promise<unknown>) { setBusy(true); try { await action(); } catch (error) { notify(String(error)); } finally { setBusy(false); } }
   const switchView = (next: 'tiles' | 'list') => { setView(next); try { localStorage.setItem(VIEW_KEY, next); } catch { /* per-computer convenience only */ } };
-  // Copy puts a note's text or an image on the clipboard; other files are dragged or opened.
-  const copy = async (item: LibraryItem) => {
-    try {
-      if (item.kind === 'note') await navigator.clipboard.writeText(await window.syncit.readText(item.path));
-      else if (item.kind === 'image') { const blob = await (await fetch(media(item).replace('/thumbnail', '/preview'))).blob(); await navigator.clipboard.write([new ClipboardItem({ [blob.type || 'image/png']: blob })]); }
-      else return;
-      notify(`${item.name} copied.`);
-    } catch (error) { notify(`Could not copy: ${String(error)}`); }
-  };
+  const copy = (item: LibraryItem) => copyItem(item, media, notify);
   const drag = (item: LibraryItem) => (event: React.DragEvent) => { event.preventDefault(); void window.syncit.dragOut(item.path).catch(error => notify(String(error))); };
   const tiles = view === 'tiles' && !mini;
   const arriving = incoming.slice(0, mini ? 1 : tiles ? 3 : 2);
   const latest = items.slice(0, mini ? 2 - arriving.length : tiles ? 6 : 5);
   const origin = (item: LibraryItem) => item.arrivedFrom ? `from ${item.arrivedFrom}` : peer ? 'from here' : '';
-  const actions = (item: LibraryItem) => <span className="qd-acts">{(item.kind === 'note' || item.kind === 'image') && <button aria-label={`Copy ${item.name}`} title="Copy" onClick={event => { event.stopPropagation(); void copy(item); }}><ClipboardCopy size={13} /></button>}<button aria-label={`Open ${item.name}`} title="Open" onClick={event => { event.stopPropagation(); open(item); }}><ArrowUpRight size={13} /></button></span>;
+  const actions = (item: LibraryItem) => <span className="qd-acts">{copyable(item) && <button aria-label={`Copy ${item.name}`} title="Copy" onClick={event => { event.stopPropagation(); void copy(item); }}><ClipboardCopy size={13} /></button>}<button aria-label={`Open ${item.name}`} title="Open" onClick={event => { event.stopPropagation(); open(item); }}><ArrowUpRight size={13} /></button></span>;
   const row = (item: LibraryItem) => { const Icon = icons[item.kind]; return <div key={item.path} className="qd-row" title={item.name} tabIndex={0} draggable onDragStart={drag(item)} onDoubleClick={() => open(item)} onKeyDown={event => { if (event.key === 'Enter' && event.target === event.currentTarget) open(item); }}><span className={`qd-icon ${item.arrivedFrom ? 'in' : ''}`}><Icon size={15} /></span><span className="qd-row-name"><strong>{shown(item)}</strong><small>{since(item.modifiedAt)}{origin(item) ? ` · ${origin(item)}` : ''}</small></span>{actions(item)}</div>; };
   const arrivingRow = (item: IncomingItem) => { const Icon = icons[incomingKind(item)]; const percent = item.size > 0 ? Math.min(100, Math.round(item.done / item.size * 100)) : 0; return <div key={'incoming:' + item.path} className="qd-row arriving" title={item.path}><span className="qd-icon in"><Icon size={15} /></span><span className="qd-row-name"><strong>{item.name}</strong><small>arriving{item.from ? ` from ${item.from}` : ''} · {item.done > 0 ? `${percent}%` : size(item.size)}</small><span className={`qd-prog ${item.done > 0 ? '' : 'indeterminate'}`}><b style={{ width: `${Math.max(2, percent)}%` }} /></span></span><LoaderCircle size={13} className="spin" /></div>; };
   const empty = !latest.length && !arriving.length && <p className="qd-empty">Nothing in the collection yet.</p>;

@@ -215,3 +215,31 @@ test('an untitled note takes its first line as its name once it has one', async 
   const second = await library.createNote(''); assert.match(second.path, /^Untitled note(-[a-f0-9]{8})?\.md$/);
   assert.equal((await library.saveNote(second.path, 'Shopping list', second.revision)).path.startsWith('Shopping list-'), true, 'A taken name gets a suffix');
 });
+
+test('folders are things too: made empty, renamed, moved and trashed with everything under them', async t => {
+  const { library } = await fixture(t);
+  assert.equal(await library.createFolder('Trips'), 'Trips');
+  assert.deepEqual((await library.snapshot()).folders, ['Trips'], 'An empty folder shows at once');
+  await assert.rejects(library.createFolder('.hidden'), /leading dots/);
+  const note = await library.createNote('# Packing\nsocks');
+  const moved = await library.move(note.path, 'Trips');
+  assert.equal(moved, 'Trips/Packing.md');
+  await library.place({ version: 1, path: moved, x: 10, y: 10, width: 280, height: 290, updatedAt: Date.now() });
+  const renamed = await library.rename('Trips', 'Journeys');
+  assert.equal(renamed, 'Journeys');
+  let snapshot = await library.snapshot();
+  assert.deepEqual(snapshot.folders, ['Journeys']);
+  assert.ok(snapshot.items.some(item => item.path === 'Journeys/Packing.md'), 'Items follow a renamed folder');
+  assert.ok(snapshot.placements.some(p => p.path === 'Journeys/Packing.md'), 'Pinboard placements follow too');
+  await library.createFolder('Archive');
+  assert.equal(await library.move('Journeys', 'Archive'), 'Archive/Journeys');
+  await assert.rejects(library.move('Archive', 'Archive/Journeys'), /into itself/);
+  snapshot = await library.snapshot();
+  assert.deepEqual(snapshot.folders, ['Archive', 'Archive/Journeys']);
+  assert.ok(snapshot.items.some(item => item.path === 'Archive/Journeys/Packing.md'));
+  await library.trash('Archive');
+  snapshot = await library.snapshot();
+  assert.deepEqual(snapshot.folders, []);
+  assert.equal(snapshot.items.length, 0, 'Trashing a folder takes everything under it');
+  assert.equal(snapshot.placements.length, 0);
+});

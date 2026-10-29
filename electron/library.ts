@@ -31,6 +31,8 @@ export class Library {
   // Incremental index: built by one walk, then kept current from watcher events and the app's own
   // writes. A periodic full rescan and any watcher error rebuild it, so drift cannot persist.
   private index?: Map<string, LibraryItem>;
+  /** Every folder under the root, including empty ones, so a folder shows the moment it is made. Rebuilt with the index. */
+  private dirs?: Set<string>;
   private indexChain: Promise<unknown> = Promise.resolve();
   private rescanTimer?: ReturnType<typeof setInterval>;
   constructor(public root: string, private changed: () => void = () => {}, private recycle: (file: string) => Promise<void> = async () => { throw new Error('Trash is unavailable'); }, private recoveryDirectory?: string) {}
@@ -57,9 +59,9 @@ export class Library {
     this.indexChain = this.indexChain.then(async () => {
       if (!this.index) return;
       if (event === 'unlink') this.index.delete(relative);
-      else if (event === 'unlinkDir') { for (const key of [...this.index.keys()]) if (key === relative || key.startsWith(relative + '/')) this.index.delete(key); }
+      else if (event === 'unlinkDir') { for (const key of [...this.index.keys()]) if (key === relative || key.startsWith(relative + '/')) this.index.delete(key); if (this.dirs) for (const dir of [...this.dirs]) if (dir === relative || dir.startsWith(relative + '/')) this.dirs.delete(dir); }
       else if (event === 'add' || event === 'change') await this.refreshEntry(relative);
-      else if (event === 'addDir') for (const [key, item] of await this.walk(path.join(this.root, relative))) this.index.set(key, item);
+      else if (event === 'addDir') { this.dirs?.add(relative); for (const [key, item] of await this.walk(path.join(this.root, relative), this.dirs)) this.index.set(key, item); }
     }).catch(() => { this.index = undefined; });
   }
   private async refreshEntry(relative: string) {
@@ -79,13 +81,13 @@ export class Library {
       return { path: relative, name, kind, size: stat.size, modifiedAt: stat.mtimeMs, preview, conflict: name.includes('.sync-conflict-') };
     } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT' || /outside|unsafe|Linked/.test((error as Error).message)) return null; throw error; }
   }
-  private async walk(dir: string): Promise<Map<string, LibraryItem>> {
+  private async walk(dir: string, dirs?: Set<string>): Promise<Map<string, LibraryItem>> {
     const found = new Map<string, LibraryItem>();
     for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
       const full = path.join(dir, entry.name);
       const relative = path.relative(this.root, full).split(path.sep).join('/');
       if (isInternal(relative) || isHidden(entry.name) || entry.isSymbolicLink()) continue;
-      if (entry.isDirectory()) { for (const [key, item] of await this.walk(full)) found.set(key, item); continue; }
+      if (entry.isDirectory()) { dirs?.add(relative); for (const [key, item] of await this.walk(full, dirs)) found.set(key, item); continue; }
       if (!entry.isFile()) continue;
       const item = await this.describe(relative);
       if (item) found.set(relative, item);
@@ -103,7 +105,7 @@ export class Library {
     try {
       if (!(await fs.lstat(this.root)).isDirectory()) throw new Error('Collection folder is unavailable');
       await this.indexChain;
-      if (!this.index) this.index = await this.walk(this.root);
+      if (!this.index) { const dirs = new Set<string>(); this.index = await this.walk(this.root, dirs); this.dirs = dirs; }
       items = [...this.index.values()];
       const board = await contained(this.root, '.syncit/board', true);
       for (const name of await fs.readdir(board)) {
@@ -116,7 +118,7 @@ export class Library {
         } catch { /* Incomplete or invalid remote metadata must never break the library. */ }
       }
       const pasteboard = await this.readPasteboard().catch(() => undefined);
-      return { items: items.sort((a, b) => b.modifiedAt - a.modifiedAt || a.path.localeCompare(b.path)), placements, pasteboard };
+      return { items: items.sort((a, b) => b.modifiedAt - a.modifiedAt || a.path.localeCompare(b.path)), placements, pasteboard, folders: [...(this.dirs ?? [])].sort() };
     } catch (error) { this.index = undefined; return { items: [], placements, error: errorMessage(error) }; }
   }
   /**
@@ -381,15 +383,30 @@ export class Library {
       try { await fs.lstat(target); throw new Error('A file with that name already exists'); }
       catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
       await fs.rename(original, target);
-      this.index?.delete(relative); await this.refreshEntry(next);
-      await this.renameHistory(relative, next).catch(() => {}); // History follows the note; losing a copy never fails a rename.
-      const oldPlacement = await contained(this.root, `.syncit/board/${hash(relative)}.json`, true);
-      try {
-        const record = validatePlacement(JSON.parse(await fs.readFile(oldPlacement, 'utf8')));
-        await atomicWrite(await contained(this.root, `.syncit/board/${hash(next)}.json`, true), JSON.stringify({ ...record, path: next, updatedAt: Date.now() }));
-        await fs.unlink(oldPlacement);
-      } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+      await this.relocated(relative, next);
       this.changed(); return next;
+  }
+  /** After a rename on disk, the index, note history and pinboard placements follow the item, or every item and folder under a moved folder. */
+  private async relocated(from: string, to: string) {
+    const under = (key: string) => key === from || key.startsWith(from + '/');
+    let keys: string[];
+    if (this.index) { keys = [...this.index.keys()].filter(under); if (!keys.length) keys = [from]; }
+    else { const walked = await this.walk(await contained(this.root, to)).catch(() => new Map<string, LibraryItem>()); keys = walked.size ? [...walked.keys()].map(key => from + key.slice(to.length)) : [from]; }
+    for (const key of keys) {
+      const next = key === from ? to : to + key.slice(from.length);
+      this.index?.delete(key); await this.refreshEntry(next);
+      await this.renameHistory(key, next).catch(() => {}); // History follows the note; losing a copy never fails a rename.
+      await this.movePlacement(key, next);
+    }
+    if (this.dirs) for (const dir of [...this.dirs].filter(under)) { this.dirs.delete(dir); this.dirs.add(dir === from ? to : to + dir.slice(from.length)); }
+  }
+  private async movePlacement(from: string, to: string) {
+    const oldPlacement = await contained(this.root, `.syncit/board/${hash(from)}.json`, true);
+    try {
+      const record = validatePlacement(JSON.parse(await fs.readFile(oldPlacement, 'utf8')));
+      await atomicWrite(await contained(this.root, `.syncit/board/${hash(to)}.json`, true), JSON.stringify({ ...record, path: to, updatedAt: Date.now() }));
+      await fs.unlink(oldPlacement);
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
   }
   /** Moves an item into a folder of the collection ('' for the top level), creating the folder when needed. */
   async move(relative: string, folder: string): Promise<string> {
@@ -397,6 +414,8 @@ export class Library {
       if (typeof folder !== 'string') throw new Error('Invalid folder');
       const parts = folder.split(/[\\/]/).filter(Boolean);
       if (parts.some(part => part !== cleanName(part) || part.startsWith('.') || !part.trim()) || parts.length > 8) throw new Error('Choose a folder name without slashes, leading dots or reserved characters');
+      const destination = parts.join('/');
+      if (destination === relative || destination.startsWith(relative + '/')) throw new Error('A folder cannot move into itself');
       const original = await contained(this.root, relative);
       const name = path.posix.basename(relative);
       const next = [...parts, name].join('/');
@@ -406,20 +425,36 @@ export class Library {
       try { await fs.lstat(target); throw new Error(`“${name}” already exists in that folder`); }
       catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
       await fs.rename(original, target);
-      this.index?.delete(relative); await this.refreshEntry(next);
-      await this.renameHistory(relative, next).catch(() => {});
-      const oldPlacement = await contained(this.root, `.syncit/board/${hash(relative)}.json`, true);
-      try {
-        const record = validatePlacement(JSON.parse(await fs.readFile(oldPlacement, 'utf8')));
-        await atomicWrite(await contained(this.root, `.syncit/board/${hash(next)}.json`, true), JSON.stringify({ ...record, path: next, updatedAt: Date.now() }));
-        await fs.unlink(oldPlacement);
-      } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+      await this.relocated(relative, next);
       this.changed(); return next;
     });
   }
+  /** Creates a folder in the collection, nested paths allowed. It shows at once, empty, and syncs as a folder. */
+  async createFolder(folder: unknown): Promise<string> {
+    return this.serial(async () => {
+      if (typeof folder !== 'string') throw new Error('Invalid folder');
+      const parts = folder.split(/[\\/]/).filter(Boolean);
+      if (!parts.length || parts.some(part => part !== cleanName(part) || part.startsWith('.') || !part.trim()) || parts.length > 8) throw new Error('Choose a folder name without slashes, leading dots or reserved characters');
+      const relative = parts.join('/');
+      const target = await contained(this.root, relative);
+      try { if (!(await fs.lstat(target)).isDirectory()) throw new Error('A file with that name already exists'); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; await fs.mkdir(target, { recursive: true }); }
+      for (let depth = 1; depth <= parts.length; depth++) this.dirs?.add(parts.slice(0, depth).join('/'));
+      this.changed(); return relative;
+    });
+  }
+  /** Moves an item, or a folder with everything in it, to the Trash or Recycle Bin. */
   async trash(relative: string) {
-    await this.serial(async () => { await this.recycle(await contained(this.root, relative)); this.index?.delete(relative); this.changed(); });
-    await this.unpin(relative);
+    const keys = await this.serial(async () => {
+      const full = await contained(this.root, relative);
+      const under = (key: string) => key === relative || key.startsWith(relative + '/');
+      const keys = this.index ? [...this.index.keys()].filter(under) : [];
+      await this.recycle(full);
+      for (const key of keys) this.index?.delete(key);
+      if (this.dirs) for (const dir of [...this.dirs].filter(under)) this.dirs.delete(dir);
+      this.changed(); return keys.length ? keys : [relative];
+    });
+    for (const key of keys) await this.unpin(key);
   }
 }
 export function validatePlacement(value: unknown): BoardPlacement {

@@ -475,21 +475,24 @@ function setupIPC() {
   bind('saveNote', (relative: string, text: string, revision: string) => { if (typeof revision !== 'string') throw new Error('Invalid note revision'); return library.saveNote(relative, text, revision); });
   bind('noteHistory', (relative: string) => library.history(relative)); bind('readNoteVersion', (id: string) => library.readVersion(id));
   bind('readText', async (relative: string) => readTextPreview(await contained(library.root, relative)));
-  bind('rename', async (relative: string, name: string) => { const next = await library.rename(relative, name); if (store.value.favorites?.includes(relative)) { await store.update({ favorites: store.value.favorites.map(item => item === relative ? next : item) }); broadcast('syncit:settings', store.value); } return next; });
+  const follow = (from: string, to: string) => (item: string) => item === from ? to : item.startsWith(from + '/') ? to + item.slice(from.length) : item;
+  const favoritesUnder = (relative: string) => store.value.favorites?.some(item => item === relative || item.startsWith(relative + '/'));
+  bind('rename', async (relative: string, name: string) => { const next = await library.rename(relative, name); if (favoritesUnder(relative)) { await store.update({ favorites: store.value.favorites!.map(follow(relative, next)) }); broadcast('syncit:settings', store.value); } return next; });
+  bind('createFolder', (folder: string) => library.createFolder(folder));
   bind('move', async (relatives: unknown, folder: unknown) => {
     if (!Array.isArray(relatives) || relatives.length > 500 || typeof folder !== 'string') throw new Error('Invalid move');
     const moved: string[] = [];
     for (const relative of relatives) {
       if (typeof relative !== 'string') throw new Error('Invalid path');
       const next = await library.move(relative, folder);
-      if (store.value.favorites?.includes(relative)) { await store.update({ favorites: store.value.favorites.map(item => item === relative ? next : item) }); broadcast('syncit:settings', store.value); }
+      if (favoritesUnder(relative)) { await store.update({ favorites: store.value.favorites!.map(follow(relative, next)) }); broadcast('syncit:settings', store.value); }
       moved.push(next);
     }
     return moved;
   });
   bind('trash', async (relative: string) => {
     await library.trash(relative);
-    if (store.value.favorites?.includes(relative)) { await store.update({ favorites: store.value.favorites.filter(item => item !== relative) }); broadcast('syncit:settings', store.value); }
+    if (favoritesUnder(relative)) { await store.update({ favorites: store.value.favorites!.filter(item => item !== relative && !item.startsWith(relative + '/')) }); broadcast('syncit:settings', store.value); }
   });
   bind('open', async (relative: string) => { const target = await contained(library.root, relative); assertSafeToOpen(target); if (!(await fs.lstat(target)).isFile()) throw new Error('Open folders with “Show in folder”'); const error = await shell.openPath(target); if (error) throw new Error(error); });
   bind('reveal', async (relative: string) => shell.showItemInFolder(await contained(library.root, relative)));

@@ -23,7 +23,7 @@ try {
   const addMenu = page.locator('details.add-menu');
   await addMenu.locator('summary').click();
   await expect(addMenu.getByRole('button', { name: 'Files…' })).toBeVisible();
-  await expect(addMenu.getByRole('button', { name: 'Folder…' })).toBeVisible();
+  await expect(addMenu.getByRole('button', { name: 'Folder…', exact: true })).toBeVisible();
   await page.screenshot({ path: path.join(artifacts, 'add-menu.png') });
   await page.getByRole('heading', { name: 'Everything', exact: true }).click();
   await expect(addMenu.getByRole('button', { name: 'Files…' })).toBeHidden();
@@ -132,8 +132,8 @@ try {
   const cardWidth = () => page.locator('[data-testid="item-card"]').first().evaluate(element => element.getBoundingClientRect().width);
   const cardBefore = await cardWidth();
   const gridZoom = page.locator('.collection-scroll .zoom');
-  await gridZoom.getByRole('button', { name: 'Zoom out' }).click(); await gridZoom.getByRole('button', { name: 'Zoom out' }).click();
-  await expect(gridZoom.getByRole('button', { name: 'Reset zoom' })).toHaveText('80%');
+  for (let step = 0; step < 3; step++) await gridZoom.getByRole('button', { name: 'Zoom out' }).click();
+  await expect(gridZoom.getByRole('button', { name: 'Reset zoom' })).toHaveText('70%');
   await expect.poll(cardWidth).toBeLessThan(cardBefore);
   await gridZoom.getByRole('button', { name: 'Reset zoom' }).click();
   await expect.poll(cardWidth).toBe(cardBefore);
@@ -206,6 +206,37 @@ try {
   await folderCard.click();
   await expect(page.getByRole('heading', { name: 'Trips' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Folder path' }).getByRole('button', { name: 'Back to Everything' })).toBeVisible();
+  // The open folder's own menu renames it; New folder makes an empty folder that shows at once; a folder card has a menu, and a right-click opens it.
+  await page.getByLabel('Actions for folder Trips').click();
+  await page.getByRole('button', { name: 'Rename', exact: true }).click();
+  await page.getByRole('textbox', { name: 'Folder name' }).fill('Journeys');
+  await page.getByRole('button', { name: 'Rename', exact: true }).last().click();
+  await expect(page.getByRole('heading', { name: 'Journeys' })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.syncit.list().then(s => s.items.length > 0 && s.items.every(item => item.path.startsWith('Journeys/'))))).toBe(true);
+  await page.locator('details.add-menu summary').click();
+  await page.getByRole('button', { name: 'New folder…' }).click();
+  await page.getByRole('textbox', { name: 'New folder name' }).fill('Empty one');
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Empty one' })).toBeVisible();
+  await page.getByRole('navigation', { name: 'Folder path' }).getByRole('button', { name: 'Journeys' }).click();
+  const emptyCard = page.locator('[data-testid="folder-card"]', { hasText: 'Empty one' });
+  await expect(emptyCard).toContainText('Empty');
+  await emptyCard.click({ button: 'right' });
+  await emptyCard.getByRole('button', { name: 'Move to Trash' }).click();
+  await expect(page.getByRole('dialog', { name: 'Delete item' })).toContainText('The folder “Empty one”');
+  await page.getByRole('dialog', { name: 'Delete item' }).getByRole('button', { name: 'Move to Trash' }).click();
+  await expect(emptyCard).toHaveCount(0);
+  // Every card has a check for selecting it; Select all takes the view; Delete asks before anything goes.
+  const firstCard = page.locator('[data-testid="item-card"]').first();
+  await firstCard.hover();
+  await firstCard.getByRole('button', { name: /^Select / }).click();
+  await expect(bar).toContainText('1 selected');
+  await page.getByRole('button', { name: 'Select all' }).click();
+  await expect(bar).toContainText(`${await page.locator('[data-testid="item-card"]').count()} selected`);
+  await page.keyboard.press('Delete');
+  await expect(page.getByRole('dialog', { name: 'Delete item' })).toBeVisible();
+  await page.getByRole('button', { name: 'Keep them' }).click();
+  await page.keyboard.press('Escape');
   await page.keyboard.press('Control+a');
   await bar.getByRole('button', { name: 'Move to folder' }).click();
   await page.getByRole('textbox', { name: 'Folder name' }).fill('');

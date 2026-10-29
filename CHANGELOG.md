@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- Folders are things too: a folder card has a menu with Open, Rename, Move to folder, Show in folder and Move to Trash, the open folder has the same menu beside its name, and New folder (in Add and the palette) makes an empty folder that shows at once, on every computer. Trashing a folder takes everything in it; renaming or moving one keeps note history, pinboard placements and favorites with the items.
+- Selecting: every card has a check in its footer, Select all sits at the top right of the collection (and in the palette), Delete asks before the selection goes, and F2 renames the one selected item. A right-click on any card opens its menu.
+- Drag cards onto a folder card, a folder in the sidebar or Everything to move them there; files dropped from outside onto a folder land in it.
+- Copy on a note's or an image's card menu, as in Quick drop.
+- The preview steps through the items in view with the arrows in its header or the left and right keys, and says where it is.
+
 ## 0.6.15 — 2026-10-29
 
 ### Changed

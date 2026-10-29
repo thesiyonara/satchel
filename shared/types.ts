@@ -10,7 +10,7 @@ export interface BoardPlacement { version: 1; path: string; x: number; y: number
 export interface PasteboardClip { id: string; text: string; time: number; from?: string }
 /** The shared pasteboard: one text every paired computer can read and replace, plus the texts it replaced. `updatedAt` is 0 while it has never been written. */
 export interface Pasteboard { text: string; updatedAt: number; from?: string; recent: PasteboardClip[] }
-export interface LibrarySnapshot { items: LibraryItem[]; placements: BoardPlacement[]; pasteboard?: Pasteboard; error?: string }
+export interface LibrarySnapshot { items: LibraryItem[]; placements: BoardPlacement[]; pasteboard?: Pasteboard; error?: string; /** Every folder, including empty ones. */ folders?: string[] }
 export interface NoteDocument { path: string; text: string; revision: string; conflict?: boolean }
 /** A previous version of a note: a local pre-save copy, or a version Syncthing archived when a received change replaced it. */
 export interface NoteVersion { id: string; source: 'local' | 'received'; time: number; size: number }
@@ -75,6 +75,8 @@ export interface SyncItAPI {
   rename(path: string, name: string): Promise<string>;
   /** Moves items into a folder of the collection ('' for the top level), creating it when needed. */
   move(paths: string[], folder: string): Promise<string[]>;
+  /** Creates a folder in the collection and returns its path. */
+  createFolder(folder: string): Promise<string>;
   trash(path: string): Promise<void>;
   open(path: string): Promise<void>;
   reveal(path: string): Promise<void>;

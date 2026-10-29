@@ -153,7 +153,7 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 .welcome-empty h2 { font-size: 22px; font-weight: 600; letter-spacing: -.3px; margin: 0 0 8px; }
 .welcome-empty p { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
 .empty-art { display: none; }
-.drop-overlay { position: fixed; inset: 10px; z-index: 150; background: var(--accent-soft); border: 2px dashed var(--accent); border-radius: 14px; display: grid; place-items: center; text-align: center; color: var(--accent-text); pointer-events: none; backdrop-filter: none; }
+.drop-overlay { pointer-events: none; position: fixed; inset: 10px; z-index: 150; background: var(--accent-soft); border: 2px dashed var(--accent); border-radius: 14px; display: grid; place-items: center; text-align: center; color: var(--accent-text); pointer-events: none; backdrop-filter: none; }
 .drop-overlay h2 { font-weight: 600; font-size: 24px; margin: 14px 0 6px; }
 .drop-overlay p { font-size: 14px; }
 .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--ink-text); border: 0; z-index: 250; padding: 10px 10px 10px 16px; border-radius: 9px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px; font-size: 13.5px; max-width: min(560px, 90vw); width: max-content; }
@@ -504,8 +504,12 @@ body, .rail, .main-content, .note-editor, .settings-panel, .floating-workspace, 
 .pile-items p { padding: 10px 6px; color: var(--muted); font-size: 13px; margin: 0; }
 .pile-expand { border: 0; background: transparent; color: var(--accent-text); justify-content: flex-start; padding: 6px 4px; font-size: 12.5px; }
 /* A folder in the grid: opens one level down. The caption shows the way back up. */
-.folder-card { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 10px; padding: 12px 14px; text-align: left; font-weight: 400; color: var(--text); cursor: pointer; width: 100%; }
-.folder-card:hover { border-color: var(--line-2); background: var(--subtle); }
+.folder-card { position: relative; }
+.folder-card .card-main { width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 10px; padding: 12px 14px; color: var(--text); cursor: pointer; }
+.folder-card .card-menu { position: absolute; right: 8px; bottom: 9px; }
+.folder-card .folder-row { padding-right: 30px; }
+.folder-card:hover { border-color: var(--line-2); }
+.folder-card .card-main:hover { background: var(--subtle); }
 .folder-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .folder-icon { width: 30px; height: 30px; border-radius: 7px; background: var(--accent-soft); color: var(--accent-text); display: grid; place-items: center; flex-shrink: 0; }
 .folder-card strong { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -596,3 +600,19 @@ body, .rail, .main-content, .note-editor, .settings-panel, .floating-workspace, 
 .qd-row-name strong { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .qd-row .qd-prog { position: static; margin-top: 4px; border-radius: 2px; }
 .qd-empty { padding: 10px 8px; color: var(--muted); font-size: 13px; margin: 0; }
+
+/* Everyday actions: a check on every card for selecting, folders with menus and as drop targets, the preview stepping through the view. */
+.card-check { width: 18px; height: 18px; flex-shrink: 0; margin-right: 4px; padding: 0; border-radius: 50%; border: 1.5px solid var(--line-2); background: var(--surface); color: #fff; display: grid; place-items: center; opacity: 0; transition: opacity var(--fast) var(--ease), background-color var(--fast) var(--ease), border-color var(--fast) var(--ease), transform var(--fast) var(--ease); }
+.card-check svg { opacity: 0; transition: opacity var(--fast) var(--ease); }
+.item-card:hover .card-check, .item-card:focus-within .card-check, .card-check[aria-pressed=true], .has-selection .card-check { opacity: 1; }
+.card-check:hover { border-color: var(--text-2); transform: scale(1.1); }
+.card-check[aria-pressed=true] { background: var(--accent); border-color: var(--accent); }
+.card-check[aria-pressed=true] svg { opacity: 1; }
+.item-card.selected { outline-offset: -2px; }
+.folder-card.drop-target, .rail nav button.drop-target { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--accent-soft); }
+.caption-menu { display: inline-flex; margin-left: 2px; }
+.caption-menu summary { padding: 2px; }
+.collection-caption .caption-menu > div { top: 26px; bottom: auto; width: 172px; transform-origin: top right; left: 0; right: auto; }
+.image-modal header strong { flex: 1; min-width: 0; }
+.preview-count { color: var(--faint); font-size: 12.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.image-modal header .icon-button:disabled { opacity: .3; }
