@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.9 — 2026-10-29
 
 ### Changed
 - The pasteboard is a column on the right of the main window instead of a view of its own, so the shared text is in sight while you work in the grid or on the pinboard. It folds to a tab on the edge, per computer, and the command palette's Open pasteboard shows it and puts the cursor in the text. The header says when the text last changed and from which computer.
