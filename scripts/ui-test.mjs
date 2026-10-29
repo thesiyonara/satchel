@@ -28,9 +28,12 @@ try {
   await page.getByRole('heading', { name: 'Everything', exact: true }).click();
   await expect(addMenu.getByRole('button', { name: 'Files…' })).toBeHidden();
   await page.getByRole('button', { name: 'New note', exact: true }).click();
+  // The pasteboard column steps aside while a note is open, so the note pane and the grid keep their room.
+  await expect(page.locator('.pasteboard')).toHaveCount(0);
   await page.getByRole('textbox', { name: 'Note text' }).fill('A place for the in-between\n\nNotes from the desktop. Inspiration for the laptop.\n\n• Capture the thought\n• Give it a little space\n• Pick it up on the other computer');
   await expect(page.getByText('Saved on this computer')).toBeVisible();
   await page.getByRole('button', { name: 'Close note', exact: true }).click();
+  await expect(page.locator('.pasteboard')).toHaveCount(1);
   const first = await page.locator('[data-testid="item-card"]').first().getAttribute('data-path');
   await page.getByLabel(`Actions for ${first}`).click();
   await page.getByRole('button', { name: 'Rename', exact: true }).click();
@@ -134,6 +137,11 @@ try {
   await panel.getByRole('textbox', { name: 'Pasteboard text' }).fill('');
   await page.getByRole('button', { name: 'Remove From the little window' }).click();
   await expect(page.getByRole('button', { name: 'Remove From the little window' })).toHaveCount(0);
+  // Escape puts the window away; the dashboard brings it back.
+  await panel.getByRole('textbox', { name: 'Pasteboard text' }).press('Escape');
+  await expect.poll(() => application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.webContents.getURL().includes('panel=1') && window.isVisible()))).toBe(false);
+  await page.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
+  await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
   // The drawer: opened from the dashboard here, since the edge handle window is not created in test mode. It shows the pile, and Expand returns the full window.
   await page.evaluate(() => window.syncit.openDrawer());
   await expect(panel.getByRole('heading', { name: 'Drop here' })).toBeVisible();

@@ -9,6 +9,8 @@ import { liveStatus, useLiveText } from './Pasteboard';
 const icons = { note: FileText, image: Image, video: Film, audio: Music, file: File };
 const VIEW_KEY = 'quickDropView';
 /** A short type label for a file without a picture: its extension, up to four letters. */
+/** A note shows its title, not its file name. */
+function shown(item: LibraryItem) { return item.kind === 'note' ? item.name.replace(/\.(md|txt)$/i, '') : item.name; }
 function glyph(name: string) { const dot = name.lastIndexOf('.'); return dot > 0 && name.length - dot <= 6 ? name.slice(dot + 1).toUpperCase() : 'FILE'; }
 
 /**
@@ -33,6 +35,11 @@ export function QuickPanel({ settings, items, incoming, status, platform, open, 
     clearTimeout(opacityTimer.current); opacityTimer.current = setTimeout(() => { void window.syncit.settings({ panelOpacity: value / 100 }).catch(error => notify(String(error))); }, 150);
   }
   useEffect(() => { const listener = (event: StorageEvent) => { if (event.key === key) setText(event.newValue || ''); }; window.addEventListener('storage', listener); return () => window.removeEventListener('storage', listener); }, [key]);
+  // Escape puts the window away, unless a note or dialog is open on top of it (those take Escape themselves).
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => { if (event.key === 'Escape' && !document.querySelector('.modal-shade, .note-editor')) { event.preventDefault(); void window.syncit.panel('hide'); } };
+    window.addEventListener('keydown', listener); return () => window.removeEventListener('keydown', listener);
+  }, []);
   async function perform(action: () => Promise<unknown>) { setBusy(true); try { await action(); } catch (error) { notify(String(error)); } finally { setBusy(false); } }
   async function save() {
     if (!text.trim() || busy) return;
@@ -77,19 +84,19 @@ export function QuickPanel({ settings, items, incoming, status, platform, open, 
     </> : <>
     <div className="qd-board">
       <textarea aria-label="Pasteboard text" placeholder="Pasteboard" value={live.text} onChange={event => live.change(event.target.value)} spellCheck={false} />
-      <div className="qd-board-bar"><span>Pasteboard · live · {liveStatus(live.state, board, since).replace(/^./, first => first.toLowerCase())}</span><button aria-label="Copy pasteboard" title="Copy" disabled={!live.text} onClick={() => void navigator.clipboard.writeText(live.text).then(() => notify('Pasteboard copied.'), () => notify('The clipboard is unavailable.'))}><ClipboardCopy size={14} /></button><button disabled={busy} aria-label="Paste from clipboard" title="Paste from clipboard into the collection" onClick={() => void perform(paste)}><Clipboard size={14} /></button><button disabled={busy} aria-label="Add files" title="Add files" onClick={() => void perform(() => window.syncit.chooseFiles())}><Paperclip size={14} /></button></div>
+      <div className="qd-board-bar"><span>Pasteboard · {liveStatus(live.state, board, since).replace(/^./, first => first.toLowerCase())}</span><button aria-label="Copy pasteboard" title="Copy" disabled={!live.text} onClick={() => void navigator.clipboard.writeText(live.text).then(() => notify('Pasteboard copied.'), () => notify('The clipboard is unavailable.'))}><ClipboardCopy size={14} /></button><button disabled={busy} aria-label="Paste from clipboard" title="Paste from clipboard into the collection" onClick={() => void perform(paste)}><Clipboard size={14} /></button><button disabled={busy} aria-label="Add files" title="Add files" onClick={() => void perform(() => window.syncit.chooseFiles())}><Paperclip size={14} /></button></div>
     </div>
     <div className="qd-head"><h2>Latest</h2><span className="qd-switch"><button className={view === 'tiles' ? 'on' : ''} aria-label="Tiles" aria-pressed={view === 'tiles'} title="Tiles" onClick={() => switchView('tiles')}><LayoutGrid size={13} /></button><button className={view === 'list' ? 'on' : ''} aria-label="List" aria-pressed={view === 'list'} title="List" onClick={() => switchView('list')}><List size={13} /></button></span><button className="qd-all" onClick={() => void window.syncit.showDashboard()}>All</button></div>
     {view === 'tiles' ? <div className="qd-tiles">
       {arriving.map(item => { const Icon = icons[mediaKind(item.name) || (/\.(md|txt)$/i.test(item.name) ? 'note' : 'file')]; const percent = item.size > 0 ? Math.min(100, Math.round(item.done / item.size * 100)) : 0; return <div key={'incoming:' + item.path} className="qd-tile arriving" title={`${item.name} · arriving${item.from ? ` from ${item.from}` : ''} · ${size(item.size)}`}><span className="qd-sq"><Icon size={18} /><i className="qd-mark in"><ArrowDown size={9} /></i><em>{item.done > 0 ? `${percent}%` : ''}</em><span className={`qd-prog ${item.done > 0 ? '' : 'indeterminate'}`}><b style={{ width: `${Math.max(2, percent)}%` }} /></span></span><span className="qd-name">{item.name}</span><small>arriving{item.from ? ` · ${item.from}` : ''}</small></div>; })}
-      {latest.map(item => { const Icon = icons[item.kind]; return <div key={item.path} className="qd-tile" title={item.name} draggable onDragStart={drag(item)} onDoubleClick={() => open(item)}>
+      {latest.map(item => { const Icon = icons[item.kind]; return <div key={item.path} className="qd-tile" title={item.name} tabIndex={0} draggable onDragStart={drag(item)} onDoubleClick={() => open(item)} onKeyDown={event => { if (event.key === 'Enter' && event.target === event.currentTarget) open(item); }}>
         <span className={`qd-sq ${item.kind}`}>{item.kind === 'image' || item.kind === 'video' ? <><Icon size={18} /><img src={media(item)} alt="" loading="lazy" draggable={false} onLoad={event => event.currentTarget.classList.add('loaded')} /></> : item.kind === 'note' ? <span className="qd-text">{item.preview || item.name}</span> : <span className="qd-glyph">{glyph(item.name)}</span>}{item.arrivedFrom && <i className="qd-mark in"><ArrowDown size={9} /></i>}{actions(item)}</span>
-        <span className="qd-name">{item.name}</span><small>{since(item.modifiedAt)}{origin(item) ? ` · ${origin(item)}` : ''}</small>
+        <span className="qd-name">{shown(item)}</span><small>{since(item.modifiedAt)}{origin(item) ? ` · ${origin(item)}` : ''}</small>
       </div>; })}
       {!latest.length && !arriving.length && <p className="qd-empty">Nothing in the collection yet.</p>}
     </div> : <div className="qd-list">
       {arriving.map(item => { const Icon = icons[mediaKind(item.name) || (/\.(md|txt)$/i.test(item.name) ? 'note' : 'file')]; const percent = item.size > 0 ? Math.min(100, Math.round(item.done / item.size * 100)) : 0; return <div key={'incoming:' + item.path} className="qd-row arriving" title={item.path}><span className="qd-icon in"><Icon size={15} /></span><span className="qd-row-name"><strong>{item.name}</strong><small>arriving{item.from ? ` from ${item.from}` : ''} · {item.done > 0 ? `${percent}%` : size(item.size)}</small><span className={`qd-prog ${item.done > 0 ? '' : 'indeterminate'}`}><b style={{ width: `${Math.max(2, percent)}%` }} /></span></span><LoaderCircle size={13} className="spin" /></div>; })}
-      {latest.map(item => { const Icon = icons[item.kind]; return <div key={item.path} className="qd-row" draggable onDragStart={drag(item)} onDoubleClick={() => open(item)}><span className={`qd-icon ${item.arrivedFrom ? 'in' : ''}`}><Icon size={15} /></span><span className="qd-row-name"><strong>{item.name}</strong><small>{since(item.modifiedAt)}{origin(item) ? ` · ${origin(item)}` : ''}</small></span>{actions(item)}</div>; })}
+      {latest.map(item => { const Icon = icons[item.kind]; return <div key={item.path} className="qd-row" title={item.name} tabIndex={0} draggable onDragStart={drag(item)} onDoubleClick={() => open(item)} onKeyDown={event => { if (event.key === 'Enter' && event.target === event.currentTarget) open(item); }}><span className={`qd-icon ${item.arrivedFrom ? 'in' : ''}`}><Icon size={15} /></span><span className="qd-row-name"><strong>{shown(item)}</strong><small>{since(item.modifiedAt)}{origin(item) ? ` · ${origin(item)}` : ''}</small></span>{actions(item)}</div>; })}
       {!latest.length && !arriving.length && <p className="qd-empty">Nothing in the collection yet.</p>}
     </div>}
     </>}

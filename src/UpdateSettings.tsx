@@ -15,6 +15,6 @@ export function UpdateSettings({ settings, save, notify }: { settings: Settings;
     {offered && <button className="primary" disabled={busy} onClick={() => void run(() => window.syncit.updateNow())}><ArrowDownToLine size={14} />{state!.phase === 'downloading' ? `Downloading…${percent}` : state!.phase === 'ready' ? `Install ${state!.availableVersion}` : `Update to ${state!.availableVersion}`}</button>}</div>
     {state?.phase === 'current' && <p role="status">You have the newest release in this channel.</p>}
     {state?.message && <p role="status" className={state.phase === 'error' ? 'error-text' : ''}>{state.message}</p>}
-    <p>Update downloads the release from GitHub, checks it against the published checksums, saves open notes, stops sync and installs. On Windows the installer runs by itself and Satchel comes back when it is done; on a Mac, Satchel replaces itself in Applications and relaunches. Downloads and installation always start from your click.</p><button onClick={() => void run(() => window.syncit.releasePage())}>Open releases in browser</button>
+    <p>Update downloads the release, checks it against the published checksums, saves open notes and installs: on Windows the installer runs by itself and Satchel comes back, on a Mac Satchel swaps itself in Applications and relaunches. Nothing starts without your click.</p><button onClick={() => void run(() => window.syncit.releasePage())}>Open releases in browser</button>
   </div>;
 }

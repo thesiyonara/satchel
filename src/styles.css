@@ -239,6 +239,10 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 .pasteboard-head .tools { margin-left: auto; display: flex; flex-shrink: 0; }
 .pasteboard .live { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ok); font-weight: 500; }
 .pasteboard .live i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.pasteboard .live.off { color: var(--faint); }
+.pasteboard .live.off i { background: var(--line-2); }
+.pasteboard-tab { position: relative; }
+.pasteboard-tab .unseen { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
 .pasteboard textarea { height: 40%; min-height: 150px; margin: 0 16px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 12px 14px; font-size: 14px; line-height: 1.55; color: var(--text); resize: none; width: calc(100% - 32px); }
 .pasteboard textarea:focus { outline: none; border-color: var(--line-2); }
 .pasteboard textarea::placeholder { color: var(--faint); }
@@ -563,7 +567,8 @@ body, .rail, .main-content, .note-editor, .settings-panel, .floating-workspace, 
 .qd-sq.image, .qd-sq.video { background: var(--subtle); }
 .qd-sq img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s var(--ease); }
 .qd-sq img.loaded { opacity: 1; }
-.qd-text { align-self: start; justify-self: start; padding: 8px; font-size: 10.5px; line-height: 1.35; color: var(--text-2); white-space: pre-wrap; overflow: hidden; max-height: 100%; }
+.qd-text { align-self: start; justify-self: start; padding: 8px; font-size: 10.5px; line-height: 1.35; color: var(--text-2); white-space: pre-wrap; overflow: hidden; max-height: 100%; -webkit-mask-image: linear-gradient(to bottom, #000 70%, transparent); mask-image: linear-gradient(to bottom, #000 70%, transparent); }
+.qd-tile:focus-visible, .qd-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 10px; }
 .qd-glyph { font-family: var(--mono); font-size: 10px; font-weight: 600; letter-spacing: .4px; color: var(--muted); }
 .qd-mark { position: absolute; top: 6px; left: 6px; width: 16px; height: 16px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
 .qd-mark.in { background: var(--accent); }

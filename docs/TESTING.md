@@ -102,3 +102,7 @@ The pasteboard is `.syncit/pasteboard.txt` in the collection, with `.syncit/past
 ## Quick drop as the exchange
 
 The UI suite opens Quick drop, checks Latest shows tiles, switches to the list and back, types into the window's pasteboard and sees the same text in the main window's column, then clears it. The feature suite types into that pasteboard, hides and shows the window through the CLI and finds the text still there (it is the shared text, saved to the collection), and checks the minimal window still captures notes. The drawer's pile is unchanged and keeps its drag-out check.
+
+## Polish pass 2026-10-29
+
+Checked with screenshots of every surface in both themes: the main window with the pasteboard column, the note pane, Preferences, Quick drop as tiles and as a list, the minimal window and the drawer. The one layout fault found, the note pane squeezing the grid against the column, is fixed by hiding the column while a note is open; the UI suite asserts the column is gone with a note open and back after. The suite also presses Escape in Quick drop and expects the window to hide.

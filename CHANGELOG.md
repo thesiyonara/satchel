@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Opening a note no longer squeezes the grid: the pasteboard column steps aside while a note is open and returns when it closes.
+
+### Changed
+- The pasteboard column says what is true: "Live on your other computer" once one is paired, "Syncs once a computer is paired" before. Its folded tab shows a dot when the text changed since it was folded. The text box no longer repeats what the header says.
+- Quick drop: notes show their title rather than their file name, text tiles fade out at the bottom instead of cutting, tiles and rows can be reached with Tab and opened with Enter, and Escape puts the window away. The pasteboard line under the text reads once.
+- Preferences: the note about updates is two sentences.
+
 ## 0.6.10 — 2026-10-29
 
 ### Changed

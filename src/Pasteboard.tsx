@@ -3,6 +3,7 @@ import { ArrowUpToLine, ChevronRight, ClipboardCopy, Eraser, X } from 'lucide-re
 import type { Pasteboard as PasteboardState, PasteboardClip } from '../shared/types';
 
 const OPEN_KEY = 'pasteboardOpen';
+const SEEN_KEY = 'pasteboardSeenAt';
 function label(clip: PasteboardClip) { const line = clip.text.trim().split('\n')[0] || ''; return line.length > 30 ? line.slice(0, 30).trimEnd() + '…' : line; }
 
 /**
@@ -35,8 +36,12 @@ export function liveStatus(state: 'synced' | 'typing' | 'saving', board: Pastebo
  * The pasteboard column on the right of the main window: the shared text area with the texts it replaced listed under it.
  * The column folds to a tab on the edge and remembers that per computer.
  */
-export function Pasteboard({ board, notify, since }: { board?: PasteboardState; notify: (message: string) => void; since: (time: number) => string }) {
+export function Pasteboard({ board, notify, since, paired, hidden }: { board?: PasteboardState; notify: (message: string) => void; since: (time: number) => string; paired: number; hidden?: boolean }) {
   const [open, setOpen] = useState(() => { try { return localStorage.getItem(OPEN_KEY) !== '0'; } catch { return true; } });
+  // While the column is open, every change counts as seen; folded, the tab shows a dot for a change that arrived since.
+  useEffect(() => { if (open && board?.updatedAt) { try { localStorage.setItem(SEEN_KEY, String(board.updatedAt)); } catch { /* per-computer convenience only */ } } }, [open, board?.updatedAt]);
+  let seenAt = 0; try { seenAt = Number(localStorage.getItem(SEEN_KEY) || 0); } catch { /* per-computer convenience only */ }
+  const unseen = !open && (board?.updatedAt ?? 0) > seenAt;
   const live = useLiveText(board, notify);
   const area = useRef<HTMLTextAreaElement>(null);
   // The command palette opens the column and puts the cursor in the text.
@@ -49,11 +54,12 @@ export function Pasteboard({ board, notify, since }: { board?: PasteboardState; 
   const use = async (clip: PasteboardClip) => { try { await window.syncit.removeClip(clip.id); } catch (error) { notify(String(error)); return; } live.replace(clip.text); area.current?.focus(); };
   const remove = async (clip?: PasteboardClip) => { try { await window.syncit.removeClip(clip?.id); } catch (error) { notify(String(error)); } };
   const recent = board?.recent ?? [];
-  if (!open) return <aside className="pasteboard closed" aria-label="Pasteboard"><button className="pasteboard-tab" aria-label="Show pasteboard" title="Show the pasteboard" onClick={() => toggle(true)}><span>Pasteboard</span></button></aside>;
+  if (hidden) return null;
+  if (!open) return <aside className="pasteboard closed" aria-label="Pasteboard"><button className="pasteboard-tab" aria-label={unseen ? 'Show pasteboard, changed since you folded it' : 'Show pasteboard'} title={unseen ? 'The pasteboard changed since you folded it' : 'Show the pasteboard'} onClick={() => toggle(true)}><span>Pasteboard</span>{unseen && <i className="unseen" />}</button></aside>;
   return <aside className="pasteboard" aria-label="Pasteboard">
-    <div className="pasteboard-head"><div><h2>Pasteboard</h2><small><span className="live"><i />Live on every paired computer</span><br />{liveStatus(live.state, board, since)}</small></div>
+    <div className="pasteboard-head"><div><h2>Pasteboard</h2><small>{paired > 0 ? <span className="live"><i />Live on {paired === 1 ? 'your other computer' : `${paired} other computers`}</span> : <span className="live off"><i />Syncs once a computer is paired</span>}<br />{liveStatus(live.state, board, since)}</small></div>
       <div className="tools"><button className="icon-button" aria-label="Copy all" title="Copy all" disabled={!live.text} onClick={() => void copy(live.text, 'Pasteboard')}><ClipboardCopy size={15} /></button><button className="icon-button" aria-label="Clear" title="Clear the text (it goes to Recent)" disabled={!live.text} onClick={() => { live.replace(''); area.current?.focus(); }}><Eraser size={15} /></button><button className="icon-button" aria-label="Hide pasteboard" title="Hide the pasteboard" onClick={() => toggle(false)}><ChevronRight size={15} /></button></div></div>
-    <textarea ref={area} aria-label="Pasteboard text" placeholder="Paste or type here. It shows up on your other computers within seconds." value={live.text} onChange={event => live.change(event.target.value)} spellCheck={false} />
+    <textarea ref={area} aria-label="Pasteboard text" placeholder="Paste or type here." value={live.text} onChange={event => live.change(event.target.value)} spellCheck={false} />
     <div className="recent-head"><span>Recent</span>{recent.length > 0 && <button onClick={() => void remove()}>Clear list</button>}</div>
     <div className="recent">
       {recent.length === 0 ? <p className="recent-empty">When the text is replaced, the old one lands here.</p> : recent.map(clip => <div key={clip.id} className="clip">
