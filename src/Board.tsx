@@ -1,9 +1,11 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
-import { Minus, Plus, Move, Pin, X } from 'lucide-react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { Move, Pin, Plus, X } from 'lucide-react';
+import { Zoom, useZoom, wheelZoom } from './Zoom';
 import type { BoardPlacement, LibraryItem } from '../shared/types';
 
 export function Board({ items, placements, renderCard, notify }: { items: LibraryItem[]; placements: BoardPlacement[]; renderCard: (item: LibraryItem) => React.ReactNode; notify: (message: string) => void }) {
-  const [zoom, setZoom] = useState(() => Number(localStorage.getItem('boardZoom')) || 1);
+  const stored = useZoom('boardZoom', .4, 1.5);
+  const [zoom, setZoom] = useState(stored.read);
   const [draft, setDraft] = useState<BoardPlacement | null>(null);
   const scroll = useRef<HTMLDivElement>(null);
   const gesture = useRef<{ placement: BoardPlacement; startX: number; startY: number; mode: 'move' | 'resize' } | null>(null);
@@ -12,7 +14,8 @@ export function Board({ items, placements, renderCard, notify }: { items: Librar
   const visible = placements.map(p => draft?.path === p.path ? draft : p).filter(p => items.some(item => item.path === p.path));
   const width = Math.max(1500, ...visible.map(p => p.x + p.width + 200));
   const height = Math.max(1000, ...visible.map(p => p.y + p.height + 200));
-  function setScale(value: number) { const next = Math.round(Math.min(1.5, Math.max(.4, value)) * 10) / 10; setZoom(next); localStorage.setItem('boardZoom', String(next)); }
+  function setScale(value: number) { setZoom(stored.store(value)); }
+  useEffect(() => wheelZoom(scroll.current, step => setZoom(current => stored.store(current + step))), []);
   async function pin(item: LibraryItem, x?: number, y?: number) {
     const offset = placements.length % 5;
     try { await window.syncit.place({ version: 1, path: item.path, x: x ?? 40 + offset * 40, y: y ?? 40 + offset * 40, width: 280, height: 290, updatedAt: Date.now() }); }
@@ -33,7 +36,7 @@ export function Board({ items, placements, renderCard, notify }: { items: Librar
     gesture.current = null;
   }
   return <div className="board-wrapper">
-    <div className="board-hint"><span><Move size={14} /> Drag the handle to move a card, the corner to resize. Positions sync to paired computers.</span><div className="zoom"><button aria-label="Zoom out" onClick={() => setScale(zoom - .1)}><Minus size={15} /></button><span>{Math.round(zoom * 100)}%</span><button aria-label="Zoom in" onClick={() => setScale(zoom + .1)}><Plus size={15} /></button></div></div>
+    <div className="board-hint"><span><Move size={14} /> Drag the handle to move a card, the corner to resize. Positions sync to paired computers.</span><Zoom value={zoom} change={setScale} title="Zoom · Ctrl/⌘ + wheel" /></div>
     <div className="board-scroll" ref={scroll} onDragOver={event => { if (event.dataTransfer.types.includes('application/x-syncit-item')) event.preventDefault(); }} onDrop={event => {
       const relative = event.dataTransfer.getData('application/x-syncit-item'); const item = items.find(item => item.path === relative);
       if (!item || !scroll.current) return;

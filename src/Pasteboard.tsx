@@ -4,6 +4,9 @@ import type { Pasteboard as PasteboardState, PasteboardClip } from '../shared/ty
 
 const OPEN_KEY = 'pasteboardOpen';
 const SEEN_KEY = 'pasteboardSeenAt';
+const WIDTH_KEY = 'pasteboardWidth';
+const DEFAULT_WIDTH = 340;
+const clampWidth = (value: number) => Math.min(640, Math.max(260, Math.round(value)));
 function label(clip: PasteboardClip) { const line = clip.text.trim().split('\n')[0] || ''; return line.length > 30 ? line.slice(0, 30).trimEnd() + '…' : line; }
 
 /**
@@ -34,10 +37,17 @@ export function liveStatus(state: 'synced' | 'typing' | 'saving', board: Pastebo
 
 /**
  * The pasteboard column on the right of the main window: the shared text area with the texts it replaced listed under it.
- * The column folds to a tab on the edge and remembers that per computer.
+ * The column folds to a tab on the edge, its left edge drags to change its width, and both are remembered per computer.
  */
 export function Pasteboard({ board, notify, since, peers, hidden }: { board?: PasteboardState; notify: (message: string) => void; since: (time: number) => string; peers: string[]; hidden?: boolean }) {
   const [open, setOpen] = useState(() => { try { return localStorage.getItem(OPEN_KEY) !== '0'; } catch { return true; } });
+  const [width, setWidth] = useState(() => { try { return clampWidth(Number(localStorage.getItem(WIDTH_KEY)) || DEFAULT_WIDTH); } catch { return DEFAULT_WIDTH; } });
+  const [resizing, setResizing] = useState(false);
+  const gesture = useRef<{ x: number; width: number } | null>(null);
+  const resize = (next: number, persist = false) => { const value = clampWidth(next); setWidth(value); if (persist) { try { localStorage.setItem(WIDTH_KEY, String(value)); } catch { /* per-computer convenience only */ } } };
+  const startResize = (event: React.PointerEvent<HTMLDivElement>) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); gesture.current = { x: event.clientX, width }; setResizing(true); };
+  const moveResize = (event: React.PointerEvent) => { if (gesture.current) resize(gesture.current.width + gesture.current.x - event.clientX); };
+  const endResize = () => { if (gesture.current) { gesture.current = null; setResizing(false); resize(width, true); } };
   // While the column is open, every change counts as seen; folded, the tab shows a dot for a change that arrived since.
   useEffect(() => { if (open && board?.updatedAt) { try { localStorage.setItem(SEEN_KEY, String(board.updatedAt)); } catch { /* per-computer convenience only */ } } }, [open, board?.updatedAt]);
   let seenAt = 0; try { seenAt = Number(localStorage.getItem(SEEN_KEY) || 0); } catch { /* per-computer convenience only */ }
@@ -56,7 +66,10 @@ export function Pasteboard({ board, notify, since, peers, hidden }: { board?: Pa
   const recent = board?.recent ?? [];
   if (hidden) return null;
   if (!open) return <aside className="pasteboard closed" aria-label="Pasteboard"><button className="pasteboard-tab" aria-label={unseen ? 'Show pasteboard, changed since you folded it' : 'Show pasteboard'} title={unseen ? 'The pasteboard changed since you folded it' : 'Show the pasteboard'} onClick={() => toggle(true)}><span>Pasteboard</span>{unseen && <i className="unseen" />}</button></aside>;
-  return <aside className="pasteboard" aria-label="Pasteboard">
+  return <aside className={`pasteboard ${resizing ? 'resizing' : ''}`} aria-label="Pasteboard" style={{ width }}>
+    <div className="pasteboard-resizer" role="separator" aria-orientation="vertical" aria-label="Pasteboard width" aria-valuenow={width} aria-valuemin={260} aria-valuemax={640} tabIndex={0} title="Drag to resize · double-click to reset"
+      onPointerDown={startResize} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize} onDoubleClick={() => resize(DEFAULT_WIDTH, true)}
+      onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); resize(width + (event.key === 'ArrowLeft' ? 20 : -20), true); } }} />
     <div className="pasteboard-head"><div><h2>Pasteboard</h2><small>{peers.length > 0 ? <span className="live" title={peers.join(', ')}><i /><span>Live with {peers.length === 1 ? peers[0] : `${peers.length} computers`}</span></span> : <span className="live off"><i /><span>Syncs once a computer is paired</span></span>}<br />{liveStatus(live.state, board, since)}</small></div>
       <div className="tools"><button className="icon-button" aria-label="Copy all" title="Copy all" disabled={!live.text} onClick={() => void copy(live.text, 'Pasteboard')}><ClipboardCopy size={15} /></button><button className="icon-button" aria-label="Clear" title="Clear the text (it goes to Recent)" disabled={!live.text} onClick={() => { live.replace(''); area.current?.focus(); }}><Eraser size={15} /></button><button className="icon-button" aria-label="Hide pasteboard" title="Hide the pasteboard" onClick={() => toggle(false)}><ChevronRight size={15} /></button></div></div>
     <textarea ref={area} aria-label="Pasteboard text" placeholder="Paste or type here." value={live.text} onChange={event => live.change(event.target.value)} spellCheck={false} />

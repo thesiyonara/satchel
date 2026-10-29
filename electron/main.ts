@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, renameSync, rmSync } from 'node:fs';
 import { app, BrowserWindow, Menu, Notification, Tray, ipcMain, protocol, nativeImage, clipboard, dialog, shell, globalShortcut, nativeTheme, powerMonitor, screen, session } from 'electron';
 import { randomUUID } from 'node:crypto';
 import { spawn, execFile } from 'node:child_process';
@@ -35,8 +35,15 @@ const testing = !app.isPackaged && process.env.SYNCIT_TEST_MODE === '1';
 const profileOverride = process.argv.find(argument => argument.startsWith('--profile='))?.slice(10);
 if (profileOverride) { if (!path.isAbsolute(profileOverride)) throw new Error('--profile must be an absolute directory'); app.setPath('userData', profileOverride); }
 if (testing && process.env.SYNCIT_TEST_PROFILE) app.setPath('userData', path.resolve(process.env.SYNCIT_TEST_PROFILE));
-// The app was called Sync it before 0.5. An existing profile keeps its settings, pairings and engine database under the old name.
-if (!testing && !profileOverride) { const legacy = path.join(path.dirname(app.getPath('userData')), 'Sync it'); if (!existsSync(path.join(app.getPath('userData'), 'settings.json')) && existsSync(path.join(legacy, 'settings.json'))) app.setPath('userData', legacy); }
+// The app was called Sync it before 0.5. A profile still under that name moves to the Satchel folder on start, with its settings, pairings and
+// engine database; if the move fails, the old folder keeps being used.
+if (!testing && !profileOverride) {
+  const current = app.getPath('userData'); const legacy = path.join(path.dirname(current), 'Sync it');
+  if (!existsSync(path.join(current, 'settings.json')) && existsSync(path.join(legacy, 'settings.json'))) {
+    try { if (existsSync(current)) rmSync(current, { recursive: true, force: true }); renameSync(legacy, current); }
+    catch { app.setPath('userData', legacy); }
+  }
+}
 const devURL = !app.isPackaged ? process.env.SYNCIT_DEV_URL : undefined;
 const assets = app.isPackaged ? path.join(process.resourcesPath, 'assets') : path.join(app.getAppPath(), 'assets');
 const dist = path.join(app.getAppPath(), 'dist');

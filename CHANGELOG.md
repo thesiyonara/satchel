@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- The minimal Quick drop window is the same window at a third of the height: the same title bar with every button in the same place, the live pasteboard with Copy, Paste and Add files, and the two latest items as rows. The note composer is gone from it; the drawer offers Add files instead of Write a note.
+- New note and Add sit side by side at the same weight on the main screen, and the empty collection offers files and the clipboard before a note.
+- A profile still stored under the app's old name moves to the Satchel folder on start, so the app keeps nothing under the old name.
+
+### Added
+- The grid zooms: Ctrl/⌘ and the wheel, Ctrl/⌘ with + and − (0 for 100%), or the control at the top right of the collection, change how wide cards are, so more or fewer fit the window. The pinboard takes Ctrl/⌘ and the wheel too. Both are remembered per computer.
+- The pasteboard column resizes: drag its left edge, use the arrow keys on it, or double-click it for the default width. Remembered per computer.
+
+### Fixed
+- Motion is one register throughout: the pasteboard column folds and unfolds with a transition, tiles, rows and clips come in the way cards do, hover controls fade instead of popping, and the grid re-flows smoothly when zooming.
+
 ## 0.6.13 — 2026-10-29
 
 ### Added

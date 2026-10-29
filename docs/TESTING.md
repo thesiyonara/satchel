@@ -108,3 +108,7 @@ The UI suite opens Quick drop, checks Latest shows tiles, switches to the list a
 Checked with screenshots of every surface in both themes: the main window with the pasteboard column, the note pane, Preferences, Quick drop as tiles and as a list, the minimal window and the drawer. The one layout fault found, the note pane squeezing the grid against the column, is fixed by hiding the column while a note is open; the UI suite asserts the column is gone with a note open and back after. The suite also presses Escape in Quick drop and expects the window to hide.
 
 A unit test covers untitled notes taking their first line as their name on save: whitespace is not a title, a named note keeps its name, and a taken name gets a suffix. The note editor already adopts the path a save returns, which is how conflict copies work, so the rename needs nothing new on the renderer side.
+
+## Minimal window, zoom and the resizable column
+
+The feature suite opens the minimal window from the palette, types into its pasteboard and reads the same text back through the CLI, finds one row of the latest items, checks nothing is clipped and expects the Open dashboard button there (the title bar is the full window's). The UI suite zooms the grid out and in with the control and reads the card width back, resizes the pasteboard column by its edge and checks the width is remembered after folding and unfolding. The profile move on start was checked by hand on this computer: the Sync it folder under AppData became the Satchel folder and the app started paired as before.

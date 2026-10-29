@@ -116,6 +116,27 @@ try {
   await page.getByRole('button', { name: 'Hide pasteboard' }).click();
   await page.getByRole('button', { name: 'Show pasteboard' }).click();
   await expect(board).toBeVisible();
+  // The column's edge drags to resize it, the width survives folding and unfolding, and a double-click brings the default back.
+  const columnWidth = () => page.locator('.pasteboard').evaluate(element => element.getBoundingClientRect().width);
+  await expect.poll(columnWidth).toBe(340); // the column unfolds with a transition; wait for it to settle before reading the edge's position
+  const resizer = page.getByRole('separator', { name: 'Pasteboard width' }); const edge = await resizer.boundingBox();
+  await page.mouse.move(edge.x + 3, edge.y + 200); await page.mouse.down(); await page.mouse.move(edge.x - 60, edge.y + 200, { steps: 5 }); await page.mouse.up();
+  await expect.poll(columnWidth).toBeGreaterThan(380);
+  await page.getByRole('button', { name: 'Hide pasteboard' }).click();
+  await page.getByRole('button', { name: 'Show pasteboard' }).click();
+  await expect.poll(columnWidth).toBeGreaterThan(380);
+  await resizer.dblclick();
+  await expect.poll(columnWidth).toBe(340);
+  // Zooming the grid changes how wide the cards are; the percentage brings 100% back.
+  await page.getByRole('button', { name: 'Grid view' }).click();
+  const cardWidth = () => page.locator('[data-testid="item-card"]').first().evaluate(element => element.getBoundingClientRect().width);
+  const cardBefore = await cardWidth();
+  const gridZoom = page.locator('.collection-scroll .zoom');
+  await gridZoom.getByRole('button', { name: 'Zoom out' }).click(); await gridZoom.getByRole('button', { name: 'Zoom out' }).click();
+  await expect(gridZoom.getByRole('button', { name: 'Reset zoom' })).toHaveText('80%');
+  await expect.poll(cardWidth).toBeLessThan(cardBefore);
+  await gridZoom.getByRole('button', { name: 'Reset zoom' }).click();
+  await expect.poll(cardWidth).toBe(cardBefore);
   await page.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
   const findPanel = async () => (await application.windows()).find(p => p.url().includes('panel=1'));
   const panel = await expect.poll(async () => (await findPanel()) ? 'ready' : 'waiting').toBe('ready').then(findPanel);

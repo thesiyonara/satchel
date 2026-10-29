@@ -29,12 +29,15 @@ try {
   await expect(panel.getByLabel('Expand floating window')).toBeVisible();
   let status = await cli('status');
   assert.equal(status.panelMode, 'mini'); assert.ok(status.windows.find(w => w.name === 'panel').bounds.height <= 250);
-  await panel.getByLabel('Quick capture text').fill('A thought from the tiny window');
-  await panel.getByLabel('Save quick capture').click();
-  await expect(panel.getByLabel('Quick capture text')).toHaveValue('');
-  await expect.poll(() => cli('list', 'tiny window').then(result => result.items.length)).toBe(1);
+  // The minimal window is the same window at a third of the height: the title bar with every button in the same place, the pasteboard and the two latest items.
+  await expect(panel.getByLabel('Open dashboard')).toBeVisible();
+  await panel.getByLabel('Pasteboard text').fill('A thought from the tiny window');
+  await expect.poll(() => cli('call', 'list', '[]').then(result => result.pasteboard?.text || '')).toBe('A thought from the tiny window');
+  await expect(panel.locator('.qd-mini .qd-row')).toHaveCount(1);
+  await expect(panel.locator('.qd-mini .qd-row strong')).toHaveText('CLI created a multiline prompt');
   await panel.screenshot({ path: path.resolve('test-results/minimal-window.png') });
   assert.equal(await panel.evaluate(() => document.documentElement.scrollHeight <= innerHeight), true, 'Minimal window must fit without clipping');
+  await panel.getByLabel('Pasteboard text').fill('');
   await cli('window', 'right');
   await cli('settings', JSON.stringify({ panelOpacity: .85, alwaysOnTop: true }));
   status = await cli('status'); assert.ok(Math.abs(status.windows.find(w => w.name === 'panel').opacity - .85) < .02);
@@ -62,5 +65,5 @@ try {
   await cli('settings', JSON.stringify({ panelAutoHide: true })); await cli('window', 'dashboard');
   await expect.poll(() => cli('status').then(s => s.windows.find(w => w.name === 'panel').visible)).toBe(false);
   await cli('settings', JSON.stringify({ panelAutoHide: false }));
-  console.log('Six-feature test passed: minimal/quick windows, dock/opacity/autohide, capture/draft, palette, favorites/rename, authenticated CLI notes/import/layout/sync/screenshot.');
+  console.log('Six-feature test passed: minimal/quick windows, dock/opacity/autohide, pasteboard, palette, favorites/rename, authenticated CLI notes/import/layout/sync/screenshot.');
 } finally { await app.close(); }
