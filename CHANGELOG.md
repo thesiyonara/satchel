@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.11 — 2026-10-29
 
 ### Fixed
 - Opening a note no longer squeezes the grid: the pasteboard column steps aside while a note is open and returns when it closes.
