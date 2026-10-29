@@ -58,11 +58,10 @@ try {
   await expect.poll(() => a.page.evaluate(() => window.syncit.list().then(snapshot => snapshot.items.map(item => item.path)))).toContain('Trips/from-the-laptop.txt');
   await expect(a.page.getByRole('button', { name: /^Trips/ })).toBeVisible();
   await expect.poll(() => b.page.evaluate(() => window.syncit.list().then(snapshot => snapshot.items.map(item => item.path))), { timeout: 90000 }).toContain('Trips/from-the-laptop.txt');
-  // The pasteboard typed on the laptop shows up on the desk within seconds, in the open view, without a reload.
-  await a.page.getByRole('button', { name: 'Pasteboard', exact: true }).click();
-  await b.page.getByRole('button', { name: 'Pasteboard', exact: true }).click();
+  // The pasteboard typed on the laptop shows up in the desk's column within seconds, without a reload, and says who wrote it.
   await b.page.getByRole('textbox', { name: 'Pasteboard text' }).fill('Meeting room 3B, code 7719');
   await expect(a.page.getByRole('textbox', { name: 'Pasteboard text' })).toHaveValue('Meeting room 3B, code 7719', { timeout: 30000 });
+  await expect(a.page.getByText(/from Laptop/).first()).toBeVisible();
   await a.page.screenshot({ path: path.resolve('test-results', 'pair-pasteboard.png') });
   console.log('Pair test passed: loopback pairing, a large file shown arriving with sender and progress, arrival marked with its sender, notifications recorded, move to folder synced, pasteboard live between the two.');
 } finally {

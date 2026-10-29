@@ -2,11 +2,22 @@ import { promises as fs, constants } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import chokidar, { type FSWatcher } from 'chokidar';
-import type { BoardPlacement, LibraryItem, LibrarySnapshot, NoteDocument, NoteVersion, Pasteboard } from '../shared/types';
+import type { BoardPlacement, LibraryItem, LibrarySnapshot, NoteDocument, NoteVersion, Pasteboard, PasteboardClip } from '../shared/types';
 import { atomicWrite, cleanName, contained, errorMessage, hash, isInternal, linkOrClaim, safeRelative, isHidden } from './files';
 import { mediaKind } from './media';
 
 const NOTE_LIMIT = 1024 * 1024;
+/** Earlier pasteboard texts kept in Recent. */
+const CLIP_LIMIT = 50;
+/** True when `next` replaces `previous` rather than continuing to edit it: the texts share less than 80% of the shorter one as a common prefix plus suffix, or `next` is empty. Typing, appending and fixing a word keep the text; pasting something else over it, or clearing it, send the old text to Recent. */
+export function replaces(previous: string, next: string): boolean {
+  const a = previous.trim(), b = next.trim();
+  if (!a) return false;
+  if (!b) return true;
+  let prefix = 0; while (prefix < a.length && prefix < b.length && a[prefix] === b[prefix]) prefix++;
+  let suffix = 0; while (suffix < a.length - prefix && suffix < b.length - prefix && a[a.length - 1 - suffix] === b[b.length - 1 - suffix]) suffix++;
+  return prefix + suffix < 0.8 * Math.min(a.length, b.length);
+}
 export const RECOVERY_KEEP_PER_NOTE = 20;
 export const RECOVERY_MAX_AGE_MS = 30 * 86400 * 1000;
 const recoveryPattern = /^(.*)-(\d{13})-[a-f0-9]{6}\.md$/;
@@ -107,20 +118,63 @@ export class Library {
       return { items: items.sort((a, b) => b.modifiedAt - a.modifiedAt || a.path.localeCompare(b.path)), placements, pasteboard };
     } catch (error) { this.index = undefined; return { items: [], placements, error: errorMessage(error) }; }
   }
-  /** The shared pasteboard lives in .syncit, so it syncs with the collection but never shows as an item. The latest write from any computer wins; a conflict copy, if Syncthing makes one, stays out of sight there too. */
+  /**
+   * The shared pasteboard lives in .syncit, so it syncs with the collection but never shows as an item. The latest write from any computer wins;
+   * a conflict copy, if Syncthing makes one, stays out of sight there too. `.syncit/pasteboard.from` names the computer that wrote the text, and
+   * each earlier text sits in its own small file under `.syncit/pasteboard/`, so two computers never fight over one list.
+   */
   async readPasteboard(): Promise<Pasteboard> {
     const file = await contained(this.root, '.syncit/pasteboard.txt', true);
+    let text = '', updatedAt = 0, from: string | undefined;
     try {
       const stat = await fs.stat(file);
-      return { text: stat.size > NOTE_LIMIT ? '' : await fs.readFile(file, 'utf8'), updatedAt: Math.round(stat.mtimeMs) };
-    } catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { text: '', updatedAt: 0 }; throw error; }
+      text = stat.size > NOTE_LIMIT ? '' : await fs.readFile(file, 'utf8'); updatedAt = Math.round(stat.mtimeMs);
+      from = (await fs.readFile(await contained(this.root, '.syncit/pasteboard.from', true), 'utf8').catch(() => '')).trim().slice(0, 80) || undefined;
+    } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+    const recent: PasteboardClip[] = [];
+    const dir = await contained(this.root, '.syncit/pasteboard', true);
+    for (const name of await fs.readdir(dir).catch(() => [] as string[])) {
+      if (!/^[a-z0-9-]{1,64}\.json$/.test(name)) continue;
+      try {
+        const clipFile = path.join(dir, name);
+        if ((await fs.stat(clipFile)).size > NOTE_LIMIT) continue;
+        const record = JSON.parse(await fs.readFile(clipFile, 'utf8'));
+        if (typeof record?.text !== 'string' || !record.text.trim() || typeof record.time !== 'number') continue;
+        recent.push({ id: name.slice(0, -5), text: record.text, time: record.time, from: typeof record.from === 'string' && record.from ? record.from.slice(0, 80) : undefined });
+      } catch { /* An incomplete or invalid clip, likely still syncing, is skipped. */ }
+    }
+    recent.sort((a, b) => b.time - a.time);
+    return { text, updatedAt, from, recent: recent.slice(0, CLIP_LIMIT) };
   }
-  async savePasteboard(text: unknown): Promise<Pasteboard> {
+  async savePasteboard(text: unknown, from?: string): Promise<Pasteboard> {
     return this.serial(async () => {
       this.validateText(text);
+      const current = await this.readPasteboard();
       const file = await contained(this.root, '.syncit/pasteboard.txt', true);
       await fs.mkdir(path.dirname(file), { recursive: true });
+      if (replaces(current.text, text)) await this.keepClip(current);
       await atomicWrite(file, text);
+      await atomicWrite(await contained(this.root, '.syncit/pasteboard.from', true), (from || '').slice(0, 80));
+      this.changed();
+      return this.readPasteboard();
+    });
+  }
+  /** The text being replaced goes to Recent, unless the same text is already there. The list is capped at CLIP_LIMIT, oldest out. */
+  private async keepClip(current: Pasteboard) {
+    if (current.recent.some(clip => clip.text === current.text)) return;
+    const dir = await contained(this.root, '.syncit/pasteboard', true); await fs.mkdir(dir, { recursive: true });
+    const id = `${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
+    await atomicWrite(path.join(dir, `${id}.json`), JSON.stringify({ text: current.text, time: Date.now(), from: current.from }));
+    for (const clip of current.recent.slice(CLIP_LIMIT - 1)) await fs.unlink(path.join(dir, `${clip.id}.json`)).catch(() => {});
+  }
+  async removeClip(id?: unknown): Promise<Pasteboard> {
+    return this.serial(async () => {
+      const dir = await contained(this.root, '.syncit/pasteboard', true);
+      if (id === undefined || id === null) { for (const clip of (await this.readPasteboard()).recent) await fs.unlink(path.join(dir, `${clip.id}.json`)).catch(() => {}); }
+      else {
+        if (typeof id !== 'string' || !/^[a-z0-9-]{1,64}$/.test(id)) throw new Error('Invalid pasteboard entry');
+        await fs.unlink(path.join(dir, `${id}.json`)).catch((error: NodeJS.ErrnoException) => { if (error.code !== 'ENOENT') throw error; });
+      }
       this.changed();
       return this.readPasteboard();
     });

@@ -227,16 +227,34 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 .history-preview .row button { font-size: 12.5px; padding: 6px 10px; }
 
 /* Pinboard */
-/* The pasteboard: one shared text area, filling the main pane. */
-.pasteboard { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; margin: 0 32px 20px 20px; }
-.pasteboard-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
-.pasteboard-head h1 { font-size: 12.5px; font-weight: 600; margin: 0; color: var(--text); }
-.pasteboard-head small { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; }
-.pasteboard-head .row { display: flex; gap: 6px; flex-shrink: 0; }
-.pasteboard textarea { flex: 1; min-height: 0; width: 100%; resize: none; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); padding: 18px 20px; font-size: 14.5px; line-height: 1.6; color: var(--text); }
+/* The pasteboard: a column on the right of the main window with the shared text and the texts it replaced under it. It folds to a tab on the edge. */
+.pasteboard { width: 340px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-left: 1px solid var(--line); }
+.pasteboard.closed { width: 30px; }
+.pasteboard-tab { flex: 1; border: 0; border-radius: 0; background: transparent; padding: 0; display: flex; align-items: center; justify-content: center; color: var(--text-2); }
+.pasteboard-tab:hover { background: var(--subtle); color: var(--text); }
+.pasteboard-tab span { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; font-weight: 600; letter-spacing: .4px; }
+.pasteboard-head { padding: 26px 12px 10px 20px; display: flex; align-items: flex-start; gap: 8px; }
+.pasteboard-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
+.pasteboard-head small { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+.pasteboard-head .tools { margin-left: auto; display: flex; flex-shrink: 0; }
+.pasteboard .live { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--ok); font-weight: 500; }
+.pasteboard .live i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+.pasteboard textarea { height: 40%; min-height: 150px; margin: 0 16px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); padding: 12px 14px; font-size: 14px; line-height: 1.55; color: var(--text); resize: none; width: calc(100% - 32px); }
 .pasteboard textarea:focus { outline: none; border-color: var(--line-2); }
 .pasteboard textarea::placeholder { color: var(--faint); }
-@media (max-width: 1050px) { .pasteboard { margin-right: 20px; } }
+.recent-head { display: flex; align-items: baseline; padding: 2px 20px 4px; font-size: 11px; letter-spacing: .6px; text-transform: uppercase; color: var(--faint); }
+.recent-head button { margin-left: auto; border: 0; background: transparent; padding: 0; font-size: 12px; font-weight: 400; color: var(--muted); letter-spacing: 0; text-transform: none; }
+.recent-head button:hover { color: var(--text); }
+.recent { flex: 1; min-height: 0; overflow: auto; padding: 0 12px 12px; display: flex; flex-direction: column; gap: 2px; }
+.recent-empty { margin: 6px 8px; font-size: 12.5px; color: var(--faint); line-height: 1.45; }
+.clip { position: relative; display: flex; flex-direction: column; align-items: stretch; padding: 8px 10px; border-radius: 8px; border: 1px solid transparent; }
+.clip:hover, .clip:focus-within { background: var(--bg); border-color: var(--line); }
+.clip-text { border: 0; background: transparent; padding: 0; text-align: left; font-weight: 400; font-size: 13px; line-height: 1.45; color: var(--text); white-space: pre-wrap; word-break: break-word; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; justify-content: flex-start; cursor: copy; }
+.clip small { font-size: 11.5px; color: var(--faint); margin-top: 3px; }
+.clip-tools { position: absolute; right: 6px; top: 5px; display: flex; opacity: 0; background: var(--raised); border: 1px solid var(--line); border-radius: 7px; padding: 1px; box-shadow: var(--shadow); }
+.clip:hover .clip-tools, .clip:focus-within .clip-tools { opacity: 1; }
+.clip-tools .icon-button { padding: 4px; border-radius: 5px; }
+@media (max-width: 1200px) { .pasteboard:not(.closed) { width: 280px; } }
 .board-wrapper { flex: 1; min-height: 0; margin: 0 32px 20px 20px; border: 1px solid var(--line); border-radius: 11px; display: flex; flex-direction: column; overflow: hidden; background: var(--surface); }
 .board-hint { min-height: 38px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12.5px; gap: 12px; }
 .board-hint > span { display: flex; align-items: center; gap: 7px; }

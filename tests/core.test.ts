@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { Library, validatePlacement } from '../electron/library';
+import { Library, validatePlacement, replaces } from '../electron/library';
 import { cleanName, contained, safeRelative, hash } from '../electron/files';
 import { SettingsStore, validateSettingsPatch } from '../electron/settings';
 import { localIPAllowed, parseLocalAddress, parsePairingCode, validateEncryptionPassword } from '../electron/sync-engine';
@@ -19,16 +19,29 @@ async function fixture(t: test.TestContext) {
   t.after(async () => { await library.close(); assert.ok(dir.startsWith(path.join(os.tmpdir(), 'syncit-test-'))); await fs.rm(dir, { recursive: true, force: true }); });
   return { dir, root, library, recycled };
 }
-test('the pasteboard is one shared text file, read with the snapshot and never listed', async t => {
+test('the pasteboard is one shared text, read with the snapshot and never listed, and replaced texts go to Recent', async t => {
   const { library } = await fixture(t);
-  assert.deepEqual((await library.snapshot()).pasteboard, { text: '', updatedAt: 0 });
-  const saved = await library.savePasteboard('Door code 4411\nhttps://example.test/room');
-  assert.equal(saved.text, 'Door code 4411\nhttps://example.test/room'); assert.ok(saved.updatedAt > 0);
+  assert.deepEqual((await library.snapshot()).pasteboard, { text: '', updatedAt: 0, from: undefined, recent: [] });
+  const saved = await library.savePasteboard('Door code 4411\nhttps://example.test/room', 'Desk');
+  assert.equal(saved.text, 'Door code 4411\nhttps://example.test/room'); assert.ok(saved.updatedAt > 0); assert.equal(saved.from, 'Desk');
+  // Typing on, appending and fixing a word keep the text; pasting something else over it sends the old text to Recent with its author.
+  assert.deepEqual((await library.savePasteboard('Door code 4411\nhttps://example.test/room\nbring the tripod', 'Desk')).recent, []);
+  assert.deepEqual((await library.savePasteboard('Door code 4412\nhttps://example.test/room\nbring the tripod', 'Desk')).recent, []);
+  const replaced = await library.savePasteboard('ffmpeg -i in.mov out.mp4', 'Laptop');
+  assert.equal(replaced.recent.length, 1); assert.equal(replaced.recent[0]!.text, 'Door code 4412\nhttps://example.test/room\nbring the tripod'); assert.equal(replaced.recent[0]!.from, 'Desk'); assert.equal(replaced.from, 'Laptop');
+  // Clearing keeps the cleared text; the same text is not kept twice; entries can be removed one by one or all at once.
+  const cleared = await library.savePasteboard('', 'Laptop');
+  assert.deepEqual(cleared.recent.map(clip => clip.text), ['ffmpeg -i in.mov out.mp4', 'Door code 4412\nhttps://example.test/room\nbring the tripod']);
+  await library.savePasteboard('ffmpeg -i in.mov out.mp4', 'Laptop');
+  assert.equal((await library.savePasteboard('something else', 'Laptop')).recent.length, 2, 'A text already in Recent is not added again');
   const snapshot = await library.snapshot();
-  assert.equal(snapshot.pasteboard?.text, saved.text);
-  assert.deepEqual(snapshot.items, []);
+  assert.deepEqual(snapshot.items, [], 'Neither the text nor the clips show as items');
+  const one = await library.removeClip(cleared.recent[0]!.id); assert.equal(one.recent.length, 1);
+  await assert.rejects(library.removeClip('../escape'), /Invalid pasteboard entry/);
+  assert.deepEqual((await library.removeClip()).recent, []);
   await assert.rejects(library.savePasteboard('x'.repeat(2 * 1024 * 1024)), /smaller than 1 MB/);
   await assert.rejects(library.savePasteboard(42 as unknown as string), /smaller than 1 MB/);
+  assert.equal(replaces('abc', ''), true); assert.equal(replaces('', 'abc'), false); assert.equal(replaces('hello world', 'hello world!'), false); assert.equal(replaces('hello world', 'see you at 5'), true);
 });
 test('hidden files and folders are skipped on import and never listed', async t => {
   const { dir, root, library } = await fixture(t);

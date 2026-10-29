@@ -445,7 +445,8 @@ function setupIPC() {
     const note = await library.createNote(text); return { path: note.path, kind: 'note' };
   });
   bind('createNote', (text: unknown) => { if (text !== undefined && typeof text !== 'string') throw new Error('Invalid note'); return library.createNote(text); });
-  bind('savePasteboard', (text: unknown) => library.savePasteboard(text));
+  bind('savePasteboard', (text: unknown) => library.savePasteboard(text, store.value.deviceName));
+  bind('removeClip', (id?: unknown) => library.removeClip(id));
   bind('readNote', (relative: string) => library.readNote(relative));
   bind('saveNote', (relative: string, text: string, revision: string) => { if (typeof revision !== 'string') throw new Error('Invalid note revision'); return library.saveNote(relative, text, revision); });
   bind('noteHistory', (relative: string) => library.history(relative)); bind('readNoteVersion', (id: string) => library.readVersion(id));

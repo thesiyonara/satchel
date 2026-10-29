@@ -8,7 +8,7 @@ const listen = (name: string, callback: (payload: any) => void) => {
 const api: SyncItAPI = {
   initial: () => invoke('initial'), list: () => invoke('list'),
   importFiles: (paths, into) => invoke('importFiles', paths, into), chooseFiles: (kind, into) => invoke('chooseFiles', kind, into), paste: () => invoke('paste'),
-  createNote: text => invoke('createNote', text), savePasteboard: text => invoke('savePasteboard', text), readNote: path => invoke('readNote', path), saveNote: (path, text, revision) => invoke('saveNote', path, text, revision),
+  createNote: text => invoke('createNote', text), savePasteboard: text => invoke('savePasteboard', text), removeClip: id => invoke('removeClip', id), readNote: path => invoke('readNote', path), saveNote: (path, text, revision) => invoke('saveNote', path, text, revision),
   noteHistory: path => invoke('noteHistory', path), readNoteVersion: id => invoke('readNoteVersion', id), readText: path => invoke('readText', path),
   rename: (path, name) => invoke('rename', path, name), move: (paths, folder) => invoke('move', paths, folder), trash: path => invoke('trash', path), open: path => invoke('open', path), reveal: path => invoke('reveal', path), dragOut: paths => invoke('dragOut', paths), openDrawer: () => invoke('openDrawer'),
   openFolder: () => invoke('openFolder'), place: placement => invoke('place', placement), unpin: path => invoke('unpin', path),

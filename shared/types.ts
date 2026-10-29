@@ -6,8 +6,10 @@ export interface LibraryItem {
   arrivedAt?: number; arrivedFrom?: string;
 }
 export interface BoardPlacement { version: 1; path: string; x: number; y: number; width: number; height: number; updatedAt: number }
-/** The shared pasteboard: one text every paired computer can read and replace. `updatedAt` is 0 while it has never been written. */
-export interface Pasteboard { text: string; updatedAt: number }
+/** An earlier pasteboard text, kept in Recent when it was replaced: `from` names the computer that wrote it. */
+export interface PasteboardClip { id: string; text: string; time: number; from?: string }
+/** The shared pasteboard: one text every paired computer can read and replace, plus the texts it replaced. `updatedAt` is 0 while it has never been written. */
+export interface Pasteboard { text: string; updatedAt: number; from?: string; recent: PasteboardClip[] }
 export interface LibrarySnapshot { items: LibraryItem[]; placements: BoardPlacement[]; pasteboard?: Pasteboard; error?: string }
 export interface NoteDocument { path: string; text: string; revision: string; conflict?: boolean }
 /** A previous version of a note: a local pre-save copy, or a version Syncthing archived when a received change replaced it. */
@@ -63,6 +65,8 @@ export interface SyncItAPI {
   createNote(text?: string): Promise<NoteDocument>;
   /** Replaces the shared pasteboard text. The latest write from any computer wins. */
   savePasteboard(text: string): Promise<Pasteboard>;
+  /** Removes one entry from the pasteboard's Recent list, or every entry when no id is given. */
+  removeClip(id?: string): Promise<Pasteboard>;
   readNote(path: string): Promise<NoteDocument>;
   saveNote(path: string, text: string, revision: string): Promise<NoteDocument>;
   noteHistory(path: string): Promise<NoteVersion[]>;

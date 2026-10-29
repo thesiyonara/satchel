@@ -93,7 +93,7 @@ Everything browses one level at a time; the UI suite moves every item into a fol
 
 ## Pasteboard
 
-The pasteboard is `.syncit/pasteboard.txt` in the collection: synced like the pinboard placements, never listed, replaced whole on every save and read back with each snapshot. The UI suite types into it, reads it back through `list()`, and clears it. `npm run test:pair` types on the laptop instance and waits for the same text to appear in the desk instance's open pasteboard without a reload (screenshot `test-results/pair-pasteboard.png`). A unit test covers the empty state, the 1 MB limit and that the file never appears as an item.
+The pasteboard is `.syncit/pasteboard.txt` in the collection, with `.syncit/pasteboard.from` naming the computer that wrote it and one small JSON file per Recent entry under `.syncit/pasteboard/`: all synced like the pinboard placements, never listed, and read back with each snapshot. A save decides whether the new text replaces the old one (less than 80% of the shorter text shared as a common prefix plus suffix, or an empty new text) or merely edits it; only a replacement keeps the old text in Recent. The UI suite types into the column, pastes over it, puts the old text back, removes an entry, clears the text and the list, and folds and unfolds the column. `npm run test:pair` types on the laptop instance and waits for the same text, attributed to Laptop, to appear in the desk instance's column without a reload (screenshot `test-results/pair-pasteboard.png`). A unit test covers the replace-or-edit rule, attribution, de-duplication, removal, the 1 MB limit and that nothing of it appears as an item.
 
 ## One-click updates
 

@@ -88,15 +88,28 @@ try {
   await page.mouse.move(box.x + 35, box.y + 12); await page.mouse.down(); await page.mouse.move(box.x + 95, box.y + 47, { steps: 6 }); await page.mouse.up();
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.placements.some(p => p.x === 95 && p.y === 80)))).toBeTruthy();
   await page.screenshot({ path: path.join(artifacts, 'pinboard.png') });
-  // The pasteboard: one shared text area, saved a moment after typing and read back with the snapshot; Clear empties it.
-  await page.getByRole('button', { name: 'Pasteboard', exact: true }).click();
-  await page.getByRole('textbox', { name: 'Pasteboard text' }).fill('Door code 4411\nWifi: guest-net');
+  // The pasteboard column: the shared text is saved a moment after typing; a text pasted over it drops into Recent, where it can be put back, copied or removed; Clear sends the text to Recent too.
+  const board = page.getByRole('textbox', { name: 'Pasteboard text' });
+  await board.fill('Door code 4411\nWifi: guest-net');
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.pasteboard?.text || ''))).toBe('Door code 4411\nWifi: guest-net');
   await expect(page.getByText(/Changed just now/)).toBeVisible();
+  await board.fill('Call the studio about Thursday');
+  await expect(page.getByRole('button', { name: 'Remove Door code 4411' })).toBeVisible();
   await page.screenshot({ path: path.join(artifacts, 'pasteboard.png') });
+  await page.getByRole('button', { name: 'Put Door code 4411 on the board' }).click();
+  await expect(board).toHaveValue('Door code 4411\nWifi: guest-net');
+  await expect(page.getByRole('button', { name: 'Remove Call the studio about Thursday' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove Door code 4411' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Remove Call the studio about Thursday' }).click();
+  await expect(page.getByRole('button', { name: 'Remove Call the studio about Thursday' })).toHaveCount(0);
   await page.getByRole('button', { name: 'Clear', exact: true }).click();
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.pasteboard?.text || ''))).toBe('');
-  await page.getByRole('button', { name: 'Pinboard view', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Remove Door code 4411' })).toBeVisible();
+  await page.getByRole('button', { name: 'Clear list' }).click();
+  await expect(page.getByText('When the text is replaced, the old one lands here.')).toBeVisible();
+  await page.getByRole('button', { name: 'Hide pasteboard' }).click();
+  await page.getByRole('button', { name: 'Show pasteboard' }).click();
+  await expect(board).toBeVisible();
   await page.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
   const findPanel = async () => (await application.windows()).find(p => p.url().includes('panel=1'));
   const panel = await expect.poll(async () => (await findPanel()) ? 'ready' : 'waiting').toBe('ready').then(findPanel);
