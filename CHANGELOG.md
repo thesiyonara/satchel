@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.10 — 2026-10-29
 
 ### Changed
 - Quick drop is built around the other computer. The live pasteboard sits on top of the window, with Copy, Paste and Add files in its corner, so typing or pasting there is on the other computer in a moment. Under it, Latest shows what is arriving with its progress, what came in from other computers and what went out from here, as square tiles or a list, with a switch next to the heading that is remembered per computer. Tiles show an image's thumbnail, a note's first lines or a file's type, and a dot marks what came in; Copy and Open appear on hover, and every tile or row drags out. The title bar names the connected computer. The note composer, the Recent and Favorites tabs, the intro text and the footer are gone from this window; the minimal window keeps its note composer, and the drawer keeps its pile. The dock buttons moved next to the opacity slider.
