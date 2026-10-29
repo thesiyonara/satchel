@@ -4,6 +4,7 @@
 import { promises as fs, createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
+import { errorMessage } from './files';
 import type { UpdateState } from '../shared/types';
 import { releasesAPI, repository, version as appVersion } from '../shared/project';
 
@@ -15,8 +16,8 @@ const downloadPrefix = `https://github.com/${repository}/releases/download/`;
 export interface ReleaseClient {
   /** GET a JSON document. Rejects with an error carrying `status` on HTTP failure. */
   json(url: string, signal: AbortSignal): Promise<unknown>;
-  /** GET `url` into a new file at `file`, refusing more than `limit` bytes. */
-  download(url: string, file: string, limit: number, signal: AbortSignal): Promise<void>;
+  /** GET `url` into a new file at `file`, refusing more than `limit` bytes. `progress` is told the bytes written and the declared total (0 when unknown). */
+  download(url: string, file: string, limit: number, signal: AbortSignal, progress?: (done: number, total: number) => void): Promise<void>;
 }
 export class HttpError extends Error { constructor(public status: number, url: string) { super(`HTTP ${status} for ${url}`); } }
 
@@ -26,8 +27,9 @@ export function versionTuple(version: string) {
 }
 export function newer(a: string, b: string) { const x = versionTuple(a), y = versionTuple(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; }
 // Matches electron-builder's artifactName "Satchel-${version}-${os}-${arch}.${ext}" (os is "win" or "mac").
+// On a Mac the zip archive is used rather than the disk image: the app unpacks it and swaps the bundle in place.
 export function installerName(version: string, platform: string, arch: string) {
-  return platform === 'darwin' ? `Satchel-${version}-mac-${arch}.dmg` : `Satchel-${version}-win-${arch}.exe`;
+  return platform === 'darwin' ? `Satchel-${version}-mac-${arch}.zip` : `Satchel-${version}-win-${arch}.exe`;
 }
 export interface SelectedRelease { version: string; tag: string; filename: string; checksum: string; installerURL: string; checksumURL: string }
 /** The newest release that is newer than `current`, not a draft, allowed by the preview setting, and ships both this platform's package and the checksum file. */
@@ -80,7 +82,7 @@ export const githubClient: ReleaseClient = {
     if (text.length > MAX_RELEASE_LIST) throw new Error('The release list is unexpectedly large');
     return JSON.parse(text);
   },
-  async download(url, file, limit, signal) {
+  async download(url, file, limit, signal, progress) {
     if (!url.startsWith(downloadPrefix)) throw new Error('Refusing to download from outside the project releases');
     const response = await fetch(url, { signal, redirect: 'follow', headers: { 'User-Agent': `Satchel/${appVersion}` } });
     if (!response.ok || !response.body) throw new HttpError(response.status, url);
@@ -89,7 +91,7 @@ export const githubClient: ReleaseClient = {
     const handle = await fs.open(file, 'wx', 0o600);
     let total = 0;
     try {
-      for await (const chunk of response.body as AsyncIterable<Uint8Array>) { total += chunk.length; if (total > limit) throw new Error('The download is larger than allowed'); await handle.write(chunk); }
+      for await (const chunk of response.body as AsyncIterable<Uint8Array>) { total += chunk.length; if (total > limit) throw new Error('The download is larger than allowed'); await handle.write(chunk); progress?.(total, declared); }
       await handle.sync();
     } finally { await handle.close(); }
   }
@@ -136,14 +138,44 @@ export class Updates {
       const base = path.join(this.home, 'updates'); await fs.mkdir(base, { recursive: true });
       this.directory = await fs.mkdtemp(path.join(base, 'download-'));
       await this.run(signal => this.client.download(release.checksumURL, path.join(this.directory, release.checksum), MAX_CHECKSUMS, signal), 60000);
-      await this.run(signal => this.client.download(release.installerURL, path.join(this.directory, release.filename), MAX_INSTALLER, signal), 20 * 60 * 1000);
+      let shown = -1;
+      const progress = (done: number, total: number) => { if (!total) return; const share = Math.min(1, done / total); if (share - shown >= 0.01 || share === 1) { shown = share; this.emit({ progress: share }); } };
+      await this.run(signal => this.client.download(release.installerURL, path.join(this.directory, release.filename), MAX_INSTALLER, signal, progress), 20 * 60 * 1000);
       await verifyInstaller(path.join(this.directory, release.filename), path.join(this.directory, release.checksum), release.filename);
-      return this.emit({ phase: 'ready', message: this.platform === 'darwin' ? 'Download verified. Install opens the disk image; drag Satchel to Applications to replace this version.' : 'Download verified. Install when you are ready.' });
+      return this.emit({ phase: 'ready', progress: undefined, message: this.platform === 'darwin' ? 'Download verified. Install replaces Satchel in place and relaunches it.' : 'Download verified. Install runs the installer and relaunches Satchel.' });
     } catch (error) {
       const base = path.resolve(this.home, 'updates');
       if (this.directory && path.resolve(this.directory).startsWith(base + path.sep)) await fs.rm(this.directory, { recursive: true, force: true }).catch(() => {});
-      this.directory = ''; return this.emit({ phase: 'error', message: describeFailure(error) });
+      this.directory = ''; return this.emit({ phase: 'error', progress: undefined, message: describeFailure(error) });
     } finally { this.busy = false; }
+  }
+  /**
+   * macOS: unpack the verified archive next to the download and swap the fresh bundle in for the running one. The old bundle is parked in the
+   * updates directory, which the next start removes. When the swap is not possible (the app runs from a temporary location, the bundle is not
+   * writable, or a rename fails), everything is put back and the unpacked app is handed over so the person can drag it to Applications.
+   */
+  async replaceBundle(archive: string, bundle: string, tools: { unpack: (archive: string, into: string) => Promise<void>; copy: (from: string, to: string) => Promise<void> }): Promise<{ replaced: boolean; app: string; reason?: string }> {
+    const staging = path.join(path.dirname(archive), 'unpacked');
+    await fs.rm(staging, { recursive: true, force: true }); await fs.mkdir(staging);
+    await tools.unpack(archive, staging);
+    const fresh = path.join(staging, path.basename(bundle));
+    if (!(await fs.stat(path.join(fresh, 'Contents', 'Info.plist')).catch(() => null))?.isFile()) throw new Error('The downloaded package does not contain the app');
+    if (!bundle.endsWith('.app') || /\/AppTranslocation\//.test(bundle) || /^\/Volumes\//.test(bundle)) return { replaced: false, app: fresh, reason: 'Satchel is running from a temporary location rather than Applications' };
+    const incoming = bundle + '.incoming'; const parked = path.join(path.dirname(archive), 'previous');
+    await fs.rm(incoming, { recursive: true, force: true }); await fs.rm(parked, { recursive: true, force: true });
+    try { await fs.rename(fresh, incoming); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EXDEV') return { replaced: false, app: fresh, reason: errorMessage(error) };
+      try { await tools.copy(fresh, incoming); } catch (copyError) { await fs.rm(incoming, { recursive: true, force: true }); return { replaced: false, app: fresh, reason: errorMessage(copyError) }; }
+    }
+    try { await fs.rename(bundle, parked); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EXDEV') { try { await tools.copy(bundle, parked); await fs.rm(bundle, { recursive: true, force: true }); } catch (copyError) { await fs.rename(incoming, fresh).catch(() => {}); return { replaced: false, app: fresh, reason: errorMessage(copyError) }; } }
+      else { await fs.rename(incoming, fresh).catch(() => {}); return { replaced: false, app: fresh, reason: errorMessage(error) }; }
+    }
+    try { await fs.rename(incoming, bundle); }
+    catch (error) { await fs.rename(parked, bundle).catch(() => {}); await fs.rename(incoming, fresh).catch(() => {}); return { replaced: false, app: fresh, reason: errorMessage(error) }; }
+    return { replaced: true, app: bundle };
   }
   async installer() {
     if (this.state.phase !== 'ready' || !this.release || !this.directory) throw new Error('Download and verify an update first');

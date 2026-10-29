@@ -47,7 +47,8 @@ export interface SyncStatus {
   localAddresses: string[]; errors: string[]; engineVersion: string;
 }
 export interface InitialState { settings: Settings; library: LibrarySnapshot; sync: SyncStatus; platform: string; loginEnabled: boolean; runId: string; version: string; /** The Quick drop window was opened as the drawer and should show the pile. */ drawer?: boolean }
-export interface UpdateState { phase: 'idle' | 'checking' | 'available' | 'current' | 'downloading' | 'ready' | 'error' | 'unsupported'; currentVersion: string; availableVersion?: string; message?: string; checkedAt?: number }
+/** `progress` is the share of the package downloaded so far, 0 to 1, while the phase is `downloading` and the size is known. */
+export interface UpdateState { phase: 'idle' | 'checking' | 'available' | 'current' | 'downloading' | 'ready' | 'error' | 'unsupported'; currentVersion: string; availableVersion?: string; message?: string; checkedAt?: number; progress?: number }
 export interface SyncItAPI {
   initial(): Promise<InitialState>;
   list(): Promise<LibrarySnapshot>;
@@ -97,6 +98,8 @@ export interface SyncItAPI {
   checkUpdate(): Promise<UpdateState>;
   downloadUpdate(): Promise<UpdateState>;
   installUpdate(): Promise<void>;
+  /** One click: downloads the offered release if needed, verifies it, saves notes, stops sync and installs. Resolves just before the app quits to relaunch. */
+  updateNow(): Promise<void>;
   releasePage(): Promise<void>;
   phoneInfo(): Promise<PhoneInfo>;
   phoneOffer(): Promise<{ offer: PhoneOffer; encoded: string }>;

@@ -71,7 +71,7 @@ The app does not encrypt files on disk; use your operating system's disk encrypt
 
 ## Updates
 
-**Preferences → App updates** checks this repository's releases, downloads the package and the release's checksum file, verifies the download, and opens the installer only when you ask. Daily checks are opt-in. Details in [docs/UPDATES.md](docs/UPDATES.md).
+A notice at the top of the window, or **Preferences → App updates**, updates in one click: the package and the release's checksum file are downloaded, the download is verified, open notes are saved, and the app installs and relaunches itself. On Windows the installer runs silently; on a Mac the app swaps itself in Applications. Daily checks are opt-in. Details in [docs/UPDATES.md](docs/UPDATES.md).
 
 ## Security
 

@@ -20,7 +20,7 @@ Usage: node syncit.mjs [--profile DIRECTORY] COMMAND [arguments]
   favorite RELATIVE_PATH on|off  Set a local favorite
   settings JSON                 Change validated preferences
   pause | resume                Stop or resume transfers
-  update status|check|download|install  Manage private GitHub updates
+  update status|check|download|install|now  Manage updates from the GitHub releases (now = download, verify and install in one go)
   phone status|pair|cancel|revoke ID    Phone access: paired phones, a pairing URL and code, revocation
   screenshot dashboard|panel    Save a UI screenshot in the app profile
   commands                      List supported API operations
@@ -36,7 +36,7 @@ try {
   for (const candidate of candidates) { try { descriptor = JSON.parse(await readFile(path.join(candidate, 'control.json'), 'utf8')); break; } catch {} }
   if (!descriptor || !Number.isInteger(descriptor.port) || descriptor.port < 1 || descriptor.port > 65535 || !/^[a-f0-9]{64}$/.test(descriptor.token)) throw new Error('No running app control endpoint. Start Satchel 0.2.0 or newer, or specify --profile.');
   let operation = command; let parameters = values;
-  if (command === 'update') { const operations = { status: 'updateState', check: 'checkUpdate', download: 'downloadUpdate', install: 'installUpdate' }; operation = operations[values[0]]; if (!operation) throw new Error('Use update status|check|download|install'); parameters = []; }
+  if (command === 'update') { const operations = { status: 'updateState', check: 'checkUpdate', download: 'downloadUpdate', install: 'installUpdate', now: 'updateNow' }; operation = operations[values[0]]; if (!operation) throw new Error('Use update status|check|download|install'); parameters = []; }
   if (command === 'phone') { const operations = { status: 'phoneInfo', pair: 'phoneOffer', cancel: 'phoneCancelPairing', revoke: 'revokePhone' }; operation = operations[values[0]]; if (!operation) throw new Error('Use phone status|pair|cancel|revoke ID'); parameters = values[0] === 'revoke' ? [values[1]] : []; }
   if (command === 'capture') {
     operation = 'createNote';

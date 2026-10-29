@@ -151,6 +151,7 @@ kbd { font: 11px 'Instrument Sans', sans-serif; color: var(--faint); border: 1px
 .drop-overlay p { font-size: 14px; }
 .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--ink-text); border: 0; z-index: 250; padding: 10px 10px 10px 16px; border-radius: 9px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 12px; font-size: 13.5px; max-width: min(560px, 90vw); width: max-content; }
 .toast .icon-button { color: inherit; opacity: .7; }
+.update-notice:disabled { opacity: .75; cursor: default; }
 .update-notice { position: fixed; bottom: 28px; right: 24px; z-index: 80; background: var(--accent); color: #fff; border: 0; padding: 9px 13px; border-radius: 8px; font-weight: 500; font-size: 13px; box-shadow: var(--shadow); }
 .loading, .fatal { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; padding: 25px; }
 .loading > span { font-size: 13px; color: var(--muted); }

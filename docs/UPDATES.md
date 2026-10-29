@@ -1,16 +1,17 @@
 # Updates
 
-Satchel updates itself from this project's GitHub releases. No account, token or extra tool is involved; the app never installs anything without your click.
+Satchel updates itself from this project's GitHub releases. No account, token or extra tool is involved; nothing is downloaded or installed without your click, and only a download verified against the release's published checksums is ever installed.
 
 ## In the app
 
 Open **Preferences → App updates**:
 
-1. **Check for updates** asks GitHub's public releases API for the newest version that is newer than the installed one and ships a package for this computer: a Windows installer (`Satchel-VERSION-win-ARCH.exe`) or a macOS disk image (`Satchel-VERSION-mac-ARCH.dmg`).
-2. **Download update** fetches the release's `SHA256SUMS-VERSION.txt` first, then the package, both over HTTPS from `github.com/<owner>/<repo>/releases/download/`, and verifies the package against the checksum file.
-3. **Install update → Save notes & install** saves open note editors, stops syncing, verifies the file again, opens it, and quits Satchel. On Windows, finish the normal installer and use its launch option. On a Mac, the disk image opens in Finder: drag Satchel to Applications, replace the existing app, then open it.
+1. **Check for updates** asks GitHub's public releases API for the newest version that is newer than the installed one and ships a package for this computer: a Windows installer (`Satchel-VERSION-win-ARCH.exe`) or a macOS archive (`Satchel-VERSION-mac-ARCH.zip`).
+2. **Update to VERSION**, there or on the notice at the top of the main window, does the rest in one go. It fetches the release's `SHA256SUMS-VERSION.txt` first, then the package, both over HTTPS from `github.com/<owner>/<repo>/releases/download/`, shows the download's progress, verifies the package against the checksum file, saves open note editors, stops syncing, verifies the file again and installs:
+   - On Windows the installer runs silently after Satchel quits, then starts Satchel again from the same place.
+   - On a Mac the archive is unpacked with `ditto`, the fresh bundle is swapped in for the running one, the old bundle is parked in the app's private updates folder until the next start, and Satchel relaunches. If the swap is not possible (Satchel runs from a disk image or another temporary location, or Applications is not writable), nothing is changed, the unpacked app is shown in Finder, and a message says to drag it to Applications.
 
-You can postpone installation and keep working. A download is held only for the current app session; failed downloads are removed immediately, and downloads left by earlier sessions are deleted at the next start. Collection files and preferences stay where they are after updating.
+If a download fails, the notice offers a retry. A download is held only for the current app session; failed downloads are removed immediately, and downloads left by earlier sessions are deleted at the next start. Collection files and preferences stay where they are after updating.
 
 **Check daily for updates** is optional and off by default. When on, the app checks after startup and roughly daily while running. Internet failures never affect LAN sync. **Include preview releases** is also off by default; turn it on to receive releases marked as pre-release on GitHub.
 
@@ -23,9 +24,10 @@ node scripts/syncit.mjs update status
 node scripts/syncit.mjs update check
 node scripts/syncit.mjs update download
 node scripts/syncit.mjs update install
+node scripts/syncit.mjs update now
 ```
 
-`update install` performs the same save, stop, verify and open sequence. It works only in a packaged Windows or macOS app.
+`update install` performs the same save, stop, verify and install sequence on a verified download; `update now` checks, downloads and installs in one go. Both work only in a packaged Windows or macOS app.
 
 ## Publishing a release
 

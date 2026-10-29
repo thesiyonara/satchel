@@ -1,6 +1,8 @@
 import { existsSync } from 'node:fs';
 import { app, BrowserWindow, Menu, Notification, Tray, ipcMain, protocol, nativeImage, clipboard, dialog, shell, globalShortcut, nativeTheme, powerMonitor, screen, session } from 'electron';
 import { randomUUID } from 'node:crypto';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { imageSize } from 'image-size';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -104,6 +106,12 @@ async function start() {
   setTimeout(automaticCheck, 30000).unref();
 }
 async function checkUpdate() { await store.update({ lastUpdateCheck: Date.now() }); return updater.check(store.value.updatePreviews ?? false); }
+/** One click from the notice or Preferences: check if nothing is offered yet, download and verify, then install. */
+async function updateNow() {
+  if (!updater.state.availableVersion) { const checked = await checkUpdate(); if (checked.phase !== 'available') throw new Error(checked.message || 'You have the newest release.'); }
+  if (updater.state.phase !== 'ready') { const state = await updater.download(); if (state.phase !== 'ready') throw new Error(state.message || 'The download failed.'); }
+  await installUpdate();
+}
 async function pruneThumbnails() {
   const cache = path.join(app.getPath('userData'), 'thumbnails'); const cutoff = Date.now() - 30 * 86400 * 1000;
   for (const name of await fs.readdir(cache).catch(() => [] as string[])) {
@@ -135,11 +143,20 @@ async function installUpdate() {
     await prepareEditors();
     await engine.stop();
     const file = await updater.installer();
-    // Windows: the normal interactive NSIS installer handles replacement and offers launch.
-    // macOS: the verified disk image is mounted and opened; the user drags Satchel to Applications.
-    // Do not silently install or bypass the OS's unsigned-publisher warning.
-    const error = await shell.openPath(file); if (error) throw new Error(error);
-    quitting = true; setTimeout(() => app.quit(), 250);
+    // Only the download verified a moment ago against the release's published checksums is ever installed, and only on a click.
+    if (process.platform === 'darwin') {
+      // The archive is unpacked with ditto, which keeps the bundle's links, permissions and signature, and swapped in for the running bundle; Satchel then relaunches itself.
+      const bundle = path.resolve(app.getPath('exe'), '..', '..', '..');
+      const ditto = promisify(execFile);
+      const outcome = await updater.replaceBundle(file, bundle, { unpack: async (archive, into) => { await ditto('/usr/bin/ditto', ['-x', '-k', archive, into]); }, copy: async (from, to) => { await ditto('/usr/bin/ditto', [from, to]); } });
+      if (!outcome.replaced) { shell.showItemInFolder(outcome.app); throw new Error(`Satchel could not replace itself: ${outcome.reason}. Drag the new Satchel from the folder that just opened to Applications, then open it.`); }
+      quitting = true; app.relaunch(); setTimeout(() => app.quit(), 250);
+    } else {
+      // The installer runs silently once this process has quit, then starts Satchel again from the same place. The download carries no mark of the web, so no SmartScreen prompt interrupts it.
+      const script = `ping -n 3 127.0.0.1 >nul & start "" /wait "${file}" /S & start "" "${process.execPath}"`;
+      spawn('cmd.exe', ['/d', '/s', '/c', `"${script}"`], { detached: true, stdio: 'ignore', windowsHide: true, windowsVerbatimArguments: true }).unref();
+      quitting = true; setTimeout(() => app.quit(), 250);
+    }
   } catch (error) {
     preparingUpdate = false; windows().forEach(window => window.webContents.send('syncit:prepare-update', '', false));
     void engine.retry().catch(() => {}); throw error;
@@ -387,7 +404,7 @@ function setupIPC() {
   bind('initial', async () => ({ settings: store.value, library: await librarySnapshot(), sync: engine.status, platform: process.platform, runId, version: app.getVersion(), drawer: drawerOpen, loginEnabled: !testing && app.getLoginItemSettings({ args: ['--background'] }).openAtLogin }));
   bind('list', () => librarySnapshot());
   bind('openDrawer', () => { showDrawer(); });
-  bind('updateState', () => updater.state); bind('checkUpdate', checkUpdate); bind('downloadUpdate', () => updater.download()); bind('installUpdate', installUpdate);
+  bind('updateState', () => updater.state); bind('checkUpdate', checkUpdate); bind('downloadUpdate', () => updater.download()); bind('installUpdate', installUpdate); bind('updateNow', updateNow);
   bind('releasePage', async () => { await shell.openExternal(releasesURL); });
   bind('phoneInfo', async () => ({ enabled: !!store.value.phoneAccess, running: companion.running, port: companion.port, fingerprint: companion.fingerprint, addresses: localNetworks(testing).addresses, devices: await companion.devices(), pairing: companion.pairingActive }));
   bind('phoneOffer', async () => { if (!store.value.phoneAccess) throw new Error('Turn on phone access first'); await companion.start(); return companion.offer(); });

@@ -94,3 +94,7 @@ Everything browses one level at a time; the UI suite moves every item into a fol
 ## Pasteboard
 
 The pasteboard is `.syncit/pasteboard.txt` in the collection: synced like the pinboard placements, never listed, replaced whole on every save and read back with each snapshot. The UI suite types into it, reads it back through `list()`, and clears it. `npm run test:pair` types on the laptop instance and waits for the same text to appear in the desk instance's open pasteboard without a reload (screenshot `test-results/pair-pasteboard.png`). A unit test covers the empty state, the 1 MB limit and that the file never appears as an item.
+
+## One-click updates
+
+`npm test` covers the Mac bundle swap with a stand-in for `ditto`: the fresh bundle replaces the running one and the old bundle is parked under the updates folder; a bundle running from a translocated path is left alone and the unpacked app handed back; a swap that cannot move the running bundle aside puts the unpacked app back and changes nothing. The Mac release selection now picks the zip archive. The real swap, relaunch and the silent Windows installer run only in packaged builds and were not exercised on this host; the first Mac update to a build with this change still goes through the disk image, and the one after it uses the new path.

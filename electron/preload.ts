@@ -19,7 +19,7 @@ const api: SyncItAPI = {
   revoke: id => invoke('revoke', id), openRecovery: () => invoke('openRecovery'),
   showPanel: () => invoke('showPanel'), showDashboard: () => invoke('showDashboard'), openVersions: () => invoke('openVersions'),
   panel: action => invoke('panel', action), favorite: (path, enabled) => invoke('favorite', path, enabled),
-  updateState: () => invoke('updateState'), checkUpdate: () => invoke('checkUpdate'), downloadUpdate: () => invoke('downloadUpdate'), installUpdate: () => invoke('installUpdate'), releasePage: () => invoke('releasePage'),
+  updateState: () => invoke('updateState'), checkUpdate: () => invoke('checkUpdate'), downloadUpdate: () => invoke('downloadUpdate'), installUpdate: () => invoke('installUpdate'), updateNow: () => invoke('updateNow'), releasePage: () => invoke('releasePage'),
   phoneInfo: () => invoke('phoneInfo'), phoneOffer: () => invoke('phoneOffer'), phoneCancelPairing: () => invoke('phoneCancelPairing'), revokePhone: id => invoke('revokePhone', id),
   onUpdate: callback => listen('syncit:update', callback),
   onPrepareUpdate: callback => {
