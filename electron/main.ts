@@ -48,7 +48,7 @@ const devURL = !app.isPackaged ? process.env.SYNCIT_DEV_URL : undefined;
 const assets = app.isPackaged ? path.join(process.resourcesPath, 'assets') : path.join(app.getAppPath(), 'assets');
 const dist = path.join(app.getAppPath(), 'dist');
 let mainWindow: BrowserWindow | undefined;
-let panelWindow: BrowserWindow | undefined;
+let drawerWindow: BrowserWindow | undefined;
 let drawerTimer: ReturnType<typeof setInterval> | undefined;
 let drawerOpen = false;
 let currentSender: Electron.WebContents | undefined;
@@ -60,7 +60,7 @@ let engine: SyncEngine;
 let store: SettingsStore;
 let scanTimer: ReturnType<typeof setTimeout>;
 let registeredShortcut = '';
-const windows = () => [mainWindow, panelWindow, ...handles()].filter((window): window is BrowserWindow => !!window && !window.isDestroyed());
+const windows = () => [mainWindow, drawerWindow, ...handles()].filter((window): window is BrowserWindow => !!window && !window.isDestroyed());
 const updateActivity = () => engine?.setActive(windows().some(window => window.isVisible() && !window.isMinimized()));
 const broadcast = (channel: string, value?: unknown) => windows().forEach(window => window.webContents.send(channel, value));
 
@@ -118,7 +118,8 @@ async function start() {
   session.defaultSession.webRequest.onBeforeRequest((details, callback) => callback({ cancel: !rendererRequestAllowed(details.url, devURL) }));
   session.defaultSession.setPermissionCheckHandler(() => false);
   try { registerShortcut(store.value.shortcut); } catch { /* Preferences can choose a shortcut that is not in use. */ }
-  mainWindow = createWindow(false);
+  await loadWindowState();
+  mainWindow = createWindow('main');
   setupTray(); placeHandle();
   screen.on('display-metrics-changed', () => placeHandle()); screen.on('display-added', () => placeHandle()); screen.on('display-removed', () => placeHandle());
   stopControl = await startControl(app.getPath('userData'), operations);
@@ -235,12 +236,53 @@ function setupProtocols() {
     } catch { return new Response('Preview unavailable', { status: 404 }); }
   });
 }
-function createWindow(panel: boolean) {
-  const stateFile = path.join(app.getPath('userData'), panel ? 'panel-window.json' : 'main-window.json');
-  const mini = panel && store.value.panelMode === 'mini';
-  const window = new BrowserWindow({ width: panel ? 360 : 1240, height: panel ? (mini ? 230 : 570) : 820, minWidth: panel ? 320 : 860, minHeight: panel ? (mini ? 210 : 460) : 600, show: false, frame: !panel,
-    title: panel ? 'Satchel · Quick drop' : 'Satchel', backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1116' : '#f8f9f6',
-    icon: path.join(assets, 'icon.png'), autoHideMenuBar: true, alwaysOnTop: panel && store.value.alwaysOnTop,
+type Shape = 'dashboard' | 'quick' | 'mini';
+const SMALL = { width: 360, height: 570 }; const MINI_HEIGHT = 230; const LARGE = { width: 1240, height: 820 }; const MIN = { width: 320, height: 210 };
+/** One window, three shapes by size: under 560 px wide it is Quick drop, and under 330 px tall the minimal window. The renderer uses the same thresholds. */
+function shapeOf(bounds: { width: number; height: number }): Shape { return bounds.width < 560 ? (bounds.height < 330 ? 'mini' : 'quick') : 'dashboard'; }
+/** The last bounds of each shape, kept per profile, so shrinking and expanding land where they were left. */
+let windowState: Partial<Record<Shape, Electron.Rectangle>> = {};
+let currentShape: Shape = 'dashboard';
+const stateFile = () => path.join(app.getPath('userData'), 'main-window.json');
+const isRectangle = (value: unknown): value is Electron.Rectangle => !!value && typeof value === 'object' && ['x', 'y', 'width', 'height'].every(key => Number.isFinite((value as Record<string, unknown>)[key]));
+function onScreen(bounds: Electron.Rectangle) { return screen.getAllDisplays().some(display => bounds.x >= display.workArea.x - 20 && bounds.y >= display.workArea.y - 20 && bounds.x < display.workArea.x + display.workArea.width - 80 && bounds.y < display.workArea.y + display.workArea.height - 80); }
+async function loadWindowState() {
+  try {
+    const saved = JSON.parse(await fs.readFile(stateFile(), 'utf8'));
+    for (const shape of ['dashboard', 'quick', 'mini'] as Shape[]) if (isRectangle(saved[shape]) && onScreen(saved[shape])) windowState[shape] = saved[shape];
+    if (isRectangle(saved) && onScreen(saved) && !windowState.dashboard) windowState.dashboard = saved; // An older file held the dashboard's bounds alone.
+  } catch { /* first start */ }
+}
+/** Keeps bounds inside the display they are on. */
+function fit(bounds: Electron.Rectangle): Electron.Rectangle {
+  const area = screen.getDisplayMatching(bounds).workArea;
+  const width = Math.max(MIN.width, Math.min(bounds.width, area.width)); const height = Math.max(MIN.height, Math.min(bounds.height, area.height));
+  return { width, height, x: Math.round(Math.min(Math.max(bounds.x, area.x), area.x + area.width - width)), y: Math.round(Math.min(Math.max(bounds.y, area.y), area.y + area.height - height)) };
+}
+/** Where a shape goes when nothing is remembered: the dashboard centred, Quick drop in the lower right corner of the display with the pointer. */
+function defaultBounds(shape: Shape): Electron.Rectangle {
+  const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  if (shape === 'dashboard') { const width = Math.min(LARGE.width, area.width); const height = Math.min(LARGE.height, area.height); return { width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - height) / 2) }; }
+  const height = shape === 'mini' ? MINI_HEIGHT : SMALL.height;
+  return { width: SMALL.width, height, x: area.x + area.width - SMALL.width - 16, y: area.y + area.height - height - 16 };
+}
+/** The small shapes keep on top and the chosen opacity; the dashboard never does. Crossing a threshold by dragging an edge counts as choosing that shape. */
+function applyShape(window: BrowserWindow) {
+  if (window.isDestroyed()) return;
+  const shape = shapeOf(window.getBounds());
+  if (shape === currentShape) return;
+  currentShape = shape;
+  const small = shape !== 'dashboard';
+  window.setAlwaysOnTop(small && store.value.alwaysOnTop);
+  window.setOpacity(small ? store.value.panelOpacity ?? 1 : 1);
+  if (small && store.value.panelMode !== shape) void store.update({ panelMode: shape }).then(() => broadcast('syncit:settings', store.value)).catch(() => {});
+}
+function createWindow(kind: 'main' | 'drawer') {
+  const drawer = kind === 'drawer';
+  const mac = process.platform === 'darwin' && !drawer;
+  const window = new BrowserWindow({ ...(drawer ? SMALL : LARGE), minWidth: MIN.width, minHeight: MIN.height, show: false, frame: mac, ...(mac ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 12, y: 11 } } : {}),
+    title: drawer ? 'Satchel drawer' : 'Satchel', backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1116' : '#f8f9f6',
+    icon: path.join(assets, 'icon.png'), autoHideMenuBar: true, alwaysOnTop: drawer, skipTaskbar: drawer, resizable: !drawer,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, devTools: !app.isPackaged } });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
@@ -249,32 +291,50 @@ function createWindow(panel: boolean) {
   window.webContents.on('will-attach-webview', event => event.preventDefault());
   window.on('close', event => { if (!quitting) { event.preventDefault(); window.hide(); } });
   for (const event of ['show', 'hide', 'minimize', 'restore'] as const) window.on(event as 'show', updateActivity);
-  if (panel) {
-    window.setOpacity(store.value.panelOpacity ?? 1);
-    window.on('blur', () => { if (store.value.panelAutoHide) window.hide(); });
+  if (drawer) {
     window.on('show', () => { for (const handle of handles()) handle.hide(); });
-    window.on('hide', () => { clearInterval(drawerTimer); drawerOpen = false; if (!window.isDestroyed()) window.webContents.send('syncit:drawer', false); for (const handle of handles()) handle.showInactive(); });
+    window.on('hide', () => { clearInterval(drawerTimer); drawerOpen = false; for (const handle of handles()) handle.showInactive(); });
+  } else {
+    let boundsTimer: ReturnType<typeof setTimeout>;
+    const remember = () => { clearTimeout(boundsTimer); boundsTimer = setTimeout(() => { if (window.isDestroyed() || window.isMinimized() || window.isMaximized()) return; const bounds = window.getBounds(); windowState[shapeOf(bounds)] = bounds; void atomicWrite(stateFile(), JSON.stringify(windowState)).catch(() => {}); }, 400); };
+    window.on('resize', () => { applyShape(window); remember(); }); window.on('move', remember);
+    window.on('blur', () => { if (currentShape !== 'dashboard' && store.value.panelAutoHide && !window.isDestroyed()) window.hide(); });
+    window.setBounds(fit(windowState.dashboard ?? defaultBounds('dashboard')));
   }
-  let boundsTimer: ReturnType<typeof setTimeout>;
-  window.on('resize', persistBounds); window.on('move', persistBounds);
-  function persistBounds() { clearTimeout(boundsTimer); boundsTimer = setTimeout(() => { if (!window.isDestroyed()) void atomicWrite(stateFile, JSON.stringify(window.getBounds())).catch(() => {}); }, 500); }
-  void fs.readFile(stateFile, 'utf8').then(content => {
-    const saved = JSON.parse(content);
-    if (!panel && Number.isFinite(saved.width) && Number.isFinite(saved.height)) window.setSize(Math.max(860, Math.min(2400, saved.width)), Math.max(600, Math.min(1600, saved.height)));
-    if (Number.isFinite(saved.x) && Number.isFinite(saved.y) && screen.getAllDisplays().some(display => saved.x >= display.workArea.x && saved.y >= display.workArea.y && saved.x < display.workArea.x + display.workArea.width - 80 && saved.y < display.workArea.y + display.workArea.height - 80)) window.setPosition(saved.x, saved.y);
-  }).catch(() => {});
-  void window.loadURL(devURL ? `${devURL}/?panel=${panel ? '1' : '0'}` : `syncit-app://app/index.html?panel=${panel ? '1' : '0'}`);
-  // Panel visibility is owned by showPanel/hide; delayed load must not reopen a
-  // panel that a CLI command or blur handler has already hidden.
-  window.once('ready-to-show', () => { if (!panel && (!process.argv.includes('--background') || !store.value.onboardingDone)) window.show(); });
+  void window.loadURL(devURL ? `${devURL}/?drawer=${drawer ? '1' : '0'}` : `syncit-app://app/index.html?drawer=${drawer ? '1' : '0'}`);
+  if (!drawer) window.once('ready-to-show', () => { if (!process.argv.includes('--background') || !store.value.onboardingDone) window.show(); });
   return window;
 }
-function showDashboard() { if (!mainWindow || mainWindow.isDestroyed()) mainWindow = createWindow(false); if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); }
+function ensureMain() { if (!mainWindow || mainWindow.isDestroyed()) mainWindow = createWindow('main'); return mainWindow; }
+/** Gives the window a shape: the bounds it last had in that shape, or a default place, then shows it. Quick drop and the minimal window keep each other's position. */
+function setShape(shape: Shape) {
+  const window = ensureMain();
+  if (window.isMinimized()) window.restore();
+  const current = shapeOf(window.getBounds());
+  if (current !== shape && !(shape === 'dashboard' && window.isMaximized())) {
+    if (window.isMaximized()) window.unmaximize();
+    const bounds = window.getBounds();
+    const target = current !== 'dashboard' && shape !== 'dashboard' ? { ...bounds, height: windowState[shape]?.height ?? (shape === 'mini' ? MINI_HEIGHT : SMALL.height) } : windowState[shape] ?? defaultBounds(shape);
+    window.setBounds(fit(target));
+  }
+  applyShape(window);
+  if (drawerWindow && !drawerWindow.isDestroyed() && drawerWindow.isVisible()) drawerWindow.hide(); // the drawer hands over to the window
+  window.show(); window.focus();
+}
+function showDashboard() { setShape('dashboard'); }
+function showPanel() { setShape(store.value.panelMode === 'mini' ? 'mini' : 'quick'); }
+function windowControl(action: string) {
+  const window = mainWindow; if (!window || window.isDestroyed()) return;
+  if (action === 'minimize') window.minimize();
+  else if (action === 'maximize') { if (window.isMaximized()) window.unmaximize(); else window.maximize(); }
+  else if (action === 'close') window.hide();
+  else throw new Error('Invalid window action');
+}
 const HANDLE = { width: 14, height: 180 };
 const handleWindows = new Map<number, BrowserWindow>();
 const handles = () => [...handleWindows.values()].filter(window => !window.isDestroyed());
 function createHandle(): BrowserWindow {
-  const window = new BrowserWindow({ width: HANDLE.width, height: HANDLE.height, show: false, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false, focusable: false, skipTaskbar: true, hasShadow: false, alwaysOnTop: true, title: 'Satchel drawer',
+  const window = new BrowserWindow({ width: HANDLE.width, height: HANDLE.height, show: false, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false, focusable: false, skipTaskbar: true, hasShadow: false, alwaysOnTop: true, title: 'Satchel handle',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, devTools: !app.isPackaged } });
   window.setAlwaysOnTop(true, 'screen-saver');
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -282,7 +342,7 @@ function createHandle(): BrowserWindow {
   window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   window.on('close', event => { if (!quitting) event.preventDefault(); });
   void window.loadURL(devURL ? `${devURL}/?handle=1` : 'syncit-app://app/index.html?handle=1');
-  window.once('ready-to-show', () => { if (!window.isDestroyed() && !panelWindow?.isVisible()) window.showInactive(); });
+  window.once('ready-to-show', () => { if (!window.isDestroyed() && !drawerWindow?.isVisible()) window.showInactive(); });
   return window;
 }
 // A thin handle at the chosen edge of every display. Hovering it, or dragging a file onto it, slides the drawer out.
@@ -297,51 +357,53 @@ function placeHandle() {
     window.setBounds({ x: edge === 'left' ? area.x : area.x + area.width - HANDLE.width, y: Math.round(area.y + (area.height - HANDLE.height) / 2), width: HANDLE.width, height: HANDLE.height });
   }
 }
-// The drawer: the Quick drop window shown flush against the handle's edge as a pile of recent items. It closes by itself
+// The drawer: its own small window shown flush against the handle's edge as a pile of recent items. It closes by itself
 // once the pointer has left it, unless the user has clicked into it.
 function showDrawer() {
   const edge = store.value.drawerEdge === 'left' ? 'left' : 'right';
-  if (!panelWindow || panelWindow.isDestroyed()) panelWindow = createWindow(true);
+  if (!drawerWindow || drawerWindow.isDestroyed()) drawerWindow = createWindow('drawer');
   const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
-  const [width, height] = panelWindow.getSize();
-  panelWindow.setPosition(edge === 'left' ? area.x : area.x + area.width - width, Math.round(area.y + (area.height - height) / 2));
+  const [width, height] = drawerWindow.getSize();
+  drawerWindow.setPosition(edge === 'left' ? area.x : area.x + area.width - width, Math.round(area.y + (area.height - height) / 2));
   drawerOpen = true;
-  panelWindow.webContents.send('syncit:drawer', true);
-  panelWindow.showInactive();
+  drawerWindow.showInactive();
   for (const handle of handles()) handle.hide();
   clearInterval(drawerTimer);
   // The drawer closes 1.5 s after the pointer leaves it. Opened from the palette or the CLI, the pointer may not be
   // in it yet: it then stays up to 12 s for the pointer to arrive before closing.
   let outside = 0, entered = false, ticks = 0;
   drawerTimer = setInterval(() => {
-    if (!panelWindow || panelWindow.isDestroyed() || !panelWindow.isVisible()) { clearInterval(drawerTimer); return; }
-    const point = screen.getCursorScreenPoint(); const bounds = panelWindow.getBounds();
+    if (!drawerWindow || drawerWindow.isDestroyed() || !drawerWindow.isVisible()) { clearInterval(drawerTimer); return; }
+    const point = screen.getCursorScreenPoint(); const bounds = drawerWindow.getBounds();
     const inside = point.x >= bounds.x - 12 && point.x <= bounds.x + bounds.width + 12 && point.y >= bounds.y - 12 && point.y <= bounds.y + bounds.height + 12;
     if (inside) entered = true;
     outside = inside ? 0 : outside + 1; ticks++;
-    if (panelWindow.isFocused()) return;
-    if ((entered && outside >= 5) || (!entered && ticks >= 40)) { clearInterval(drawerTimer); panelWindow.hide(); }
+    if (drawerWindow.isFocused()) return;
+    if ((entered && outside >= 5) || (!entered && ticks >= 40)) { clearInterval(drawerTimer); drawerWindow.hide(); }
   }, 300);
 }
-function showPanel() { if (!panelWindow || panelWindow.isDestroyed()) panelWindow = createWindow(true); panelWindow.show(); panelWindow.focus(); }
+/** Keep on top and opacity apply to the small shapes only; a changed window size preference reshapes a small window. */
 function applyPanelPreferences(resize = false) {
-  if (!panelWindow || panelWindow.isDestroyed()) return;
-  panelWindow.setAlwaysOnTop(store.value.alwaysOnTop);
-  panelWindow.setOpacity(store.value.panelOpacity ?? 1);
-  if (resize) { const mini = store.value.panelMode === 'mini'; panelWindow.setMinimumSize(320, mini ? 210 : 460); panelWindow.setSize(360, mini ? 230 : 570); }
+  const window = mainWindow;
+  if (!window || window.isDestroyed() || currentShape === 'dashboard') return;
+  window.setAlwaysOnTop(store.value.alwaysOnTop);
+  window.setOpacity(store.value.panelOpacity ?? 1);
+  if (resize && store.value.panelMode && store.value.panelMode !== currentShape) setShape(store.value.panelMode);
 }
 function panelAction(action: string) {
   if (!['hide', 'left', 'right'].includes(action)) throw new Error('Invalid panel action');
-  if (action === 'hide') { panelWindow?.hide(); return; }
+  if (action === 'hide') { if (currentSender && drawerWindow && !drawerWindow.isDestroyed() && currentSender === drawerWindow.webContents) drawerWindow.hide(); else mainWindow?.hide(); return; }
   showPanel();
-  const area = screen.getDisplayMatching(panelWindow!.getBounds()).workArea;
-  const [width, height] = panelWindow!.getSize();
-  panelWindow!.setPosition(action === 'left' ? area.x + 16 : area.x + area.width - width - 16, Math.max(area.y, area.y + area.height - height - 16));
+  const window = mainWindow!;
+  const area = screen.getDisplayMatching(window.getBounds()).workArea;
+  const [width, height] = window.getSize();
+  window.setPosition(action === 'left' ? area.x + 16 : area.x + area.width - width - 16, Math.max(area.y, area.y + area.height - height - 16));
 }
 function registerShortcut(accelerator: string) {
   if (testing) return;
   if (accelerator === registeredShortcut) return;
-  if (!globalShortcut.register(accelerator, () => panelWindow?.isVisible() ? panelWindow.hide() : showPanel())) throw new Error('That shortcut is already in use. Choose a different shortcut.');
+  // The shortcut: hidden, the window comes up as Quick drop; open large, it shrinks to Quick drop; open small, it goes away.
+  if (!globalShortcut.register(accelerator, () => { const window = mainWindow; if (window && !window.isDestroyed() && window.isVisible() && !window.isMinimized() && currentShape !== 'dashboard') window.hide(); else showPanel(); })) throw new Error('That shortcut is already in use. Choose a different shortcut.');
   if (registeredShortcut) globalShortcut.unregister(registeredShortcut);
   registeredShortcut = accelerator;
 }
@@ -408,17 +470,18 @@ function setupIPC() {
     try { return await guarded(...args); } catch (error) { throw new Error(errorMessage(error)); }
   }); };
   operations.set('commands', () => [...operations.keys()].sort());
-  operations.set('status', () => ({ version: app.getVersion(), notification: lastNotification, sync: engine.status, windows: windows().map(window => ({ name: window === panelWindow ? 'panel' : handles().includes(window) ? 'handle' : 'dashboard', visible: window.isVisible(), bounds: window.getBounds(), alwaysOnTop: window.isAlwaysOnTop(), opacity: window.getOpacity() })), panelMode: store.value.panelMode ?? 'quick' }));
+  operations.set('status', () => ({ version: app.getVersion(), notification: lastNotification, sync: engine.status, windows: windows().map(window => ({ name: window === drawerWindow ? 'drawer' : handles().includes(window) ? 'handle' : 'dashboard', shape: window === mainWindow ? shapeOf(window.getBounds()) : undefined, visible: window.isVisible(), bounds: window.getBounds(), alwaysOnTop: window.isAlwaysOnTop(), opacity: window.getOpacity() })), panelMode: store.value.panelMode ?? 'quick' }));
   operations.set('window', async (mode: string) => {
     if (mode === 'dashboard') showDashboard();
     else if (mode === 'drawer') showDrawer();
     else if (mode === 'quick' || mode === 'mini') { await operations.get('settings')!({ panelMode: mode }); showPanel(); }
+    else if (['minimize', 'maximize', 'close'].includes(mode)) windowControl(mode);
     else panelAction(mode);
     return operations.get('status')!();
   });
   operations.set('screenshot', async (target: string) => {
-    if (!['dashboard', 'panel'].includes(target)) throw new Error('Choose dashboard or panel');
-    const window = target === 'panel' ? panelWindow : mainWindow;
+    if (!['dashboard', 'panel', 'drawer'].includes(target)) throw new Error('Choose dashboard, panel or drawer');
+    const window = target === 'drawer' ? drawerWindow : mainWindow; // panel is the same window as the dashboard, in whatever shape it has
     if (!window || window.isDestroyed()) throw new Error('Open the requested window first');
     const file = path.join(app.getPath('userData'), 'captures', `${target}-${Date.now()}.png`);
     await fs.mkdir(path.dirname(file), { recursive: true });
@@ -565,7 +628,7 @@ function setupIPC() {
   bind('connect', (id: string, address?: string, options?: unknown) => engine.connect(id, address, options));
   bind('approve', (id: string, options?: unknown) => engine.approve(id, options)); bind('reject', (id: string) => engine.reject(id));
   bind('revoke', (id: string) => engine.revoke(id));
-  bind('retrySync', () => engine.retry()); bind('showPanel', showPanel); bind('showDashboard', showDashboard);
+  bind('retrySync', () => engine.retry()); bind('showPanel', showPanel); bind('showDashboard', showDashboard); bind('windowControl', (action: string) => windowControl(action));
   bind('openVersions', async () => {
     const dir = await contained(library.root, '.stversions', true);
     await fs.mkdir(dir, { recursive: true });

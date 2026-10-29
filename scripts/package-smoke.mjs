@@ -46,11 +46,11 @@ try {
   await cli('window', 'mini');
   const status = await cli('status');
   assert.equal(status.panelMode, 'mini');
-  const height = status.windows.find(window => window.name === 'panel').bounds.height;
+  const height = status.windows.find(window => window.name === 'dashboard').bounds.height; // one window: mini is its small shape
   assert.ok(height >= 210 && height <= 250, 'Minimal size must tolerate native DPI rounding');
   await cli('window', 'hide');
   await new Promise(resolve => setTimeout(resolve, 600));
-  assert.equal((await cli('status')).windows.find(window => window.name === 'panel').visible, false);
+  assert.equal((await cli('status')).windows.find(window => window.name === 'dashboard').visible, false);
   await cli('call', 'quit', '[]');
   // Engine shutdown can include a 6s API timeout plus its bounded process-exit grace period.
   for (let attempt = 0; child.exitCode === null && child.signalCode === null && attempt < 200; attempt++) await new Promise(resolve => setTimeout(resolve, 100));

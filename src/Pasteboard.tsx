@@ -39,8 +39,11 @@ export function liveStatus(state: 'synced' | 'typing' | 'saving', board: Pastebo
  * The pasteboard column on the right of the main window: the shared text area with the texts it replaced listed under it.
  * The column folds to a tab on the edge, its left edge drags to change its width, and both are remembered per computer.
  */
-export function Pasteboard({ board, notify, since, peers, hidden }: { board?: PasteboardState; notify: (message: string) => void; since: (time: number) => string; peers: string[]; hidden?: boolean }) {
+export function Pasteboard({ board, notify, since, peers, hidden, compact }: { board?: PasteboardState; notify: (message: string) => void; since: (time: number) => string; peers: string[]; hidden?: boolean; compact?: boolean }) {
   const [open, setOpen] = useState(() => { try { return localStorage.getItem(OPEN_KEY) !== '0'; } catch { return true; } });
+  // In a window too narrow for the column, it stays a tab and opens over the grid for a moment instead; that choice is not remembered.
+  const [peek, setPeek] = useState(false);
+  const shown = compact ? peek : open;
   const [width, setWidth] = useState(() => { try { return clampWidth(Number(localStorage.getItem(WIDTH_KEY)) || DEFAULT_WIDTH); } catch { return DEFAULT_WIDTH; } });
   const [resizing, setResizing] = useState(false);
   const gesture = useRef<{ x: number; width: number } | null>(null);
@@ -49,9 +52,9 @@ export function Pasteboard({ board, notify, since, peers, hidden }: { board?: Pa
   const moveResize = (event: React.PointerEvent) => { if (gesture.current) resize(gesture.current.width + gesture.current.x - event.clientX); };
   const endResize = () => { if (gesture.current) { gesture.current = null; setResizing(false); resize(width, true); } };
   // While the column is open, every change counts as seen; folded, the tab shows a dot for a change that arrived since.
-  useEffect(() => { if (open && board?.updatedAt) { try { localStorage.setItem(SEEN_KEY, String(board.updatedAt)); } catch { /* per-computer convenience only */ } } }, [open, board?.updatedAt]);
+  useEffect(() => { if (shown && board?.updatedAt) { try { localStorage.setItem(SEEN_KEY, String(board.updatedAt)); } catch { /* per-computer convenience only */ } } }, [shown, board?.updatedAt]);
   let seenAt = 0; try { seenAt = Number(localStorage.getItem(SEEN_KEY) || 0); } catch { /* per-computer convenience only */ }
-  const unseen = !open && (board?.updatedAt ?? 0) > seenAt;
+  const unseen = !shown && (board?.updatedAt ?? 0) > seenAt;
   const live = useLiveText(board, notify);
   const area = useRef<HTMLTextAreaElement>(null);
   // The command palette opens the column and puts the cursor in the text.
@@ -59,14 +62,15 @@ export function Pasteboard({ board, notify, since, peers, hidden }: { board?: Pa
     const show = () => { toggle(true); setTimeout(() => area.current?.focus(), 50); };
     window.addEventListener('syncit:pasteboard', show); return () => window.removeEventListener('syncit:pasteboard', show);
   }, []);
-  const toggle = (next: boolean) => { setOpen(next); try { localStorage.setItem(OPEN_KEY, next ? '1' : '0'); } catch { /* per-computer convenience only */ } };
+  const toggle = (next: boolean) => { if (compact) { setPeek(next); return; } setOpen(next); try { localStorage.setItem(OPEN_KEY, next ? '1' : '0'); } catch { /* per-computer convenience only */ } };
+  useEffect(() => { if (!compact) setPeek(false); }, [compact]);
   const copy = async (value: string, what: string) => { try { await navigator.clipboard.writeText(value); notify(`${what} copied.`); } catch { notify('The clipboard is unavailable.'); } };
   const use = async (clip: PasteboardClip) => { try { await window.syncit.removeClip(clip.id); } catch (error) { notify(String(error)); return; } live.replace(clip.text); area.current?.focus(); };
   const remove = async (clip?: PasteboardClip) => { try { await window.syncit.removeClip(clip?.id); } catch (error) { notify(String(error)); } };
   const recent = board?.recent ?? [];
   if (hidden) return null;
-  if (!open) return <aside className="pasteboard closed" aria-label="Pasteboard"><button className="pasteboard-tab" aria-label={unseen ? 'Show pasteboard, changed since you folded it' : 'Show pasteboard'} title={unseen ? 'The pasteboard changed since you folded it' : 'Show the pasteboard'} onClick={() => toggle(true)}><span>Pasteboard</span>{unseen && <i className="unseen" />}</button></aside>;
-  return <aside className={`pasteboard ${resizing ? 'resizing' : ''}`} aria-label="Pasteboard" style={{ width }}>
+  if (!shown) return <aside className="pasteboard closed" aria-label="Pasteboard"><button className="pasteboard-tab" aria-label={unseen ? 'Show pasteboard, changed since you folded it' : 'Show pasteboard'} title={unseen ? 'The pasteboard changed since you folded it' : 'Show the pasteboard'} onClick={() => toggle(true)}><span>Pasteboard</span>{unseen && <i className="unseen" />}</button></aside>;
+  return <>{compact && <div className="pasteboard-backdrop" onClick={() => setPeek(false)} />}<aside className={`pasteboard ${resizing ? 'resizing' : ''} ${compact ? 'overlay' : ''}`} aria-label="Pasteboard" style={{ width }}>
     <div className="pasteboard-resizer" role="separator" aria-orientation="vertical" aria-label="Pasteboard width" aria-valuenow={width} aria-valuemin={260} aria-valuemax={640} tabIndex={0} title="Drag to resize · double-click to reset"
       onPointerDown={startResize} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize} onDoubleClick={() => resize(DEFAULT_WIDTH, true)}
       onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); resize(width + (event.key === 'ArrowLeft' ? 20 : -20), true); } }} />
@@ -81,5 +85,5 @@ export function Pasteboard({ board, notify, since, peers, hidden }: { board?: Pa
         <div className="clip-tools"><button className="icon-button" aria-label={`Copy ${label(clip)}`} title="Copy" onClick={() => void copy(clip.text, 'Text')}><ClipboardCopy size={14} /></button><button className="icon-button" aria-label={`Put ${label(clip)} on the board`} title="Put it back on the board" onClick={() => void use(clip)}><ArrowUpToLine size={14} /></button><button className="icon-button" aria-label={`Remove ${label(clip)}`} title="Remove" onClick={() => void remove(clip)}><X size={14} /></button></div>
       </div>)}
     </div>
-  </aside>;
+  </aside></>;
 }

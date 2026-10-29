@@ -58,7 +58,6 @@ export interface SyncItAPI {
   importFiles(paths: string[], into?: string): Promise<void>;
   dragOut(paths: string | string[]): Promise<{ files: string[] }>;
   openDrawer(): Promise<void>;
-  onDrawer(callback: (pile: boolean) => void): () => void;
   /** Opens the system picker for files or for a folder and imports the choice. Resolves to the number of items picked, 0 when cancelled. */
   chooseFiles(kind?: 'files' | 'folder', into?: string): Promise<number>;
   paste(): Promise<{ path: string; kind: ItemKind } | null>;
@@ -98,6 +97,8 @@ export interface SyncItAPI {
   panel(action: 'hide' | 'left' | 'right'): Promise<void>;
   favorite(path: string, enabled: boolean): Promise<Settings>;
   showDashboard(): Promise<void>;
+  /** The custom title bar's buttons: the window is frameless on every platform. Close hides it; Satchel keeps running in the tray. */
+  windowControl(action: 'minimize' | 'maximize' | 'close'): Promise<void>;
   openVersions(): Promise<void>;
   openRecovery(): Promise<void>;
   updateState(): Promise<UpdateState>;

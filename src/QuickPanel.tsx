@@ -18,11 +18,11 @@ function incomingKind(item: IncomingItem) { return mediaKind(item.name) || (/\.(
 /**
  * Quick drop: the small window for going back and forth between computers. The live pasteboard on top, with Copy, Paste and Add files in its
  * corner, and under it Latest: what is arriving, what came in from the other computers and what went out from here, as tiles or a list, with
- * Copy and Open on hover and every tile or row dragging out. The minimal window is the same window at a third of the height: the same title
- * bar with every button in the same place, the pasteboard, and the two latest items as rows. The drawer keeps its pile.
+ * Copy and Open on hover and every tile or row dragging out. It is the main window at a small size: shrink it under 330 px tall and it is the
+ * minimal window, the same title bar with every button in the same place, the pasteboard, and the two latest items as rows. The drawer is its
+ * own window and keeps its pile.
  */
-export function QuickPanel({ settings, items, incoming, status, open, paste, notify, pile, expand, media, board, peer, since }: { settings: Settings; items: LibraryItem[]; incoming: IncomingItem[]; status: string; platform: string; open: (item: LibraryItem) => void; paste: () => Promise<void>; notify: (message: string) => void; pile: boolean; expand: () => void; media: (item: LibraryItem) => string; board?: PasteboardState; peer?: string; since: (time: number) => string }) {
-  const mini = settings.panelMode === 'mini';
+export function QuickPanel({ settings, items, incoming, status, platform, open, paste, notify, pile, mini, expand, media, board, peer, since }: { settings: Settings; items: LibraryItem[]; incoming: IncomingItem[]; status: string; platform: string; open: (item: LibraryItem) => void; paste: () => Promise<void>; notify: (message: string) => void; pile: boolean; mini: boolean; expand: () => void; media: (item: LibraryItem) => string; board?: PasteboardState; peer?: string; since: (time: number) => string }) {
   const [busy, setBusy] = useState(false);
   const [opacityOpen, setOpacityOpen] = useState(false);
   const [opacity, setOpacity] = useState(Math.round((settings.panelOpacity ?? 1) * 100));
@@ -52,11 +52,11 @@ export function QuickPanel({ settings, items, incoming, status, open, paste, not
   const arrivingRow = (item: IncomingItem) => { const Icon = icons[incomingKind(item)]; const percent = item.size > 0 ? Math.min(100, Math.round(item.done / item.size * 100)) : 0; return <div key={'incoming:' + item.path} className="qd-row arriving" title={item.path}><span className="qd-icon in"><Icon size={15} /></span><span className="qd-row-name"><strong>{item.name}</strong><small>arriving{item.from ? ` from ${item.from}` : ''} · {item.done > 0 ? `${percent}%` : size(item.size)}</small><span className={`qd-prog ${item.done > 0 ? '' : 'indeterminate'}`}><b style={{ width: `${Math.max(2, percent)}%` }} /></span></span><LoaderCircle size={13} className="spin" /></div>; };
   const empty = !latest.length && !arriving.length && <p className="qd-empty">Nothing in the collection yet.</p>;
   return <section className={`floating-workspace ${mini ? 'is-mini' : ''}`}>
-    <header className="floating-titlebar"><span className="floating-wordmark"><Mark size={16} />{pile ? 'Satchel' : 'Quick drop'}</span>{pile ? <span className="floating-mode">Drawer</span> : <span className="floating-mode qd-peer" title={status}><i className={`status-dot ${peer ? 'green' : ''}`} /><span>{peer || status}</span></span>}<div>
-      {pile && <button aria-label="Open Quick drop" title="Open the full Quick drop window" onClick={expand}><Expand size={14} /></button>}{!pile && <><button aria-label="Window opacity" aria-pressed={opacityOpen} title={`Window · opacity ${opacity}%`} onClick={() => setOpacityOpen(value => !value)}><Blend size={14} /></button>
+    <header className={`floating-titlebar ${platform === 'darwin' && !pile ? 'darwin' : ''}`}><span className="floating-wordmark"><Mark size={16} />{pile ? 'Satchel' : 'Quick drop'}</span>{pile ? <span className="floating-mode">Drawer</span> : <span className="floating-mode qd-peer" title={status}><i className={`status-dot ${peer ? 'green' : ''}`} /><span>{peer || status}</span></span>}<div>
+      {pile && <button aria-label="Open Quick drop" title="Open Quick drop" onClick={expand}><Expand size={14} /></button>}{!pile && <><button aria-label="Window opacity" aria-pressed={opacityOpen} title={`Window · opacity ${opacity}%`} onClick={() => setOpacityOpen(value => !value)}><Blend size={14} /></button>
       <button aria-label="Keep floating window on top" aria-pressed={settings.alwaysOnTop} title="Keep on top" onClick={() => void perform(() => window.syncit.settings({ alwaysOnTop: !settings.alwaysOnTop }))}><Pin size={14} /></button>
       <button aria-label={mini ? 'Expand floating window' : 'Minimal floating window'} title={mini ? 'Full window' : 'Minimal window'} onClick={() => void perform(() => window.syncit.settings({ panelMode: mini ? 'quick' : 'mini' }))}>{mini ? <Expand size={14} /> : <Minimize2 size={14} />}</button>
-      <button aria-label="Open dashboard" title="Open the main window" onClick={() => void window.syncit.showDashboard()}><ArrowUpRight size={15} /></button></>}
+      <button aria-label="Open dashboard" title="Expand to the dashboard" onClick={() => void window.syncit.showDashboard()}><ArrowUpRight size={15} /></button></>}
       <button aria-label="Hide floating window" title="Hide" onClick={() => void window.syncit.panel('hide')}><X size={15} /></button>
     </div></header>
     {opacityOpen && <div className="floating-opacity"><Blend size={13} /><input type="range" min="60" max="100" step="5" aria-label="Floating window opacity" value={opacity} onChange={event => changeOpacity(Number(event.target.value))} /><span>{opacity}%</span><button title="Dock to the left edge" aria-label="Dock left" onClick={() => void window.syncit.panel('left')}><ArrowLeftToLine size={14} /></button><button title="Dock to the right edge" aria-label="Dock right" onClick={() => void window.syncit.panel('right')}><ArrowRightToLine size={14} /></button></div>}

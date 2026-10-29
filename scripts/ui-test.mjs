@@ -138,8 +138,10 @@ try {
   await gridZoom.getByRole('button', { name: 'Reset zoom' }).click();
   await expect.poll(cardWidth).toBe(cardBefore);
   await page.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
-  const findPanel = async () => (await application.windows()).find(p => p.url().includes('panel=1'));
-  const panel = await expect.poll(async () => (await findPanel()) ? 'ready' : 'waiting').toBe('ready').then(findPanel);
+  // Quick drop is the same window at a small size: the button shrinks it, and this is the same page.
+  const panel = page;
+  await expect(panel.locator('.floating-workspace')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => innerWidth)).toBeLessThan(560);
   await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
   await panel.getByRole('button', { name: 'Window opacity' }).click();
   await panel.getByRole('slider', { name: 'Floating window opacity' }).focus();
@@ -157,33 +159,44 @@ try {
   await panel.getByRole('button', { name: 'Tiles', exact: true }).click();
   await expect(panel.locator('.qd-tile').first()).toBeVisible();
   await panel.getByRole('textbox', { name: 'Pasteboard text' }).fill('From the little window');
-  await expect(board).toHaveValue('From the little window', { timeout: 15000 }); // saved after a pause, then seen by the main window's watcher
+  await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.pasteboard?.text || ''))).toBe('From the little window');
   await panel.getByRole('textbox', { name: 'Pasteboard text' }).fill('');
-  await page.getByRole('button', { name: 'Remove From the little window' }).click();
-  await expect(page.getByRole('button', { name: 'Remove From the little window' })).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => (l.pasteboard?.recent || []).some(clip => clip.text === 'From the little window')))).toBe(true);
+  await page.evaluate(() => window.syncit.list().then(l => window.syncit.removeClip(l.pasteboard.recent.find(clip => clip.text === 'From the little window').id)));
   // Escape puts the window away; the dashboard brings it back.
+  const mainVisible = () => application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.webContents.getURL().includes('drawer=0') && window.isVisible()));
   await panel.getByRole('textbox', { name: 'Pasteboard text' }).press('Escape');
-  await expect.poll(() => application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.webContents.getURL().includes('panel=1') && window.isVisible()))).toBe(false);
+  await expect.poll(mainVisible).toBe(false);
+  await page.evaluate(() => window.syncit.showDashboard());
+  await expect.poll(mainVisible).toBe(true);
+  await expect(page.getByRole('heading', { name: 'Everything', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
   await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
-  // The drawer: opened from the dashboard here, since the edge handle window is not created in test mode. It shows the pile, and Expand returns the full window.
+  // The drawer is its own window, opened from the palette here since the edge handle is not created in test mode. It shows the pile, and Expand brings Quick drop up.
+  const findDrawer = async () => (await application.windows()).find(p => p.url().includes('drawer=1'));
+  const drawerVisible = () => application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.webContents.getURL().includes('drawer=1') && window.isVisible()));
   await page.evaluate(() => window.syncit.openDrawer());
-  await expect(panel.getByRole('heading', { name: 'Drop here' })).toBeVisible();
-  await panel.screenshot({ path: path.join(artifacts, 'drawer.png') });
-  assert.equal((await panel.evaluate(relative => window.syncit.dragOut(relative), imagePath)).files.length, 1, 'the drawer drags items out');
-  await panel.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
+  await expect.poll(async () => !!(await findDrawer())).toBe(true);
+  const drawer = await findDrawer();
+  await expect(drawer.getByRole('heading', { name: 'Drop here' })).toBeVisible();
+  await drawer.screenshot({ path: path.join(artifacts, 'drawer.png') });
+  assert.equal((await drawer.evaluate(relative => window.syncit.dragOut(relative), imagePath)).files.length, 1, 'the drawer drags items out');
+  await drawer.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
   await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
   // The edge handle (created in test mode by SYNCIT_TEST_HANDLE, one per display): moving the pointer onto it opens the drawer as the pile.
   await panel.getByRole('button', { name: 'Hide floating window' }).click();
-  const panelVisible = () => application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.webContents.getURL().includes('panel=1') && window.isVisible()));
-  await expect.poll(panelVisible).toBe(false);
+  await expect.poll(mainVisible).toBe(false);
+  await expect.poll(drawerVisible).toBe(false);
   const edgeHandle = (await application.windows()).find(p => p.url().includes('handle=1'));
   assert.ok(edgeHandle, 'a handle window exists');
   await edgeHandle.mouse.move(7, 90);
-  await expect.poll(panelVisible, { timeout: 5000 }).toBe(true);
-  await expect(panel.getByRole('heading', { name: 'Drop here' })).toBeVisible();
-  await panel.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
+  await expect.poll(drawerVisible, { timeout: 5000 }).toBe(true);
+  await expect(drawer.getByRole('heading', { name: 'Drop here' })).toBeVisible();
+  await drawer.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
   await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
+  // Grown back to the dashboard, the window is the same page with the same state.
+  await page.evaluate(() => window.syncit.showDashboard());
+  await expect(page.getByRole('heading', { name: 'Everything', exact: true })).toBeVisible();
   // Selection: Ctrl/⌘ A selects everything in view; the bar favorites, moves into a folder (which then lists in the sidebar), and back.
   await page.getByRole('button', { name: /^Everything/ }).click();
   await page.keyboard.press('Control+a');
@@ -261,11 +274,11 @@ try {
   });
   if (!clipboardAvailable) console.log('SKIPPED clipboard capture: the system clipboard is unavailable in this session (locked or remote desktop).');
   else try {
-    await panel.getByRole('button', { name: 'Paste from clipboard' }).click();
+    await page.locator('details.add-menu summary').click(); await page.getByRole('button', { name: 'Paste from clipboard' }).click();
     await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.items.some(i => i.preview === 'Clipboard integration test')))).toBeTruthy();
     const png = (await readFile('assets/icon.png')).toString('base64');
     await application.evaluate(async ({ clipboard, ClipboardItem }, png) => { await clipboard.write([new ClipboardItem({ 'image/png': new Blob([Buffer.from(png, 'base64')], { type: 'image/png' }) })]); }, png);
-    await panel.getByRole('button', { name: 'Paste from clipboard' }).click();
+    await page.locator('details.add-menu summary').click(); await page.getByRole('button', { name: 'Paste from clipboard' }).click();
     await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.items.some(i => i.name.startsWith('Screenshot '))))).toBeTruthy();
   } finally { await application.evaluate(async ({ clipboard }) => { if (globalThis.__savedClipboard.length) await clipboard.write(globalThis.__savedClipboard); else clipboard.clear(); }); }
   await page.getByRole('button', { name: 'Preferences', exact: false }).click();

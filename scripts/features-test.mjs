@@ -24,11 +24,12 @@ try {
   await expect(page.getByRole('dialog', { name: 'Command palette' })).toBeVisible();
   await page.getByRole('combobox', { name: 'Search commands and files' }).fill('minimal');
   await page.keyboard.press('Enter');
-  await expect.poll(async () => (await app.windows()).length).toBe(2);
-  const panel = (await app.windows()).find(window => window !== page);
+  // One window: the palette shrank it to the minimal shape, and this is still the same page.
+  const panel = page;
   await expect(panel.getByLabel('Expand floating window')).toBeVisible();
   let status = await cli('status');
-  assert.equal(status.panelMode, 'mini'); assert.ok(status.windows.find(w => w.name === 'panel').bounds.height <= 250);
+  const main = () => status.windows.find(w => w.name === 'dashboard');
+  assert.equal(status.panelMode, 'mini'); assert.equal(main().shape, 'mini'); assert.ok(main().bounds.height <= 250);
   // The minimal window is the same window at a third of the height: the title bar with every button in the same place, the pasteboard and the two latest items.
   await expect(panel.getByLabel('Open dashboard')).toBeVisible();
   await panel.getByLabel('Pasteboard text').fill('A thought from the tiny window');
@@ -40,13 +41,13 @@ try {
   await panel.getByLabel('Pasteboard text').fill('');
   await cli('window', 'right');
   await cli('settings', JSON.stringify({ panelOpacity: .85, alwaysOnTop: true }));
-  status = await cli('status'); assert.ok(Math.abs(status.windows.find(w => w.name === 'panel').opacity - .85) < .02);
+  status = await cli('status'); assert.ok(Math.abs(main().opacity - .85) < .02); assert.equal(main().alwaysOnTop, true);
   await cli('window', 'quick');
   await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
   await panel.getByLabel('Pasteboard text').fill('Text stays after hiding');
   await expect.poll(() => cli('call', 'list', '[]').then(result => result.pasteboard?.text || '')).toBe('Text stays after hiding');
   await cli('window', 'hide');
-  assert.equal((await cli('status')).windows.find(w => w.name === 'panel').visible, false);
+  status = await cli('status'); assert.equal(main().visible, false);
   await cli('window', 'quick');
   await expect(panel.getByLabel('Pasteboard text')).toHaveValue('Text stays after hiding');
   await panel.getByLabel('Pasteboard text').fill('');
@@ -62,8 +63,10 @@ try {
   const file = path.resolve('.cache', `features-import-${Date.now()}.txt`); await writeFile(file, 'CLI import'); await cli('import', file);
   assert.equal((await cli('read', path.basename(file))).text, 'CLI import');
   await cli('pause'); await expect.poll(() => cli('status').then(s => s.sync.state)).toBe('paused'); await cli('resume');
-  await cli('settings', JSON.stringify({ panelAutoHide: true })); await cli('window', 'dashboard');
-  await expect.poll(() => cli('status').then(s => s.windows.find(w => w.name === 'panel').visible)).toBe(false);
+  // Grown to the dashboard, the window drops keep-on-top and its opacity: those belong to the small shapes.
+  await cli('window', 'dashboard');
+  await expect.poll(() => cli('status').then(s => s.windows.find(w => w.name === 'dashboard').shape)).toBe('dashboard');
+  status = await cli('status'); assert.equal(main().alwaysOnTop, false); assert.ok(Math.abs(main().opacity - 1) < .02);
   await cli('settings', JSON.stringify({ panelAutoHide: false }));
   console.log('Six-feature test passed: minimal/quick windows, dock/opacity/autohide, pasteboard, palette, favorites/rename, authenticated CLI notes/import/layout/sync/screenshot.');
 } finally { await app.close(); }

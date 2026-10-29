@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- One window, three shapes. Satchel has one window and its shape follows its size: wide it is the dashboard, under 560 px wide it is Quick drop, under 330 px tall the minimal window. The Quick drop button, the shortcut and the tray shrink the window to where it last was small, and Expand grows it back, each shape remembering its own place. Small, the window keeps on top and takes the opacity you set; large, it never does. Dragging an edge past a threshold switches the shape with a crossfade.
+- Between the dashboard and Quick drop the window has a shape of its own: the pasteboard column folds to a tab and opens over the grid when asked, the top bar keeps icons only, the caption stays on one line, and the sidebar narrows. Nothing wraps or clips at any width from 320 px up.
+- The window is frameless on every platform with its own title bar: the traffic lights on the Mac, minimize, maximize and close on Windows. Close hides the window; Satchel keeps running in the tray.
+- The drawer at the screen edge is its own small window, as before; it opens Quick drop by bringing the main window up small.
+
 ## 0.6.17 — 2026-10-29
 
 ### Fixed

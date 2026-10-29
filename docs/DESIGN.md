@@ -14,7 +14,7 @@ A compact desktop instrument for moving work between two machines. The interface
 - **Copy:** name the action and show the state. “Add files”, “Connect a computer”, “Other computer offline”. Avoid brand slogans in operational flows.
 - **Motion:** restrained hover/focus feedback, no ornamental animation. Honor reduced-motion preferences.
 - **Honesty:** never display an invented connected device, sync percentage, or sample item in the real collection. Demo content is confined to test profiles.
-- **Vocabulary:** one word per thing, everywhere. The synced folder is the *collection*; machines are *this computer* and *paired computers*; the floating window is *Quick drop* (or *minimal capture*); the canvas is the *pinboard*. No "space", "workspace" or product slogans in operational screens; every heading, subtitle and empty state states a fact or an action.
+- **Vocabulary:** one word per thing, everywhere. The synced folder is the *collection*; machines are *this computer* and *paired computers*; the window's small shape is *Quick drop* (or the *minimal window*); the canvas is the *pinboard*. No "space", "workspace" or product slogans in operational screens; every heading, subtitle and empty state states a fact or an action.
 - **Controls:** anything that looks interactive performs an action. Badges, cards and status rows are buttons that open the relevant screen or they are plain text.
 
 ## Reusable design prompt
@@ -23,4 +23,4 @@ A compact desktop instrument for moving work between two machines. The interface
 
 ## Review checks
 
-Review empty, populated, offline, sync-error, note-conflict, modal, and Quick drop states. Check the design at 860 px minimum dashboard width and 300 px panel width, with system scaling enabled. Keep note bodies readable and prevent action menus from being clipped.
+Review empty, populated, offline, sync-error, note-conflict, modal, and Quick drop states. Check the design at every width from 320 px up, with system scaling enabled: Quick drop under 560 px, the medium dashboard up to 1000 px, the full dashboard above. Keep note bodies readable and prevent action menus from being clipped.

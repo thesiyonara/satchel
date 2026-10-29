@@ -29,8 +29,8 @@ The installed script is `resources/cli/syncit.mjs` next to the Windows app, or `
 | Operation | Arguments | Result |
 | --- | --- | --- |
 | `status` | `[]` | Version, sync status, window visibility/bounds/opacity |
-| `window` | `["dashboard" / "quick" / "mini" / "hide" / "left" / "right"]` | Window status |
-| `screenshot` | `["dashboard" / "panel"]` | PNG path in the private profile's captures folder |
+| `window` | `["dashboard" / "quick" / "mini" / "drawer" / "hide" / "left" / "right" / "minimize" / "maximize" / "close"]` | Window status. One window: dashboard, quick and mini are its shapes; left and right dock the small shape to a screen edge |
+| `screenshot` | `["dashboard" / "panel" / "drawer"]` | PNG path in the private profile's captures folder. dashboard and panel are the one window in whatever shape it has |
 | `quit` | `[]` | Acknowledgement, then graceful shutdown |
 
 Pairing and history operations from `shared/types.ts` that are useful from the CLI:

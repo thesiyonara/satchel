@@ -17,7 +17,7 @@ const api: SyncItAPI = {
   connect: (id, address, options) => invoke('connect', id, address, options),
   approve: (id, options) => invoke('approve', id, options), reject: id => invoke('reject', id), retrySync: () => invoke('retrySync'),
   revoke: id => invoke('revoke', id), openRecovery: () => invoke('openRecovery'),
-  showPanel: () => invoke('showPanel'), showDashboard: () => invoke('showDashboard'), openVersions: () => invoke('openVersions'),
+  showPanel: () => invoke('showPanel'), showDashboard: () => invoke('showDashboard'), windowControl: action => invoke('windowControl', action), openVersions: () => invoke('openVersions'),
   panel: action => invoke('panel', action), favorite: (path, enabled) => invoke('favorite', path, enabled),
   updateState: () => invoke('updateState'), checkUpdate: () => invoke('checkUpdate'), downloadUpdate: () => invoke('downloadUpdate'), installUpdate: () => invoke('installUpdate'), updateNow: () => invoke('updateNow'), releasePage: () => invoke('releasePage'),
   phoneInfo: () => invoke('phoneInfo'), phoneOffer: () => invoke('phoneOffer'), phoneCancelPairing: () => invoke('phoneCancelPairing'), revokePhone: id => invoke('revokePhone', id),
@@ -30,7 +30,7 @@ const api: SyncItAPI = {
     ipcRenderer.on('syncit:prepare-update', handler); return () => ipcRenderer.removeListener('syncit:prepare-update', handler);
   },
   pathsForFiles: files => Array.from(files).map(file => webUtils.getPathForFile(file)).filter(Boolean),
-  onDrawer: callback => listen('syncit:drawer', callback), onNavigate: callback => listen('syncit:navigate', callback),
+  onNavigate: callback => listen('syncit:navigate', callback),
   onLibrary: callback => listen('syncit:library', callback), onSync: callback => listen('syncit:sync', callback), onSettings: callback => listen('syncit:settings', callback)
 };
 contextBridge.exposeInMainWorld('syncit', api);
