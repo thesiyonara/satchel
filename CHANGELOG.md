@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.16 — 2026-10-29
 
 ### Added
 - Folders are things too: a folder card has a menu with Open, Rename, Move to folder, Show in folder and Move to Trash, the open folder has the same menu beside its name, and New folder (in Add and the palette) makes an empty folder that shows at once, on every computer. Trashing a folder takes everything in it; renaming or moving one keeps note history, pinboard placements and favorites with the items.
