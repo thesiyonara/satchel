@@ -67,6 +67,8 @@ export class Library {
   private async refreshEntry(relative: string) {
     if (!this.index) return;
     const item = await this.describe(relative);
+    // The watcher may drop the index while describe runs; it is rebuilt on the next snapshot.
+    if (!this.index) return;
     if (item) this.index.set(relative, item); else this.index.delete(relative);
   }
   private async describe(relative: string): Promise<LibraryItem | null> {

@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+- Renaming or moving a folder could fail when the file watcher reset the collection index halfway through. The rename now finishes and the index is rebuilt on the next look.
+
 ## 0.6.20 — 2026-11-03
 
 ### Fixed
