@@ -10,6 +10,7 @@
 - The “Needs attention” pill in the top bar no longer wraps to two lines.
 
 ### Changed
+- A new mark. The block with a strap is gone; the mark is a satchel, a bag with a flap, a handle and a buckle, drawn in one colour with the accent on the buckle. The app icon, the tray icons, the phone page icon and the website icon are all rendered from the same shape by the icon script.
 - The Mac window drops the system title bar. The app draws the title bar and its three controls itself, so the window looks the same on a Mac and on Windows; close hides the window and Satchel stays in the menu bar.
 - An application menu: File (new note, new folder, add files or a folder, paste from the clipboard, open the collection folder, close the window), Edit, View (search, commands, grid, pinboard, pasteboard, select all, card size), Window and Help. It is the menu bar on the Mac and sits behind Alt on Windows. Every entry shows its shortcut, and the shortcuts work wherever the focus is: Ctrl/⌘ N new note, Shift N new folder, O add files, Shift O add a folder, Shift V paste from the clipboard, F search, comma preferences, K the palette, W close the window.
 - A right-click on the collection's background or the sidebar opens a menu: new note, new folder, add files (into the folder being browsed), add a folder, paste, select all, the pinboard or the grid, the collection folder and Preferences.

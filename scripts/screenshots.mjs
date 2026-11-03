@@ -45,10 +45,13 @@ try {
   await page.getByRole('button', { name: 'Preview Markdown' }).click();
   await demoScreenshot(page, 'note.png');
   await page.getByRole('button', { name: 'Close note', exact: true }).click();
+  // Quick drop is the same window at a small size; the dashboard brings it back.
   await page.getByRole('button', { name: 'Open Quick drop', exact: true }).click();
-  const panel = await expect.poll(async () => (await application.windows()).length).toBe(2).then(async () => (await application.windows()).find(p => p !== page));
-  await expect(panel.getByRole('heading', { name: 'Add to the collection' })).toBeVisible();
-  await demoScreenshot(panel, 'quick-drop.png');
+  await expect(page.getByRole('heading', { name: 'Latest' })).toBeVisible();
+  await page.waitForTimeout(400);
+  await demoScreenshot(page, 'quick-drop.png');
+  await page.evaluate(() => window.syncit.showDashboard());
+  await expect(page.getByRole('heading', { name: 'Everything', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Not paired yet', exact: false }).click();
   await expect(page.getByRole('heading', { name: 'Nearby' })).toBeVisible();
   await demoScreenshot(page, 'computers.png');
