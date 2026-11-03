@@ -11,15 +11,15 @@ import { Library } from './library';
 import { SyncEngine } from './sync-engine';
 import { SettingsStore, validateSettingsPatch } from './settings';
 import { contained, errorMessage, hash, atomicWrite } from './files';
-import type { BoardPlacement, Settings, SyncStatus } from '../shared/types';
+import type { BoardPlacement, SyncStatus } from '../shared/types';
 import { formatSize } from '../shared/format';
-import { appCSP, assertSafeToOpen, rendererRequestAllowed, secureDirectory } from './security';
+import { appCSP, assertSafeToOpen, frameNavigationAllowed, rendererRequestAllowed, secureDirectory } from './security';
 import { startControl, type ControlHandlers } from './control';
 import { Updates } from './updates';
 import { Companion } from './companion';
 import { localNetworks } from './sync-engine';
-import { releasesURL } from '../shared/project';
-import { mediaKind, openRange, previewKind, readTextPreview, streamable } from './media';
+import { releasesURL, siteURL } from '../shared/project';
+import { browserRenders, openRange, previewKind, readTextPreview, streamable } from './media';
 import { Readable } from 'node:stream';
 let companion: Companion;
 let updater: Updates;
@@ -66,7 +66,7 @@ const broadcast = (channel: string, value?: unknown) => windows().forEach(window
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'syncit-app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
-  { scheme: 'syncit-media', privileges: { standard: true, secure: true, supportFetchAPI: true } }
+  { scheme: 'syncit-media', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
 ]);
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 else {
@@ -120,7 +120,7 @@ async function start() {
   try { registerShortcut(store.value.shortcut); } catch { /* Preferences can choose a shortcut that is not in use. */ }
   await loadWindowState();
   mainWindow = createWindow('main');
-  setupTray(); placeHandle();
+  setupMenu(); setupTray(); placeHandle();
   screen.on('display-metrics-changed', () => placeHandle()); screen.on('display-added', () => placeHandle()); screen.on('display-removed', () => placeHandle());
   stopControl = await startControl(app.getPath('userData'), operations);
   powerMonitor.on('resume', () => { void engine.retry().catch(() => {}); });
@@ -205,7 +205,17 @@ async function thumbnailFor(relative: string, width = 600, height = 480): Promis
   const cache = path.join(app.getPath('userData'), 'thumbnails'); await fs.mkdir(cache, { recursive: true });
   const thumbnailPath = path.join(cache, hash(`${library.root}:${relative}:${stat.mtimeMs}:${stat.size}:${size}`) + '.png');
   try { return await fs.readFile(thumbnailPath); }
-  catch { const [w, h] = size.split('x').map(Number); const thumbnail = await nativeImage.createThumbnailFromPath(target, { width: w, height: h }); const bytes = thumbnail.toPNG(); if (!bytes.length) throw new Error('No preview'); await atomicWrite(thumbnailPath, bytes); return bytes; }
+  catch { /* not cached yet */ }
+  const [w, h] = size.split('x').map(Number);
+  try { const thumbnail = await nativeImage.createThumbnailFromPath(target, { width: w, height: h }); const bytes = thumbnail.toPNG(); if (!bytes.length) throw new Error('No preview'); await atomicWrite(thumbnailPath, bytes); return bytes; }
+  catch (error) {
+    // Without an OS thumbnailer (Linux, or a format it does not know) an image the browser engine decodes itself is scaled here instead.
+    if (kind !== 'image' || !browserRenders(target)) throw error;
+    const image = nativeImage.createFromBuffer(await fs.readFile(target)); if (image.isEmpty()) throw error;
+    const { width: iw, height: ih } = image.getSize(); const scale = Math.min(1, w / iw, h / ih);
+    const bytes = (scale < 1 ? image.resize({ width: Math.max(1, Math.round(iw * scale)), height: Math.max(1, Math.round(ih * scale)), quality: 'good' }) : image).toPNG();
+    if (!bytes.length) throw error; await atomicWrite(thumbnailPath, bytes); return bytes;
+  }
 }
 function setupProtocols() {
   const mime: Record<string, string> = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.png': 'image/png' };
@@ -222,7 +232,7 @@ function setupProtocols() {
   protocol.handle('syncit-media', async request => {
     try {
       const url = new URL(request.url);
-      if (url.hostname === 'media' && url.pathname === '/stream') {
+      if (url.hostname === 'media' && (url.pathname === '/stream' || url.pathname.startsWith('/stream/'))) { // /stream/<name> carries the file name for the PDF viewer's title
         // Images, video, audio and PDFs are served from the collection with range support, so players seek and nothing is copied.
         const target = await contained(library.root, url.searchParams.get('path') || '');
         if (!streamable(target)) return new Response('Unsupported media', { status: 415 });
@@ -232,7 +242,7 @@ function setupProtocols() {
       if (url.hostname !== 'image') return new Response('Not found', { status: 404 });
       const large = url.pathname === '/preview';
       const bytes = await thumbnailFor(url.searchParams.get('path') || '', large ? 1800 : 600, large ? 1800 : 480);
-      return new Response(new Uint8Array(bytes), { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'private, max-age=3600' } });
+      return new Response(new Uint8Array(bytes), { headers: { 'Content-Type': 'image/png', 'Cache-Control': 'private, max-age=3600', 'Access-Control-Allow-Origin': 'syncit-app://app' } }); // Copy fetches the full preview from the renderer.
     } catch { return new Response('Preview unavailable', { status: 404 }); }
   });
 }
@@ -279,14 +289,15 @@ function applyShape(window: BrowserWindow) {
 }
 function createWindow(kind: 'main' | 'drawer') {
   const drawer = kind === 'drawer';
-  const mac = process.platform === 'darwin' && !drawer;
-  const window = new BrowserWindow({ ...(drawer ? SMALL : LARGE), minWidth: MIN.width, minHeight: MIN.height, show: false, frame: mac, ...(mac ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 12, y: 11 } } : {}),
+  // Frameless on every platform: the renderer draws the title bar and its controls, so the window looks the same on a Mac and on Windows.
+  const window = new BrowserWindow({ ...(drawer ? SMALL : LARGE), minWidth: MIN.width, minHeight: MIN.height, show: false, frame: false,
     title: drawer ? 'Satchel drawer' : 'Satchel', backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1116' : '#f8f9f6',
     icon: path.join(assets, 'icon.png'), autoHideMenuBar: true, alwaysOnTop: drawer, skipTaskbar: drawer, resizable: !drawer,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, devTools: !app.isPackaged } });
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
-  window.webContents.on('will-frame-navigate', event => { if (!event.url.startsWith('syncit-media://media/stream')) event.preventDefault(); }); // Only the in-app PDF viewer frame may load, and only from the collection.
+  // Only the in-app PDF viewer may load in a frame: the stream from the collection, and the viewer page Chromium nests inside it.
+  window.webContents.on('will-frame-navigate', event => { if (!frameNavigationAllowed(event.url)) event.preventDefault(); });
   window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
   window.webContents.on('will-attach-webview', event => event.preventDefault());
   window.on('close', event => { if (!quitting) { event.preventDefault(); window.hide(); } });
@@ -451,6 +462,37 @@ function refreshTray() {
     { label: 'Quit Satchel', click: () => { quitting = true; app.quit(); } }
   ]));
 }
+/**
+ * The application menu. On the Mac it is the menu bar; on Windows it stays hidden behind Alt. The shortcuts it shows are handled by the
+ * window itself (registerAccelerator keeps them out of the system on the Mac; on Windows the page consumes the key first), so every
+ * shortcut behaves the same whether it comes from the keyboard or from a menu click.
+ */
+function setupMenu() {
+  const mac = process.platform === 'darwin';
+  const command = (name: string) => () => { const window = BrowserWindow.getFocusedWindow() ?? ensureMain(); if (window === mainWindow && !window.isVisible()) showDashboard(); window.webContents.send('syncit:command', name); };
+  const item = (label: string, name: string, accelerator?: string): Electron.MenuItemConstructorOptions => ({ label, accelerator, registerAccelerator: false, click: command(name) });
+  const quit = () => { quitting = true; app.quit(); };
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(mac ? [{ role: 'appMenu' as const, submenu: [{ role: 'about' as const }, { type: 'separator' as const }, item('Preferences…', 'preferences', 'Command+,'), item('Computers & sync', 'computers'), { type: 'separator' as const }, { role: 'services' as const }, { type: 'separator' as const }, { role: 'hide' as const }, { role: 'hideOthers' as const }, { role: 'unhide' as const }, { type: 'separator' as const }, { label: 'Quit Satchel', accelerator: 'Command+Q', click: quit }] }] : []),
+    { label: 'File', submenu: [
+      item('New note', 'new-note', 'CommandOrControl+N'), item('New folder…', 'new-folder', 'CommandOrControl+Shift+N'), { type: 'separator' },
+      item('Add files…', 'add-files', 'CommandOrControl+O'), item('Add a folder…', 'add-folder', 'CommandOrControl+Shift+O'), item('Paste from clipboard', 'paste', 'CommandOrControl+Shift+V'), { type: 'separator' },
+      item('Open collection folder', 'open-folder'), { type: 'separator' },
+      { label: 'Close window', accelerator: 'CommandOrControl+W', registerAccelerator: false, click: () => BrowserWindow.getFocusedWindow()?.hide() },
+      ...(mac ? [] : [{ type: 'separator' as const }, item('Preferences…', 'preferences', 'Control+,'), item('Computers & sync', 'computers'), { type: 'separator' as const }, { label: 'Quit Satchel', click: quit }]) ] },
+    { role: 'editMenu' },
+    { label: 'View', submenu: [
+      item('Search', 'search', 'CommandOrControl+F'), item('Commands…', 'palette', 'CommandOrControl+K'), { type: 'separator' },
+      item('Grid', 'grid'), item('Pinboard', 'board'), item('Pasteboard', 'pasteboard'), item('Select all', 'select-all'), { type: 'separator' },
+      item('Bigger cards', 'zoom-in', 'CommandOrControl+='), item('Smaller cards', 'zoom-out', 'CommandOrControl+-'), item('Reset card size', 'zoom-reset', 'CommandOrControl+0'), { type: 'separator' },
+      { role: 'togglefullscreen' } ] },
+    { label: 'Window', submenu: [
+      { label: 'Dashboard', click: showDashboard }, { label: 'Quick drop', click: showPanel }, { label: 'Open the drawer', click: showDrawer }, { type: 'separator' },
+      { role: 'minimize' }, ...(mac ? [{ role: 'zoom' as const }, { type: 'separator' as const }, { role: 'front' as const }] : []) ] },
+    { role: 'help', submenu: [{ label: 'Satchel website', click: () => { void shell.openExternal(siteURL); } }, { label: 'Releases', click: () => { void shell.openExternal(releasesURL); } }] }
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
 function setupTray() {
   const icon = nativeImage.createFromPath(path.join(assets, process.platform === 'darwin' ? 'trayTemplate.png' : 'tray.png'));
   if (process.platform === 'darwin') icon.setTemplateImage(true);
@@ -488,7 +530,9 @@ function setupIPC() {
     await atomicWrite(file, (await window.webContents.capturePage()).toPNG()); return { path: file };
   });
   operations.set('quit', () => { setTimeout(() => { quitting = true; app.quit(); }, 100); return { quitting: true }; });
-  bind('initial', async () => ({ settings: store.value, library: await librarySnapshot(), sync: engine.status, platform: process.platform, runId, version: app.getVersion(), drawer: drawerOpen, loginEnabled: !testing && app.getLoginItemSettings({ args: ['--background'] }).openAtLogin }));
+  // In test mode the reported platform can be overridden, so the Mac layout renders and is checked on any machine.
+  const platform = testing && ['darwin', 'win32', 'linux'].includes(process.env.SYNCIT_TEST_PLATFORM || '') ? process.env.SYNCIT_TEST_PLATFORM! : process.platform;
+  bind('initial', async () => ({ settings: store.value, library: await librarySnapshot(), sync: engine.status, platform, runId, version: app.getVersion(), drawer: drawerOpen, loginEnabled: !testing && app.getLoginItemSettings({ args: ['--background'] }).openAtLogin }));
   bind('list', () => librarySnapshot());
   bind('openDrawer', () => { showDrawer(); });
   bind('updateState', () => updater.state); bind('checkUpdate', checkUpdate); bind('downloadUpdate', () => updater.download()); bind('installUpdate', installUpdate); bind('updateNow', updateNow);

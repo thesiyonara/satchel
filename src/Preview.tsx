@@ -3,7 +3,8 @@ import { File } from 'lucide-react';
 import type { LibraryItem } from '../shared/types';
 import { browserRenders, previewKind } from '../shared/media';
 
-export const streamURL = (item: LibraryItem) => `syncit-media://media/stream?path=${encodeURIComponent(item.path)}&v=${item.modifiedAt}`;
+/** The file streamed from the collection. The name rides along in the path so Chromium's PDF viewer shows it as the document's title. */
+export const streamURL = (item: LibraryItem) => `syncit-media://media/stream/${encodeURIComponent(item.name)}?path=${encodeURIComponent(item.path)}&v=${item.modifiedAt}`;
 export const osPreviewURL = (item: LibraryItem) => `syncit-media://image/preview?path=${encodeURIComponent(item.path)}&v=${item.modifiedAt}`;
 export function previewLabel(item: LibraryItem) {
   const kind = previewKind(item.name);

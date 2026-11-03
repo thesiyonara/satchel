@@ -30,7 +30,7 @@ const api: SyncItAPI = {
     ipcRenderer.on('syncit:prepare-update', handler); return () => ipcRenderer.removeListener('syncit:prepare-update', handler);
   },
   pathsForFiles: files => Array.from(files).map(file => webUtils.getPathForFile(file)).filter(Boolean),
-  onNavigate: callback => listen('syncit:navigate', callback),
+  onNavigate: callback => listen('syncit:navigate', callback), onCommand: callback => listen('syncit:command', callback),
   onLibrary: callback => listen('syncit:library', callback), onSync: callback => listen('syncit:sync', callback), onSettings: callback => listen('syncit:settings', callback)
 };
 contextBridge.exposeInMainWorld('syncit', api);

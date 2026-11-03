@@ -11,11 +11,15 @@ const viewable = new Set(['.txt', '.md', '.pdf', '.png', '.jpg', '.jpeg', '.webp
 export function assertSafeToOpen(file: string) {
   if (!viewable.has(path.extname(file).toLowerCase())) throw new Error('This file type is not launched from Satchel. Use “Show in folder” and inspect it before opening.');
 }
+/** Chromium's built-in PDF viewer: the extension page it nests inside a frame that shows a PDF. Nothing else from any extension loads. */
+export const PDF_VIEWER_ORIGIN = 'chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai';
+export function frameNavigationAllowed(url: string): boolean { return /^syncit-media:\/\/media\/stream(\/|\?)/.test(url) || url.startsWith(PDF_VIEWER_ORIGIN + '/'); }
 export function rendererRequestAllowed(url: string, devURL?: string): boolean {
   try {
     const parsed = new URL(url);
     if (parsed.protocol === 'syncit-app:' && parsed.hostname === 'app') return true;
     if (parsed.protocol === 'syncit-media:' && (parsed.hostname === 'image' || parsed.hostname === 'media')) return true;
+    if (url.startsWith(PDF_VIEWER_ORIGIN + '/') || url.startsWith('chrome://resources/')) return true; // the viewer's own page and the shared browser resources it draws on; extension schemes have a null origin in Node's URL, so prefixes are compared
     if (devURL && ['http:', 'ws:'].includes(parsed.protocol) && parsed.host === new URL(devURL).host) return true;
     return false;
   } catch { return false; }
@@ -33,4 +37,4 @@ export async function secureDirectory(directory: string) {
     await execute(system32('icacls.exe'), [directory, '/inheritance:r', '/grant:r', `*${sid}:(OI)(CI)F`, '*S-1-5-18:(OI)(CI)F'], { windowsHide: true });
   } else await fs.chmod(directory, 0o700);
 }
-export const appCSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src syncit-media: data:; media-src syncit-media:; frame-src syncit-media:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";
+export const appCSP = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src syncit-media: data:; media-src syncit-media:; frame-src syncit-media:; font-src 'self'; connect-src syncit-media:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'";

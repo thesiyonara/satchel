@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.6.20 — 2026-11-03
+
+### Fixed
+- PDFs open in the preview again. Chromium's PDF viewer nests its own page inside the preview frame and the window's navigation and request guards blocked it, leaving the frame blank. The guards now let that page and the browser resources it uses through, and nothing else from any extension. The viewer shows the file's name instead of “stream”.
+- Copy on an image's card put nothing on the clipboard in the installed app: the preview it fetches was refused by the content security policy and by the media scheme's cross-origin rules. Both allow it now.
+- Image cards get a thumbnail on computers without an OS thumbnailer, scaled from the original.
+- A card's menu opened near the top of the grid could sit under the card below it, out of reach; the open menu now rises above its neighbours.
+- The “Needs attention” pill in the top bar no longer wraps to two lines.
+
+### Changed
+- The Mac window drops the system title bar. The app draws the title bar and its three controls itself, so the window looks the same on a Mac and on Windows; close hides the window and Satchel stays in the menu bar.
+- An application menu: File (new note, new folder, add files or a folder, paste from the clipboard, open the collection folder, close the window), Edit, View (search, commands, grid, pinboard, pasteboard, select all, card size), Window and Help. It is the menu bar on the Mac and sits behind Alt on Windows. Every entry shows its shortcut, and the shortcuts work wherever the focus is: Ctrl/⌘ N new note, Shift N new folder, O add files, Shift O add a folder, Shift V paste from the clipboard, F search, comma preferences, K the palette, W close the window.
+- A right-click on the collection's background or the sidebar opens a menu: new note, new folder, add files (into the folder being browsed), add a folder, paste, select all, the pinboard or the grid, the collection folder and Preferences.
+- A folder's menu has Add files here, for the system picker straight into that folder.
+- Escape backs out one layer at a time: the open menu, the preview, a dialog, the selection, then the search.
+
+### Removed
+- Stylesheet rules and imports nothing used any more.
+
 ## 0.6.19 — 2026-10-29
 
 ### Fixed

@@ -1,7 +1,7 @@
 import { _electron as electron, expect } from '@playwright/test';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import https from 'node:https';
-import { wavBytes } from './test-media.mjs';
+import { pdfBytes, wavBytes } from './test-media.mjs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 
@@ -354,7 +354,30 @@ try {
   await page.reload();
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.items.some(i => i.preview === 'Recovered security-test draft')))).toBeTruthy();
   assert.equal(await page.evaluate(() => localStorage.getItem('syncit-draft-v1:recovery-test')), null);
+  // A PDF opens in the in-app viewer: Chromium's viewer page loads inside the preview frame (it is blocked unless the window lets it through), and Escape closes the preview.
+  const pdf = path.join(sources, 'notes.pdf'); await writeFile(pdf, pdfBytes('Hello Satchel'));
+  await page.evaluate(async source => window.syncit.importFiles([source]), pdf);
+  await page.getByRole('button', { name: 'Open notes.pdf' }).click();
+  await expect(page.getByRole('dialog', { name: 'PDF preview' })).toBeVisible();
+  await expect.poll(() => page.frames().map(frame => frame.url()).find(url => url.startsWith('chrome-extension://')), { timeout: 15000 }).toMatch(/^chrome-extension:\/\/[a-z]+\/index\.html/);
+  assert.ok(!page.frames().some(frame => frame.url().startsWith('chrome-error://')), 'the viewer frame loaded');
+  await page.screenshot({ path: path.join(artifacts, 'pdf-preview.png') });
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'PDF preview' })).toHaveCount(0);
+  // A right-click on the collection's background opens a menu of the things to add; Escape closes a dialog it opened. Ctrl/⌘ N is a new note wherever the focus is.
+  await page.locator('.collection-caption').click({ button: 'right', position: { x: 5, y: 5 } });
+  const background = page.getByRole('menu');
+  await expect(background.getByRole('menuitem', { name: 'New note' })).toBeVisible();
+  await background.getByRole('menuitem', { name: 'New folder…' }).click();
+  await expect(page.getByRole('dialog', { name: 'New folder' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'New folder' })).toHaveCount(0);
+  await page.getByRole('textbox', { name: 'Search the collection' }).press('Control+n');
+  await expect(page.getByRole('textbox', { name: 'Note text' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close note', exact: true }).click();
+  await page.keyboard.press('Control+f');
+  await expect(page.getByRole('textbox', { name: 'Search the collection' })).toBeFocused();
   assert.deepEqual(errors, []);
-  console.log(`UI passed: onboarding, note autosave, rename, import, image preview, search, pinboard drag, Quick drop, ${clipboardAvailable ? 'real clipboard paste' : 'clipboard paste SKIPPED'}, theme, Markdown preview, note history, computers panel, phone access pairing over pinned TLS, inert HTML, denied network, blocked script launch, draft recovery.`);
+  console.log(`UI passed: onboarding, note autosave, rename, import, image preview, search, pinboard drag, Quick drop, ${clipboardAvailable ? 'real clipboard paste' : 'clipboard paste SKIPPED'}, theme, Markdown preview, note history, computers panel, phone access pairing over pinned TLS, inert HTML, denied network, blocked script launch, draft recovery, PDF viewer, background menu, shortcuts.`);
   console.log(`Screenshots: ${artifacts}`);
 } finally { await application.close(); }

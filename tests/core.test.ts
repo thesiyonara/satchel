@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { tidyName } from '../shared/format';
 import { Library, validatePlacement, replaces } from '../electron/library';
-import { cleanName, contained, safeRelative, hash } from '../electron/files';
+import { cleanName, contained, safeRelative } from '../electron/files';
 import { SettingsStore, validateSettingsPatch } from '../electron/settings';
 import { localIPAllowed, parseLocalAddress, parsePairingCode, validateEncryptionPassword } from '../electron/sync-engine';
 

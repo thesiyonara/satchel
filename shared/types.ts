@@ -119,4 +119,6 @@ export interface SyncItAPI {
   onSync(callback: (state: SyncStatus) => void): () => void;
   onSettings(callback: (settings: Settings) => void): () => void;
   onNavigate(callback: (target: { filter: string }) => void): () => void;
+  /** A command from the application menu: the same names the window's own shortcuts use. */
+  onCommand(callback: (name: string) => void): () => void;
 }
