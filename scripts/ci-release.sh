@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Publish CI packages for a version tag. Run by .github/workflows/desktop.yml with the packages in ./artifacts.
+# Arguments: the tag, owner/repo, the commit the tag should point at when the release creates it, and draft or publish.
 #
-# No release for the tag yet: compute checksums and open a draft release for a maintainer to review.
+# No release for the tag yet: compute checksums and open a draft release for a maintainer to review (or a published one, when asked).
 # Release already there (a maintainer published it locally, or an earlier run opened the draft): add
 # only the packages it lacks and extend its checksum file. Published assets are never replaced, so a
 # tag always keeps the bytes users first downloaded.
@@ -10,7 +11,7 @@
 # Sync-it-<version>-…, so each package is uploaded a second time under that name. Drop this once no 0.4.x
 # install is left (planned for 0.7).
 set -euo pipefail
-tag="${1:?tag}"; repo="${2:?owner/repo}"
+tag="${1:?tag}"; repo="${2:?owner/repo}"; target="${3:-}"; mode="${4:-draft}"
 version="${tag#v}"
 package_version="$(node -p "require('./package.json').version")"
 if [ "$version" != "$package_version" ]; then echo "Tag $tag does not match package.json version $package_version"; exit 1; fi
@@ -24,7 +25,10 @@ ls -l
 if ! gh release view "$tag" --repo "$repo" --json name >/dev/null 2>&1; then
   sha256sum Satchel-"$version"-* Sync-it-"$version"-* > "$sums"
   cat "$sums"
-  gh release create "$tag" ./* --draft --title "Satchel $version" --generate-notes --repo "$repo"
+  flags=(--title "Satchel $version" --generate-notes --repo "$repo")
+  if [ "$mode" != publish ]; then flags+=(--draft); fi
+  if [ -n "$target" ]; then flags+=(--target "$target"); fi
+  gh release create "$tag" ./* "${flags[@]}"
   exit 0
 fi
 
