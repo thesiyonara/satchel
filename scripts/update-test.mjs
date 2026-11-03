@@ -1,4 +1,5 @@
 import { _electron as electron, expect } from '@playwright/test';
+import { closeApp } from './test-app.mjs';
 import path from 'node:path';
 import { mkdir, readFile, rename as renameOnce } from 'node:fs/promises';
 // Watchers and the index may hold a file inside the collection open for a moment; Windows then reports EBUSY.
@@ -57,4 +58,4 @@ try {
   assert.equal((await page.evaluate(() => window.syncit.updateState())).phase, 'idle', 'No check without opt-in or explicit action');
   const settings = JSON.parse(await readFile(path.join(profile, 'settings.json'), 'utf8')); assert.equal(settings.updateChecks, undefined);
   console.log('Update UI passed: manual defaults, preferences, all-window save acknowledgement with drawer handles, blocked editing, cancel recovery; no installer was launched.');
-} finally { await application.close(); }
+} finally { await closeApp(application); }

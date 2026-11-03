@@ -1,5 +1,6 @@
 // Captures the README screenshots from a throwaway profile with neutral names. Opens real windows.
 import { _electron as electron, expect } from '@playwright/test';
+import { closeApp } from './test-app.mjs';
 import { mkdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 const profile = path.resolve('.cache', `screenshots-${Date.now()}`);
@@ -57,4 +58,4 @@ try {
   await demoScreenshot(page, 'computers.png');
   await page.getByRole('button', { name: 'Close preferences' }).click();
   console.log('Screenshots written to docs/screenshots.');
-} finally { await application.close(); await rm(profile, { recursive: true, force: true }).catch(() => {}); }
+} finally { await closeApp(application); await rm(profile, { recursive: true, force: true }).catch(() => {}); }

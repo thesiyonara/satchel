@@ -2,6 +2,7 @@
 // separate browser session (Electron's own Chromium, isolated from the app's renderer policy) pairs with
 // the one-time URL, browses, writes and unpairs.
 import { _electron as electron, expect } from '@playwright/test';
+import { closeApp } from './test-app.mjs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -96,4 +97,4 @@ try {
   await expect(phone.getByRole('heading', { name: 'Phone access' })).toBeVisible();
   await expect.poll(() => desktop.evaluate(() => window.syncit.phoneInfo().then(info => info.devices.length))).toBe(0);
   console.log('Phone web client passed: pairing by URL, listing, note edit with revision, new note, upload, audio playback, text preview, photo grid and full-size view, search, download, unpair.');
-} finally { await app.close(); }
+} finally { await closeApp(app); }

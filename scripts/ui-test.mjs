@@ -1,4 +1,5 @@
 import { _electron as electron, expect } from '@playwright/test';
+import { closeApp } from './test-app.mjs';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import https from 'node:https';
 import { pdfBytes, wavBytes } from './test-media.mjs';
@@ -380,4 +381,4 @@ try {
   assert.deepEqual(errors, []);
   console.log(`UI passed: onboarding, note autosave, rename, import, image preview, search, pinboard drag, Quick drop, ${clipboardAvailable ? 'real clipboard paste' : 'clipboard paste SKIPPED'}, theme, Markdown preview, note history, computers panel, phone access pairing over pinned TLS, inert HTML, denied network, blocked script launch, draft recovery, PDF viewer, background menu, shortcuts.`);
   console.log(`Screenshots: ${artifacts}`);
-} finally { await application.close(); }
+} finally { await closeApp(application); }

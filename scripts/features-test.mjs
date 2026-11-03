@@ -1,4 +1,5 @@
 import { _electron as electron, expect } from '@playwright/test';
+import { closeApp } from './test-app.mjs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -69,4 +70,4 @@ try {
   status = await cli('status'); assert.equal(main().alwaysOnTop, false); assert.ok(Math.abs(main().opacity - 1) < .02);
   await cli('settings', JSON.stringify({ panelAutoHide: false }));
   console.log('Six-feature test passed: minimal/quick windows, dock/opacity/autohide, pasteboard, palette, favorites/rename, authenticated CLI notes/import/layout/sync/screenshot.');
-} finally { await app.close(); }
+} finally { await closeApp(app); }

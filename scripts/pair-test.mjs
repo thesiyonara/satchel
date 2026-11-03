@@ -6,6 +6,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import assert from 'node:assert/strict';
 import { _electron as electron, expect } from '@playwright/test';
+import { closeApp } from './test-app.mjs';
 
 const stamp = Date.now();
 const profiles = { a: path.resolve('.cache', `pair-a-${stamp}`), b: path.resolve('.cache', `pair-b-${stamp}`) };
@@ -65,5 +66,5 @@ try {
   await a.page.screenshot({ path: path.resolve('test-results', 'pair-pasteboard.png') });
   console.log('Pair test passed: loopback pairing, a large file shown arriving with sender and progress, arrival marked with its sender, notifications recorded, move to folder synced, pasteboard live between the two.');
 } finally {
-  await Promise.all([a.application.close(), b.application.close()]);
+  await Promise.all([closeApp(a.application), closeApp(b.application)]);
 }

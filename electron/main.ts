@@ -294,6 +294,7 @@ function createWindow(kind: 'main' | 'drawer') {
     title: drawer ? 'Satchel drawer' : 'Satchel', backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1116' : '#f8f9f6',
     icon: path.join(assets, 'icon.png'), autoHideMenuBar: true, alwaysOnTop: drawer, skipTaskbar: drawer, resizable: !drawer,
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, devTools: !app.isPackaged } });
+  if (drawer && process.platform !== 'darwin') window.removeMenu(); // only the main window carries the application menu (hidden behind Alt)
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
   // Only the in-app PDF viewer may load in a frame: the stream from the collection, and the viewer page Chromium nests inside it.
@@ -348,6 +349,7 @@ function createHandle(): BrowserWindow {
   const window = new BrowserWindow({ width: HANDLE.width, height: HANDLE.height, show: false, frame: false, transparent: true, resizable: false, movable: false, minimizable: false, maximizable: false, focusable: false, skipTaskbar: true, hasShadow: false, alwaysOnTop: true, title: 'Satchel handle',
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, spellcheck: false, devTools: !app.isPackaged } });
   window.setAlwaysOnTop(true, 'screen-saver');
+  if (process.platform !== 'darwin') window.removeMenu(); // the application menu belongs to the main window; a handle must not grow a menu bar
   window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   window.webContents.on('will-navigate', event => event.preventDefault());
   window.webContents.session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
