@@ -15,6 +15,7 @@
 - An application menu: File (new note, new folder, add files or a folder, paste from the clipboard, open the collection folder, close the window), Edit, View (search, commands, grid, pinboard, pasteboard, select all, card size), Window and Help. It is the menu bar on the Mac and sits behind Alt on Windows. Every entry shows its shortcut, and the shortcuts work wherever the focus is: Ctrl/⌘ N new note, Shift N new folder, O add files, Shift O add a folder, Shift V paste from the clipboard, F search, comma preferences, K the palette, W close the window.
 - A right-click on the collection's background or the sidebar opens a menu: new note, new folder, add files (into the folder being browsed), add a folder, paste, select all, the pinboard or the grid, the collection folder and Preferences.
 - A folder's menu has Add files here, for the system picker straight into that folder.
+- Enter opens the one selected card. The tray menu has New note and Add files. A right-click in Quick drop offers a new note, files, the clipboard, the dashboard and Preferences. The image preview has Copy.
 - Escape backs out one layer at a time: the open menu, the preview, a dialog, the selection, then the search.
 
 ### Removed

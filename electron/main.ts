@@ -454,7 +454,8 @@ function refreshTray() {
   if (signature === trayMenuSignature) return;
   trayMenuSignature = signature;
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: 'Open dashboard', click: showDashboard }, { label: 'Quick drop', click: showPanel }, { label: 'Open the drawer', click: showDrawer },
+    { label: 'Open dashboard', click: showDashboard }, { label: 'Quick drop', click: showPanel }, { label: 'Open the drawer', click: showDrawer }, { type: 'separator' },
+    { label: 'New note', click: () => sendCommand('new-note') }, { label: 'Add files…', click: () => sendCommand('add-files') },
     { label: 'Capture clipboard', click: () => { void (async () => { try { const result = await (operations.get('paste')!() as Promise<{ kind: string } | null>); toast(result ? result.kind === 'image' ? 'Screenshot added to the collection.' : 'Note added to the collection.' : 'The clipboard has no text or image.'); } catch (error) { toast(errorMessage(error)); } })(); } },
     { type: 'separator' },
     { label: paused ? 'Resume sync' : 'Pause sync', enabled: peers > 0 || paused, click: () => { void operations.get('settings')!({ syncPaused: !paused }); } },
@@ -467,9 +468,11 @@ function refreshTray() {
  * window itself (registerAccelerator keeps them out of the system on the Mac; on Windows the page consumes the key first), so every
  * shortcut behaves the same whether it comes from the keyboard or from a menu click.
  */
+/** A command for the window that has the focus, or the dashboard, brought up if it was hidden. */
+function sendCommand(name: string) { const window = BrowserWindow.getFocusedWindow() ?? ensureMain(); if (window === mainWindow && !window.isVisible()) showDashboard(); window.webContents.send('syncit:command', name); }
 function setupMenu() {
   const mac = process.platform === 'darwin';
-  const command = (name: string) => () => { const window = BrowserWindow.getFocusedWindow() ?? ensureMain(); if (window === mainWindow && !window.isVisible()) showDashboard(); window.webContents.send('syncit:command', name); };
+  const command = (name: string) => () => sendCommand(name);
   const item = (label: string, name: string, accelerator?: string): Electron.MenuItemConstructorOptions => ({ label, accelerator, registerAccelerator: false, click: command(name) });
   const quit = () => { quitting = true; app.quit(); };
   const template: Electron.MenuItemConstructorOptions[] = [
