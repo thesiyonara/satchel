@@ -10,6 +10,7 @@ struct FileDetail: View {
     let file: CollectionFile
     let client: Companion
     let changed: () -> Void
+    @EnvironmentObject private var navigation: SatchelNavigation
     @StateObject private var folder = PreviewFolder()
     @State private var note: CollectionNote?
     @State private var editing: CollectionNote?
@@ -94,7 +95,7 @@ struct FileDetail: View {
             } catch { if !Task.isCancelled { self.error = error.localizedDescription } }
         }
         .quickLookPreview($preview)
-        .sheet(item: $editing) { original in
+        .sheet(item: $editing, onDismiss: navigation.endEditingDraft) { original in
             DraftEditor(title: "Edit note", initial: original.text, draft: LocalDraft(client: client, document: .note(original.path))) { text in
                 let saved = try await client.saveNote(original, text: text)
                 note = saved

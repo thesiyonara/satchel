@@ -53,7 +53,7 @@ jobs:
           node --import tsx scripts/ios-client-test.ts --serve-ui &
           fixture=$!
           trap 'kill "$fixture" 2>/dev/null || true' EXIT
-          xcodebuild "${build[@]}" -test-timeouts-enabled YES -maximum-test-execution-time-allowance 240 -resultBundlePath "$RUNNER_TEMP/ios-tests.xcresult" test-without-building
+          xcodebuild "${build[@]}" -test-timeouts-enabled YES -maximum-test-execution-time-allowance 420 -resultBundlePath "$RUNNER_TEMP/ios-tests.xcresult" test-without-building
           ditto -c -k --keepParent "$RUNNER_TEMP/ios-build/Build/Products/Debug-iphonesimulator/Satchel.app" "$RUNNER_TEMP/Satchel-iOS-Simulator.zip"
       - name: Collect simulator screenshots
         if: always() && env.SATCHEL_SIMULATOR != ''

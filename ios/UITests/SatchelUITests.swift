@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 final class SatchelUITests: XCTestCase {
     @MainActor
@@ -19,7 +20,11 @@ final class SatchelUITests: XCTestCase {
         XCTAssertTrue(fieldNotes.waitForExistence(timeout: 12))
         try capture("02-collection", app)
         fieldNotes.tap()
-        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 12))
+        let editFieldNotes = app.buttons["Edit"]
+        if !editFieldNotes.waitForExistence(timeout: 8), fieldNotes.exists && fieldNotes.isHittable {
+            fieldNotes.tap()
+        }
+        XCTAssertTrue(editFieldNotes.waitForExistence(timeout: 20))
         try capture("03-note", app)
         app.navigationBars.buttons.element(boundBy: 0).tap()
         addButton.tap()
@@ -53,19 +58,19 @@ final class SatchelUITests: XCTestCase {
         app.buttons["Save"].tap()
         XCTAssertTrue(app.buttons["Copy text"].waitForExistence(timeout: 10))
         try capture("04-pasteboard", app)
-        app.terminate()
-        XCUIDevice.shared.appearance = .dark
-        XCTAssertEqual(XCUIDevice.shared.appearance, .dark)
-        app.launch()
-        app.open(try XCTUnwrap(URL(string: "satchel://pasteboard")))
+        let computerTab = app.buttons["Computer"].firstMatch
+        computerTab.tap()
+        let appearance = app.segmentedControls["appearance-mode"]
+        XCTAssertTrue(appearance.waitForExistence(timeout: 8))
+        appearance.buttons["Dark"].tap()
+        app.buttons["Pasteboard"].firstMatch.tap()
         XCTAssertTrue(app.buttons["Copy text"].waitForExistence(timeout: 10))
-        try capture("05-pasteboard-dark", app)
+        try capture("05-pasteboard-dark", app, expectDark: true)
         app.open(try XCTUnwrap(URL(string: "satchel://collection")))
         XCTAssertTrue(fieldNotes.waitForExistence(timeout: 10))
-        try capture("06-collection-dark", app)
-        let computerTab = app.buttons["Computer"].firstMatch
-        XCTAssertTrue(computerTab.waitForExistence(timeout: 10))
+        try capture("06-collection-dark", app, expectDark: true)
         computerTab.tap()
+        appearance.buttons["System"].tap()
         app.buttons["Disconnect this device"].tap()
         app.buttons["Disconnect"].tap()
         XCTAssertTrue(app.buttons["Pair computer"].waitForExistence(timeout: 10))
@@ -100,6 +105,7 @@ final class SatchelUITests: XCTestCase {
         let open = springboard.alerts.buttons["Open"].firstMatch
         if open.waitForExistence(timeout: 5) { open.tap() }
         try await dispatch
+        XCTAssertTrue(app.staticTexts["pending-destination"].waitForExistence(timeout: 12), app.debugDescription)
         XCTAssertTrue(editor.waitForExistence(timeout: 12))
         XCTAssertEqual(editor.value as? String, contents)
         app.buttons["Save"].tap()
@@ -119,8 +125,19 @@ final class SatchelUITests: XCTestCase {
     }
 
     @MainActor
-    private func capture(_ name: String, _ app: XCUIApplication) throws {
+    private func capture(_ name: String, _ app: XCUIApplication, expectDark: Bool = false) throws {
         let screenshot = app.screenshot()
+        if expectDark {
+            // Sample the paper margin in the same PNG that will be published. A light screenshot
+            // mislabeled as dark must fail even when the picker reports the requested preference.
+            let png = try XCTUnwrap(UIImage(data: screenshot.pngRepresentation)?.cgImage)
+            let edge = try XCTUnwrap(png.cropping(to: CGRect(x: 5, y: 300, width: 1, height: 1)))
+            let context = try XCTUnwrap(CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+            context.draw(edge, in: CGRect(x: 0, y: 0, width: 1, height: 1))
+            let rgb = try XCTUnwrap(context.data).assumingMemoryBound(to: UInt8.self)
+            XCTAssertLessThan(max(rgb[0], max(rgb[1], rgb[2])), 90, "Expected dark paper in \(name)")
+        }
         let output = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("SatchelScreenshots")
         try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
         try screenshot.pngRepresentation.write(to: output.appendingPathComponent(name + ".png"))

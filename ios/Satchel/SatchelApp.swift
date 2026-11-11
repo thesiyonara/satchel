@@ -5,7 +5,7 @@ import AVFoundation
 @main
 struct SatchelApp: App {
     @UIApplicationDelegateAdaptor(SatchelAppDelegate.self) private var delegate
-    var body: some Scene { WindowGroup { SatchelRoot() }.commands { SatchelKeyboardCommands() } }
+    var body: some Scene { WindowGroup { SatchelRoot().modifier(SatchelAppearancePreference()) }.commands { SatchelKeyboardCommands() } }
 }
 
 struct SatchelRoot: View {
@@ -35,7 +35,10 @@ struct SatchelRoot: View {
         }
         .font(SatchelStyle.font()).foregroundStyle(SatchelStyle.ink).tint(SatchelStyle.ink)
         .task { do { computer = try PairingStore.load() } catch { message = error.localizedDescription } }
-        .onOpenURL { if !navigation.open($0) { receive($0.absoluteString) } }
+        .onOpenURL(perform: navigation.receiveSystemURL)
+        .onChange(of: navigation.pairingURL, initial: true) { _, url in
+            if let url { navigation.pairingURL = nil; receive(url.absoluteString) }
+        }
         .sheet(isPresented: $scanning) {
             NavigationStack {
                 PairingScanner { value in scanning = false; receive(value) } onError: {
@@ -43,7 +46,7 @@ struct SatchelRoot: View {
                 }
                 .navigationTitle("Scan iOS pairing code").navigationBarTitleDisplayMode(.inline)
                 .toolbar { Button("Cancel") { scanning = false } }
-            }
+            }.modifier(SatchelAppearancePreference())
         }
         .alert("Pairing", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK") { message = nil }
@@ -185,6 +188,7 @@ private struct ComputerView: View {
     let computer: PairedComputer
     let client: Companion
     let forget: () -> Void
+    @AppStorage("satchelAppearance") private var appearance: SatchelAppearance = .system
     @State private var status: ComputerStatus?
     @State private var error: String?
     @State private var action: String?
@@ -211,6 +215,14 @@ private struct ComputerView: View {
                 }.font(SatchelStyle.font(15)).padding(16).satchelPanel()
                 if let error { FeedbackPanel(message: error) }
                 Button("Check connection") { Task { await refresh() } }.buttonStyle(SatchelButton())
+                VStack(alignment: .leading, spacing: 10) {
+                    SectionCaption(title: "Appearance")
+                    Picker("Appearance", selection: $appearance) {
+                        ForEach(SatchelAppearance.allCases, id: \.self) { option in
+                            Text(option.rawValue).tag(option)
+                        }
+                    }.pickerStyle(.segmented).accessibilityIdentifier("appearance-mode")
+                }
                 SectionCaption(title: "Pairing")
                 VStack(alignment: .leading, spacing: 8) {
                     Button("Disconnect this device", role: .destructive) { action = "Disconnect" }

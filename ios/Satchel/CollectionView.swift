@@ -195,7 +195,7 @@ struct CollectionView: View {
             }
         }
         .onChange(of: phase) { _, value in if value == .active { Task { await refresh() } } }
-        .sheet(isPresented: $navigation.composing) {
+        .sheet(isPresented: $navigation.composing, onDismiss: navigation.endEditingDraft) {
             DraftEditor(title: "New note", initial: "", draft: LocalDraft(client: client, document: .newNote), allowEmpty: false) { text in
                 _ = try await client.createNote(text)
                 await refresh()

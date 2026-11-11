@@ -116,6 +116,11 @@ struct DraftEditor: View {
                         Spacer()
                     }.disabled(saving)
                 }
+                if let destination = navigation.pendingDestination {
+                    Text("\(destination.title) will open when you close this draft.")
+                        .font(SatchelStyle.font(14)).foregroundStyle(SatchelStyle.secondary)
+                        .accessibilityIdentifier("pending-destination")
+                }
                 LinkEditor(text: $text).disabled(saving || recovered != nil)
                 if let error {
                     FeedbackPanel(message: error).accessibilityLabel("Draft. \(error)")
@@ -147,6 +152,8 @@ struct DraftEditor: View {
                 }
             }
         }
+        .onOpenURL(perform: navigation.receiveSystemURL)
+        .modifier(SatchelAppearancePreference())
         .tint(SatchelStyle.ink).interactiveDismissDisabled(saving || text != initial)
         .onAppear {
             navigation.beginEditingDraft()
@@ -168,7 +175,6 @@ struct DraftEditor: View {
         .onChange(of: phase) { _, value in if value != .active { do { try persist() } catch { self.error = error.localizedDescription } } }
         .onDisappear {
             try? persist()
-            navigation.endEditingDraft()
         }
         .confirmationDialog("Close this draft?", isPresented: $discard) {
             Button("Keep draft") {

@@ -43,6 +43,22 @@ enum SatchelStyle {
     }
 }
 
+enum SatchelAppearance: String, CaseIterable {
+    case system = "System", light = "Light", dark = "Dark"
+    var scheme: ColorScheme? {
+        switch self {
+        case .system: nil
+        case .light: .light
+        case .dark: .dark
+        }
+    }
+}
+
+struct SatchelAppearancePreference: ViewModifier {
+    @AppStorage("satchelAppearance") private var appearance: SatchelAppearance = .system
+    func body(content: Content) -> some View { content.preferredColorScheme(appearance.scheme) }
+}
+
 extension View {
     func satchelPanel(_ fill: Color = SatchelStyle.surface, radius: CGFloat = 13) -> some View {
         background(fill, in: RoundedRectangle(cornerRadius: radius, style: .continuous))

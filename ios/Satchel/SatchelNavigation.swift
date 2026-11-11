@@ -20,9 +20,24 @@ final class SatchelNavigation: NSObject, ObservableObject {
     @Published var collectionPath: [CollectionFile] = []
     @Published var pasteboardPath: [BoardClip] = []
     @Published private(set) var isEditingDraft = false
-    private var pendingDestination: Destination?
+    @Published private(set) var pendingDestination: Destination?
+    @Published var pairingURL: URL?
 
-    enum Destination: String { case collection, compose, pasteboard, search }
+    enum Destination: String {
+        case collection, compose, pasteboard, search
+        var title: String {
+            switch self {
+            case .collection: "Collection"
+            case .compose: "New note"
+            case .pasteboard: "Pasteboard"
+            case .search: "Search"
+            }
+        }
+    }
+
+    func receiveSystemURL(_ url: URL) {
+        if !open(url), url.scheme?.lowercased() == "syncit-phone" { pairingURL = url }
+    }
 
     func open(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "satchel" else { return false }
@@ -36,6 +51,7 @@ final class SatchelNavigation: NSObject, ObservableObject {
 
     func reset() {
         pendingDestination = nil
+        pairingURL = nil
         composing = false
         searchRequested = false
         isEditingDraft = false

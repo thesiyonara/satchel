@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BoardView: View {
     let client: Companion
+    @EnvironmentObject private var navigation: SatchelNavigation
     @State private var board: SharedBoard?
     @State private var editing = false
     @State private var error: String?
@@ -67,7 +68,7 @@ struct BoardView: View {
         .navigationDestination(for: BoardClip.self) { clip in ClipView(clip: clip) }
         .task { await refresh() }
         .onChange(of: phase) { _, value in if value == .active && !editing { Task { await refresh() } } }
-        .sheet(isPresented: $editing, onDismiss: { Task { await refresh() } }) {
+        .sheet(isPresented: $editing, onDismiss: { navigation.endEditingDraft(); Task { await refresh() } }) {
             if let board {
                 BoardEditor(board: board, client: client) { saved in
                     generation = UUID(); self.board = saved; error = nil
