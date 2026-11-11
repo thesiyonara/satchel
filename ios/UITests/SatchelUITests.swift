@@ -4,6 +4,8 @@ final class SatchelUITests: XCTestCase {
     @MainActor
     func testPairedCollectionAndPasteboard() async throws {
         continueAfterFailure = false
+        XCUIDevice.shared.appearance = .light
+        defer { XCUIDevice.shared.appearance = .light }
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.buttons["Pair computer"].waitForExistence(timeout: 12))
@@ -54,7 +56,8 @@ final class SatchelUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Copy text"].waitForExistence(timeout: 10))
         try capture("04-pasteboard", app)
         app.terminate()
-        app.launchArguments = ["-AppleInterfaceStyle", "Dark"]
+        XCUIDevice.shared.appearance = .dark
+        XCTAssertEqual(XCUIDevice.shared.appearance, .dark)
         app.launch()
         app.open(try XCTUnwrap(URL(string: "satchel://pasteboard")))
         XCTAssertTrue(app.buttons["Copy text"].waitForExistence(timeout: 10))
