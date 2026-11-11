@@ -55,7 +55,7 @@ struct FileDetail: View {
                 }
             }
         }
-        .navigationTitle(note.map { ($0.path as NSString).lastPathComponent } ?? file.name).navigationBarTitleDisplayMode(.inline)
+        .navigationTitle(note.map { (($0.path as NSString).lastPathComponent as NSString).deletingPathExtension } ?? file.displayName).navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if let note {
                 ShareLink(item: note.text)

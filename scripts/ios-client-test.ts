@@ -1,6 +1,7 @@
 import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { mkdtemp, mkdir, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -17,17 +18,27 @@ try {
   await mkdir(library.root);
   await library.initialize();
   await service.start();
-  const { offer } = service.offer();
-  const encoded = encodeOffer({ ...offer, addresses: ['127.0.0.1'] });
+  const localOffer = () => encodeOffer({ ...service.offer().offer, addresses: ['127.0.0.1'] });
   if (process.argv[2] === '--serve-ui') {
-    await writeFile(process.argv[3], encoded, { mode: 0o600 });
-    await once(process, 'SIGTERM');
+    await library.createNote('Handoff notes\nThe revised cut is ready for review. Check the opening sequence and the end credits.');
+    await library.addBytes('Shot list.csv', Buffer.from('Scene,Location\nOpening,North entrance\nClose,Studio'));
+    await library.createNote('Field notes\nThe north entrance gets the best morning light. Bring the short tripod and a spare battery.');
+    await library.savePasteboard('Meet at the north entrance at 8:30.', 'Studio Mac');
+    await library.savePasteboard('', 'Studio Mac');
+    // Create the five-minute offer after XCTest launches, even on a slow simulator runner.
+    const offers = createServer((req, res) => {
+      if (req.url !== '/offer') { res.writeHead(404).end(); return; }
+      res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }).end(localOffer());
+    });
+    offers.listen(31926, '127.0.0.1');
+    await once(offers, 'listening');
+    try { await once(process, 'SIGTERM'); } finally { offers.close(); }
   } else {
     const binary = path.join(dir, 'ClientSmoke');
     await promisify(execFile)('xcrun', ['--sdk', 'macosx', 'swiftc', '-parse-as-library', 'ios/Satchel/Companion.swift', 'ios/Tests/ClientSmoke.swift', '-o', binary]);
     const client = spawn(binary, [], { stdio: ['pipe', 'inherit', 'inherit'], timeout: 60000 });
     const exited = once(client, 'exit');
-    client.stdin.end(encoded + '\n');
+    client.stdin.end(localOffer() + '\n');
     const [code] = await exited;
     if (code !== 0) throw new Error('Swift client smoke test failed');
   }

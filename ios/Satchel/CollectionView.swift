@@ -40,6 +40,16 @@ private struct PickedMedia: Transferable {
     }
 }
 
+extension CollectionFile {
+    var displayName: String { kind == "note" ? (name as NSString).deletingPathExtension : name }
+    var excerpt: String? {
+        guard let preview else { return nil }
+        let lines = preview.components(separatedBy: .newlines)
+        let body = lines.first == displayName ? lines.dropFirst().joined(separator: " ") : preview
+        return body.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
 struct CollectionView: View {
     let computer: PairedComputer
     let client: Companion
@@ -90,16 +100,20 @@ struct CollectionView: View {
                     } label: {
                         Label {
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(file.name).font(.headline).lineLimit(2)
-                                if let preview = file.preview, !preview.isEmpty {
+                                Text(file.displayName).font(.headline).lineLimit(2)
+                                if let preview = file.excerpt, !preview.isEmpty {
                                     Text(preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
                                 }
                                 Text(file.path.contains("/") ? file.path : ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
                                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                                 if file.conflict { Label("Conflict copy", systemImage: "doc.on.doc").font(.caption) }
                             }.padding(.vertical, 2)
-                        } icon: { Image(systemName: (Kind(rawValue: file.kind) ?? .file).icon) }
-                    }
+                        } icon: {
+                            Image(systemName: (Kind(rawValue: file.kind) ?? .file).icon)
+                                .frame(width: 34, height: 36)
+                                .background(.tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                        }
+                    }.accessibilityIdentifier("item-" + file.path)
                 }
             } header: { Text("\(kind.title) · \(results.count)") }
         }
