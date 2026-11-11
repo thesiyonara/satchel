@@ -108,6 +108,14 @@ struct DraftEditor: View {
                         }
                     }.padding(14).satchelPanel(SatchelStyle.notePaper)
                 }
+                if text.isEmpty && recovered == nil {
+                    HStack {
+                        PasteButton(payloadType: String.self) { values in
+                            text = values.joined(separator: "\n")
+                        }.buttonBorderShape(.roundedRectangle(radius: 8))
+                        Spacer()
+                    }.disabled(saving)
+                }
                 LinkEditor(text: $text).disabled(saving || recovered != nil)
                 if let error {
                     FeedbackPanel(message: error).accessibilityLabel("Draft. \(error)")
@@ -119,7 +127,8 @@ struct DraftEditor: View {
             .toolbarBackground(SatchelStyle.paper, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { if text == initial { dismiss() } else { discard = true } }.disabled(saving)
+                    Button("Cancel") { if text == initial { dismiss() } else { discard = true } }
+                        .keyboardShortcut(.cancelAction).disabled(saving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(saving ? "Saving…" : "Save") {
@@ -133,7 +142,8 @@ struct DraftEditor: View {
                                 dismiss()
                             } catch { self.error = error.localizedDescription }
                         }
-                    }.disabled(saving || recovered != nil || text == initial || (!allowEmpty && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
+                    }.keyboardShortcut("s", modifiers: .command)
+                    .disabled(saving || recovered != nil || text == initial || (!allowEmpty && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty))
                 }
             }
         }

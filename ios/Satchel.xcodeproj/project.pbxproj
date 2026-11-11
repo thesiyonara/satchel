@@ -24,7 +24,7 @@
         200000000000000000000005 = { isa = PBXNativeTarget; buildConfigurationList = 200000000000000000000009; buildPhases = (20000000000000000000000A, 20000000000000000000000B, 20000000000000000000000C); buildRules = (); dependencies = (20000000000000000000000D); fileSystemSynchronizedGroups = (200000000000000000000003); name = SatchelUITests; productName = SatchelUITests; productReference = 200000000000000000000006; productType = "com.apple.product-type.bundle.ui-testing"; };
         200000000000000000000006 = { isa = PBXFileReference; explicitFileType = wrapper.cfbundle; path = SatchelUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
         200000000000000000000009 = { isa = XCConfigurationList; buildConfigurations = (200000000000000000000011, 200000000000000000000012); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-        20000000000000000000000A = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (00000000000000000000A011); runOnlyForDeploymentPostprocessing = 0; };
+        20000000000000000000000A = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (00000000000000000000A011, 00000000000000000000A014, 00000000000000000000A015); runOnlyForDeploymentPostprocessing = 0; };
         20000000000000000000000B = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
         20000000000000000000000C = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
         20000000000000000000000D = { isa = PBXTargetDependency; target = 100000000000000000000005; targetProxy = 20000000000000000000000E; };
@@ -71,7 +71,10 @@
         00000000000000000000A0D3 = { isa = PBXTargetDependency; target = 00000000000000000000A0CA; targetProxy = 00000000000000000000A0D2; };
         00000000000000000000A0D4 = { isa = PBXBuildFile; fileRef = 00000000000000000000A0CF; settings = { ATTRIBUTES = (RemoveHeadersOnCopy); }; };
         00000000000000000000A028 = { isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (00000000000000000000A070, 00000000000000000000A0D4); name = "Embed App Extensions"; runOnlyForDeploymentPostprocessing = 0; };
-        00000000000000000000A02A = { isa = PBXGroup; children = (00000000000000000000A002, 00000000000000000000A003, 00000000000000000000A004, 00000000000000000000A005, 00000000000000000000A006, 00000000000000000000A007); name = "Shared Target Sources"; sourceTree = "<group>"; };
+        00000000000000000000A02A = { isa = PBXGroup; children = (00000000000000000000A002, 00000000000000000000A003, 00000000000000000000A004, 00000000000000000000A005, 00000000000000000000A006, 00000000000000000000A007, 00000000000000000000A013); name = "Shared Target Sources"; sourceTree = "<group>"; };
+        00000000000000000000A013 = { isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShareDelivery.swift; path = ShareExtension/ShareDelivery.swift; sourceTree = SOURCE_ROOT; };
+        00000000000000000000A014 = { isa = PBXBuildFile; fileRef = 00000000000000000000A013; };
+        00000000000000000000A015 = { isa = PBXBuildFile; fileRef = 00000000000000000000A002; };
 	};
 	rootObject = 100000000000000000000001;
 }

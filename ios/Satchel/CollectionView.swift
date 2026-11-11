@@ -164,9 +164,7 @@ struct CollectionView: View {
                     let columns = list ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: 148, maximum: 340), spacing: 10)]
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
                         ForEach(results) { file in
-                            NavigationLink {
-                                FileDetail(file: file, client: client) { Task { await refresh() } }
-                            } label: {
+                            NavigationLink(value: file) {
                                 CollectionCard(file: file, client: client, thumbnails: thumbnails, compact: list)
                             }.buttonStyle(.plain).accessibilityIdentifier("item-" + file.path)
                             .contextMenu {
@@ -182,8 +180,17 @@ struct CollectionView: View {
         .scrollDismissesKeyboard(.interactively)
         .satchelRootPage()
         .navigationTitle(computer.collection)
+        .navigationDestination(for: CollectionFile.self) { file in
+            FileDetail(file: file, client: client) { Task { await refresh() } }
+        }
         .refreshable { await refresh() }
         .task { await refresh() }
+        .task(id: navigation.searchRequested) {
+            if navigation.searchRequested {
+                searching = true
+                navigation.searchRequested = false
+            }
+        }
         .onChange(of: phase) { _, value in if value == .active { Task { await refresh() } } }
         .sheet(isPresented: $navigation.composing) {
             DraftEditor(title: "New note", initial: "", draft: LocalDraft(client: client, document: .newNote), allowEmpty: false) { text in

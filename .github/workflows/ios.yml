@@ -43,7 +43,11 @@ jobs:
           xcodebuild "${build[@]}" build-for-testing
           app="$RUNNER_TEMP/ios-build/Build/Products/Debug-iphonesimulator/Satchel.app"
           jq -e '.actions | has("SaveSatchelNoteIntent") and has("GetSatchelPasteboardIntent") and has("SetSatchelPasteboardIntent") and has("UploadSatchelFileIntent")' "$app/Metadata.appintents/extract.actionsdata"
-          test "$(find "$app/PlugIns" -type d -name '*.appex' | wc -l | tr -d ' ')" = 2
+          test -e "$app/PlugIns/SatchelShare.appex/SatchelShare"
+          test -e "$app/PlugIns/SatchelWidgets.appex/SatchelWidgets"
+          for bundle in "$app" "$app/PlugIns/SatchelShare.appex"; do
+            /usr/libexec/PlistBuddy -c 'Print SatchelPairingAccessGroup' "$bundle/Info.plist" | grep -F 'local.satchel.phone.pairing'
+          done
           node --import tsx scripts/ios-client-test.ts --serve-ui &
           fixture=$!
           trap 'kill "$fixture" 2>/dev/null || true' EXIT

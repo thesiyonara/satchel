@@ -24,6 +24,7 @@ Pairing pins the offered certificate before sending the one-time code. The app k
 - In another app, open the system share sheet and choose **Satchel** to send text, a URL or files to your paired computer. Shared text can become a note or replace the shared pasteboard.
 - In Shortcuts, search for **Satchel** to save a note, get or set the shared pasteboard, or upload a file. These actions use the same paired computer as the app.
 - Add the **Satchel** widget to your Home Screen to open the collection, compose a note, or open the pasteboard. The Lock Screen widget opens the note composer. Touch and hold the app icon for **New note** and **Pasteboard**.
+- With a hardware keyboard, use **⌘N** for a note, **⌘F** to search, **⌘1** for Collection, and **⌘2** for Pasteboard. You can switch between a card grid and compact rows in the collection’s layout menu.
 - Unsaved edits are kept locally with file protection and excluded from backup. Reopen the same editor to recover a draft. Disconnecting or forgetting the computer clears its drafts.
 
 ### Build and test

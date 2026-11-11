@@ -20,6 +20,8 @@ struct SatchelKeyboardCommands: Commands {
                 .keyboardShortcut("n").disabled(navigation == nil)
         }
         CommandMenu("Navigate") {
+            Button("Find in Collection") { navigation?.navigate(to: .search) }
+                .keyboardShortcut("f").disabled(navigation == nil)
             Button("Show Collection") { navigation?.navigate(to: .collection) }
                 .keyboardShortcut("1").disabled(navigation == nil)
             Button("Show Pasteboard") { navigation?.navigate(to: .pasteboard) }

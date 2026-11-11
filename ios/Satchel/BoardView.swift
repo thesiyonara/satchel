@@ -44,9 +44,7 @@ struct BoardView: View {
                         SectionCaption(title: "Recent", trailing: "\(board.recent.count)")
                         VStack(spacing: 0) {
                             ForEach(board.recent) { clip in
-                                NavigationLink {
-                                    ClipView(clip: clip)
-                                } label: {
+                                NavigationLink(value: clip) {
                                     HStack(alignment: .center, spacing: 12) {
                                         Image(systemName: "clock.arrow.circlepath").foregroundStyle(SatchelStyle.muted)
                                         VStack(alignment: .leading, spacing: 5) {
@@ -66,6 +64,7 @@ struct BoardView: View {
             }.padding(.horizontal, 18).padding(.top, 7).padding(.bottom, 24)
             .frame(maxWidth: 740).frame(maxWidth: .infinity)
         }.satchelRootPage().navigationTitle("Pasteboard").refreshable { await refresh() }
+        .navigationDestination(for: BoardClip.self) { clip in ClipView(clip: clip) }
         .task { await refresh() }
         .onChange(of: phase) { _, value in if value == .active && !editing { Task { await refresh() } } }
         .sheet(isPresented: $editing, onDismiss: { Task { await refresh() } }) {

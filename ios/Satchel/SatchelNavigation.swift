@@ -27,6 +27,7 @@ final class SatchelAppDelegate: NSObject, UIApplicationDelegate {
 final class SatchelNavigation: NSObject, ObservableObject, UIWindowSceneDelegate {
     @Published var tab: SatchelTab = .collection
     @Published var composing = false
+    @Published var searchRequested = false
     @Published var collectionPath: [CollectionFile] = []
     @Published var pasteboardPath: [BoardClip] = []
     @Published private(set) var isEditingDraft = false
@@ -51,7 +52,7 @@ final class SatchelNavigation: NSObject, ObservableObject, UIWindowSceneDelegate
         return true
     }
 
-    enum Destination: String { case collection, compose, pasteboard }
+    enum Destination: String { case collection, compose, pasteboard, search }
 
     func open(_ url: URL) -> Bool {
         guard url.scheme?.lowercased() == "satchel" else { return false }
@@ -66,6 +67,7 @@ final class SatchelNavigation: NSObject, ObservableObject, UIWindowSceneDelegate
     func reset() {
         pendingDestination = nil
         composing = false
+        searchRequested = false
         isEditingDraft = false
         collectionPath = []
         pasteboardPath = []
@@ -82,7 +84,7 @@ final class SatchelNavigation: NSObject, ObservableObject, UIWindowSceneDelegate
     }
 
     func navigate(to destination: Destination) {
-        if isEditingDraft || composing {
+        if isEditingDraft {
             // A second compose command already has its destination. Every other request waits
             // for the user to finish, including a widget tap while another note is being edited.
             pendingDestination = destination == .compose && composing ? nil : destination
@@ -92,11 +94,12 @@ final class SatchelNavigation: NSObject, ObservableObject, UIWindowSceneDelegate
     }
 
     private func apply(_ destination: Destination) {
+        composing = destination == .compose
+        searchRequested = destination == .search
         switch destination {
-        case .collection, .compose:
+        case .collection, .compose, .search:
             collectionPath = []
             tab = .collection
-            if destination == .compose { composing = true }
         case .pasteboard:
             pasteboardPath = []
             tab = .pasteboard

@@ -52,7 +52,7 @@ final class ShareStaging {
                     let link = try await Self.loadText(provider, type: .url)
                     itemText.append(link)
                 } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier),
-                          (provider.suggestedName as NSString?)?.pathExtension.isEmpty != false {
+                          ((provider.suggestedName ?? "") as NSString).pathExtension.isEmpty {
                     itemText.append(try await Self.loadText(provider, type: .plainText))
                 } else {
                     guard let identifier = provider.registeredTypeIdentifiers.first(where: {
@@ -95,7 +95,7 @@ final class ShareStaging {
             provider.loadItem(forTypeIdentifier: type.identifier, options: nil) { value, error in
                 continuation.resume(with: Result {
                     if let error { throw error }
-                    if type == .url, let url = url(value), !url.isFileURL { return url.absoluteString }
+                    if type == .url, let url = Self.url(value), !url.isFileURL { return url.absoluteString }
                     if let text = value as? String { return text }
                     if let text = value as? NSAttributedString { return text.string }
                     if let data = value as? Data, let text = String(data: data, encoding: .utf8) { return text }

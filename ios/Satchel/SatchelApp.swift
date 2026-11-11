@@ -21,9 +21,9 @@ struct SatchelRoot: View {
             if let computer {
                 let client = Companion(computer: computer)
                 TabView(selection: $navigation.tab) {
-                    NavigationStack { CollectionView(computer: computer, client: client) }
+                    NavigationStack(path: $navigation.collectionPath) { CollectionView(computer: computer, client: client) }
                         .tabItem { Label("Collection", systemImage: "tray.full") }.tag(SatchelTab.collection)
-                    NavigationStack { BoardView(client: client) }
+                    NavigationStack(path: $navigation.pasteboardPath) { BoardView(client: client) }
                         .tabItem { Label("Pasteboard", systemImage: "list.clipboard") }.tag(SatchelTab.pasteboard)
                     NavigationStack { ComputerView(computer: computer, client: client, forget: forget) }
                         .tabItem { Label("Computer", systemImage: "desktopcomputer") }.tag(SatchelTab.computer)
@@ -71,8 +71,14 @@ struct SatchelRoot: View {
                     }
                 }
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("Pair with an offer").font(SatchelStyle.font(18, .semibold, relativeTo: .headline))
-                        .accessibilityAddTraits(.isHeader)
+                    HStack {
+                        Text("Pair with an offer").font(SatchelStyle.font(18, .semibold, relativeTo: .headline))
+                            .accessibilityAddTraits(.isHeader)
+                        Spacer()
+                        PasteButton(payloadType: String.self) { values in
+                            if let value = values.first { receive(value) }
+                        }.buttonBorderShape(.roundedRectangle(radius: 8))
+                    }
                     Text("Choose Copy for iOS on the computer, then paste the one-time offer here.")
                         .font(SatchelStyle.font(14, relativeTo: .subheadline)).foregroundStyle(SatchelStyle.secondary)
                     SecureField("Paste pairing offer", text: $offer)
