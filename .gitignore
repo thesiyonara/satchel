@@ -17,3 +17,7 @@ Thumbs.db
 
 # Local editor and assistant configuration
 .claude/
+
+# Xcode per-user settings and build outputs
+xcuserdata/
+DerivedData/

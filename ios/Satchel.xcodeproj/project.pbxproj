@@ -1,0 +1,25 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 77;
+	objects = {
+		100000000000000000000001 = { isa = PBXProject; attributes = { BuildIndependentTargetsInParallel = YES; LastSwiftUpdateCheck = 1600; }; buildConfigurationList = 100000000000000000000008; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = 100000000000000000000002; minimizedProjectReferenceProxies = 1; preferredProjectObjectVersion = 77; productRefGroup = 100000000000000000000004; projectDirPath = ""; projectRoot = ""; targets = (100000000000000000000005); };
+		100000000000000000000002 = { isa = PBXGroup; children = (100000000000000000000003, 100000000000000000000004); sourceTree = "<group>"; };
+		100000000000000000000003 = { isa = PBXFileSystemSynchronizedRootGroup; exceptions = (100000000000000000000010); path = Satchel; sourceTree = "<group>"; };
+		100000000000000000000004 = { isa = PBXGroup; children = (100000000000000000000006); name = Products; sourceTree = "<group>"; };
+		100000000000000000000005 = { isa = PBXNativeTarget; buildConfigurationList = 100000000000000000000009; buildPhases = (10000000000000000000000A, 10000000000000000000000B, 10000000000000000000000C); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (100000000000000000000003); name = Satchel; packageProductDependencies = (); productName = Satchel; productReference = 100000000000000000000006; productType = "com.apple.product-type.application"; };
+		100000000000000000000006 = { isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Satchel.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		100000000000000000000008 = { isa = XCConfigurationList; buildConfigurations = (10000000000000000000000D, 10000000000000000000000E); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		100000000000000000000009 = { isa = XCConfigurationList; buildConfigurations = (100000000000000000000011, 100000000000000000000012); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		10000000000000000000000A = { isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		10000000000000000000000B = { isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		10000000000000000000000C = { isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		10000000000000000000000D = { isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SWIFT_VERSION = 5.0; DEBUG_INFORMATION_FORMAT = dwarf; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; }; name = Debug; };
+		10000000000000000000000E = { isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; SDKROOT = iphoneos; IPHONEOS_DEPLOYMENT_TARGET = 17.0; SWIFT_VERSION = 5.0; SWIFT_COMPILATION_MODE = wholemodule; }; name = Release; };
+		100000000000000000000010 = { isa = PBXFileSystemSynchronizedBuildFileExceptionSet; membershipExceptions = (Info.plist); target = 100000000000000000000005; };
+		100000000000000000000011 = { isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = Satchel/Info.plist; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = local.satchel.phone; PRODUCT_NAME = Satchel; TARGETED_DEVICE_FAMILY = "1,2"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; }; name = Debug; };
+		100000000000000000000012 = { isa = XCBuildConfiguration; buildSettings = { ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CURRENT_PROJECT_VERSION = 1; GENERATE_INFOPLIST_FILE = YES; INFOPLIST_FILE = Satchel/Info.plist; INFOPLIST_KEY_UILaunchScreen_Generation = YES; INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES; MARKETING_VERSION = 0.1.0; PRODUCT_BUNDLE_IDENTIFIER = local.satchel.phone; PRODUCT_NAME = Satchel; TARGETED_DEVICE_FAMILY = "1,2"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; }; name = Release; };
+	};
+	rootObject = 100000000000000000000001;
+}

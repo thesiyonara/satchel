@@ -4,7 +4,7 @@
 
 The computers hold the collection and sync it between themselves. A phone is a **client of whichever computer is reachable**, not a third copy: it browses the collection, opens notes, downloads a file when asked, and can add a note or a photo. It stores nothing beyond a small cache and the credentials for each paired computer. That keeps phone storage out of the sync, avoids a Syncthing port on iOS (there is no official one), and means the phone sees the same collection through either computer.
 
-The desktop side is implemented and tested on Windows. The phone is a web client served by the desktop, never a replica; there is no native app.
+The desktop serves a phone browser client and the API used by the [native SwiftUI starter](../ios/README.md). Both access the collection on the paired computer.
 
 ## Desktop: the phone access service
 
@@ -50,7 +50,7 @@ Tested end to end by `npm run test:web`: the real desktop app serves the page ov
 
 ## Decisions and what is deferred
 
-- **No background sync on the phone** and no push: the phone pulls when opened. Offline, it shows its last list and cached notes read-only.
+- **No background sync on the phone** and no push: the phone pulls when opened. The native client keeps the loaded list in memory for the current session. Opening a note or saving a new one requires the computer.
 - **No internet relay.** Phone access is LAN-only, like everything else. A later option could reuse a trusted computer as a relay over a VPN the user already runs; nothing here depends on cloud services.
 - **Conflicts** follow the desktop rule: saving with a stale revision keeps both versions.
-- **Not yet done:** a native Mac check of the service (it is platform-neutral Node code); mDNS or Bonjour discovery of computers from the phone (the QR carries addresses, which is enough for a first version); range requests for large downloads.
+- **Not yet done:** mDNS or Bonjour discovery of computers from the phone (the QR carries addresses, which is enough for a first version); range requests for large downloads.

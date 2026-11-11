@@ -1,0 +1,35 @@
+name: iOS client
+on:
+  push:
+    paths: ['ios/**', 'scripts/ios-client-test.ts', 'electron/companion.ts', '.github/workflows/ios.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Exercise the Swift client against the desktop service
+        run: npx --no-install tsx scripts/ios-client-test.ts
+      - name: Build and launch on iPhone Simulator
+        run: |
+          set -euo pipefail
+          device=$(xcrun simctl list devices available -j | jq -er '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid')
+          xcrun simctl bootstatus "$device" -b
+          xcodebuild -project ios/Satchel.xcodeproj -scheme Satchel -destination "id=$device" -derivedDataPath "$RUNNER_TEMP/ios-build" build
+          xcrun simctl install "$device" "$RUNNER_TEMP/ios-build/Build/Products/Debug-iphonesimulator/Satchel.app"
+          xcrun simctl launch "$device" local.satchel.phone
+          sleep 3
+          xcrun simctl io "$device" screenshot "$RUNNER_TEMP/ios-pairing.png"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: iOS-pairing-screen
+          path: ${{ runner.temp }}/ios-pairing.png
+          if-no-files-found: error
