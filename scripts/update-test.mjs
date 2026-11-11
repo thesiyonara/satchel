@@ -8,7 +8,9 @@ import assert from 'node:assert/strict';
 const profile = path.resolve('.cache', `updates-ui-${Date.now()}`); await mkdir(profile, { recursive: true });
 const application = await electron.launch({ args: ['.'], env: { ...process.env, SYNCIT_TEST_MODE: '1', SYNCIT_TEST_PROFILE: profile, SYNCIT_TEST_PORT: '22427', SYNCIT_TEST_HANDLE: '1' } });
 try {
-  const page = await application.firstWindow();
+  // A drawer handle can be the first ready page on Windows. Drive the dashboard explicitly.
+  await expect.poll(() => application.windows().some(page => page.url().includes('drawer=0')), { timeout: 20000 }).toBe(true);
+  const page = application.windows().find(page => page.url().includes('drawer=0'));
   await page.getByRole('button', { name: 'Create collection' }).click();
   await expect.poll(() => application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some(window => window.webContents.getURL().includes('handle=1') && !window.webContents.isLoading()))).toBe(true);
   assert.equal((await page.evaluate(() => window.syncit.updateState())).phase, 'idle');

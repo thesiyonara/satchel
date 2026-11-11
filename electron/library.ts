@@ -390,17 +390,21 @@ export class Library {
   }
   /** After a rename on disk, the index, note history and pinboard placements follow the item, or every item and folder under a moved folder. */
   private async relocated(from: string, to: string) {
-    const under = (key: string) => key === from || key.startsWith(from + '/');
-    let keys: string[];
-    if (this.index) { keys = [...this.index.keys()].filter(under); if (!keys.length) keys = [from]; }
-    else { const walked = await this.walk(await contained(this.root, to)).catch(() => new Map<string, LibraryItem>()); keys = walked.size ? [...walked.keys()].map(key => from + key.slice(to.length)) : [from]; }
-    for (const key of keys) {
-      const next = key === from ? to : to + key.slice(from.length);
-      this.index?.delete(key); await this.refreshEntry(next);
-      await this.renameHistory(key, next).catch(() => {}); // History follows the note; losing a copy never fails a rename.
-      await this.movePlacement(key, next);
+    const target = await contained(this.root, to);
+    const isFolder = (await fs.lstat(target)).isDirectory();
+    // The watcher may already have removed the old subtree. Use the destination
+    // to identify its files, and rebuild folder membership (including empty folders).
+    const paths = isFolder ? [...(await this.walk(target)).keys()] : [to];
+    for (const next of paths) {
+      const previous = from + next.slice(to.length);
+      await this.renameHistory(previous, next).catch(() => {});
+      await this.movePlacement(previous, next);
     }
-    if (this.dirs) for (const dir of [...this.dirs].filter(under)) { this.dirs.delete(dir); this.dirs.add(dir === from ? to : to + dir.slice(from.length)); }
+    if (isFolder) this.index = undefined;
+    else {
+      this.index?.delete(from);
+      await this.refreshEntry(to);
+    }
   }
   private async movePlacement(from: string, to: string) {
     const oldPlacement = await contained(this.root, `.syncit/board/${hash(from)}.json`, true);

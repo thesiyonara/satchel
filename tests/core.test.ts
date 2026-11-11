@@ -239,11 +239,13 @@ test('folders are things too: made empty, renamed, moved and trashed with everyt
   assert.deepEqual(snapshot.folders, ['Journeys']);
   assert.ok(snapshot.items.some(item => item.path === 'Journeys/Packing.md'), 'Items follow a renamed folder');
   assert.ok(snapshot.placements.some(p => p.path === 'Journeys/Packing.md'), 'Pinboard placements follow too');
+  await library.createFolder('Journeys/Empty');
   await library.createFolder('Archive');
   assert.equal(await library.move('Journeys', 'Archive'), 'Archive/Journeys');
   await assert.rejects(library.move('Archive', 'Archive/Journeys'), /into itself/);
   snapshot = await library.snapshot();
-  assert.deepEqual(snapshot.folders, ['Archive', 'Archive/Journeys']);
+  assert.deepEqual(snapshot.folders, ['Archive', 'Archive/Journeys', 'Archive/Journeys/Empty']);
+  assert.ok(snapshot.placements.some(p => p.path === 'Archive/Journeys/Packing.md'));
   assert.ok(snapshot.items.some(item => item.path === 'Archive/Journeys/Packing.md'));
   await library.trash('Archive');
   snapshot = await library.snapshot();

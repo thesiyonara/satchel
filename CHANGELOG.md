@@ -11,6 +11,7 @@
 
 
 ### Fixed
+- Moving a folder preserves nested empty folders and pinboard locations when filesystem notifications arrive during the move.
 - File imports consistently exclude Satchel’s private profile, including when picking a folder.
 - Updated the XML parser used by the sync engine to 5.12.0.
 - Renaming or moving a folder could fail when the file watcher reset the collection index halfway through. The rename now finishes and the index is rebuilt on the next look.
