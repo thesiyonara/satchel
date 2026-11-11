@@ -2,7 +2,7 @@ import XCTest
 
 final class SatchelUITests: XCTestCase {
     @MainActor
-    func testPairedCollectionAndPasteboard() throws {
+    func testPairedCollectionAndPasteboard() async throws {
         continueAfterFailure = false
         let app = XCUIApplication()
         app.launch()
@@ -26,8 +26,10 @@ final class SatchelUITests: XCTestCase {
         editor.tap(); editor.typeText("Simulator notebook")
         XCUIDevice.shared.press(.home)
         app.terminate()
-        app.launch()
-        if !editor.exists { app.open(try XCTUnwrap(URL(string: "satchel://compose"))) }
+        try await openPasteboardFromSystem()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+        XCTAssertTrue(app.staticTexts["The shared pasteboard is empty."].waitForExistence(timeout: 10))
+        app.open(try XCTUnwrap(URL(string: "satchel://compose")))
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
         XCTAssertEqual(editor.value as? String, "Simulator notebook")
         app.buttons["Save"].tap()
@@ -37,14 +39,14 @@ final class SatchelUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 10))
         app.buttons["Edit"].tap()
         editor.tap(); editor.typeText(" updated")
-        app.open(try XCTUnwrap(URL(string: "satchel://pasteboard")))
+        try await openPasteboardFromSystem()
         XCTAssertTrue((editor.value as? String)?.contains("updated") == true, "Opening a widget destination must preserve the active editor.")
         app.buttons["Save"].tap()
         XCTAssertTrue(app.staticTexts["Current text"].waitForExistence(timeout: 10))
         let edit = app.buttons["Edit"]
         let ready = NSPredicate(format: "exists == true AND enabled == true")
-        expectation(for: ready, evaluatedWith: edit)
-        waitForExpectations(timeout: 15)
+        let editable = XCTNSPredicateExpectation(predicate: ready, object: edit)
+        await fulfillment(of: [editable], timeout: 15)
         edit.tap()
         editor.tap(); editor.typeText("Review the latest build at https://github.com/thesiyonara/satchel")
         try capture("07-editor", app)
@@ -66,6 +68,14 @@ final class SatchelUITests: XCTestCase {
         app.buttons["Disconnect this device"].tap()
         app.buttons["Disconnect"].tap()
         XCTAssertTrue(app.buttons["Pair computer"].waitForExistence(timeout: 10))
+    }
+
+    private func openPasteboardFromSystem() async throws {
+        var request = URLRequest(url: try XCTUnwrap(URL(string: "http://127.0.0.1:31926/open-pasteboard")))
+        request.httpMethod = "POST"
+        request.setValue("1", forHTTPHeaderField: "X-Satchel-UI-Test")
+        let (_, response) = try await URLSession.shared.data(for: request)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 204)
     }
 
     @MainActor

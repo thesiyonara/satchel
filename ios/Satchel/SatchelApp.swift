@@ -81,7 +81,7 @@ struct SatchelRoot: View {
                     }
                     Text("Choose Copy for iOS on the computer, then paste the one-time offer here.")
                         .font(SatchelStyle.font(14, relativeTo: .subheadline)).foregroundStyle(SatchelStyle.secondary)
-                    SecureField("Paste pairing offer", text: $offer)
+                    SecureField("Paste pairing offer", text: $offer, prompt: Text("Paste pairing offer").foregroundColor(SatchelStyle.muted))
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .accessibilityIdentifier("pairing-offer")
                         .padding(.horizontal, 12).frame(minHeight: 46).satchelPanel(SatchelStyle.paper, radius: 8)

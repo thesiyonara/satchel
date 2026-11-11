@@ -94,7 +94,7 @@ struct CollectionView: View {
                         }
                     } label: {
                         Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44)
-                    }.accessibilityLabel("Filter and sort").foregroundStyle(SatchelStyle.secondary)
+                    }.accessibilityLabel("Sort and change layout").foregroundStyle(SatchelStyle.secondary)
                     Menu {
                         Button { navigation.composing = true } label: { Label("New note", systemImage: "square.and.pencil") }
                         Button { importing = true } label: { Label("Upload from Files", systemImage: "folder") }
@@ -110,7 +110,7 @@ struct CollectionView: View {
                     .font(SatchelStyle.font(13, relativeTo: .footnote)).foregroundStyle(SatchelStyle.muted)
                 HStack(spacing: 9) {
                     Image(systemName: "magnifyingglass").foregroundStyle(SatchelStyle.muted)
-                    TextField("Search files and notes", text: $query)
+                    TextField("Search files and notes", text: $query, prompt: Text("Search files and notes").foregroundColor(SatchelStyle.muted))
                         .textInputAutocapitalization(.never).autocorrectionDisabled()
                         .font(SatchelStyle.font()).focused($searching).submitLabel(.search)
                     if !query.isEmpty {
@@ -118,10 +118,12 @@ struct CollectionView: View {
                             .accessibilityLabel("Clear search").foregroundStyle(SatchelStyle.muted)
                     }
                 }.padding(.horizontal, 13).frame(minHeight: 46).satchelPanel()
+                let counts = items.reduce(into: [String: Int]()) { $0[$1.kind, default: 0] += 1 }
+                let filters = Kind.allCases.filter { $0 == .all || $0 == kind || counts[$0.rawValue] != nil }
                 ScrollView(.horizontal) {
                     HStack(spacing: 18) {
-                        ForEach(Kind.allCases, id: \.self) { filter in
-                            let count = filter == .all ? items.count : items.lazy.filter { $0.kind == filter.rawValue }.count
+                        ForEach(filters, id: \.self) { filter in
+                            let count = filter == .all ? items.count : (counts[filter.rawValue] ?? 0)
                             Button { kind = filter } label: {
                                 HStack(spacing: 5) {
                                     Text(filter == .all ? "All" : filter.title)

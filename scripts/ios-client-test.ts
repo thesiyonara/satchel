@@ -27,9 +27,25 @@ try {
     await library.savePasteboard('Meet at the north entrance at 8:30.', 'Studio Mac');
     await library.savePasteboard('', 'Studio Mac');
     // Create the five-minute offer after XCTest launches, even on a slow simulator runner.
-    const offers = createServer((req, res) => {
-      if (req.url !== '/offer') { res.writeHead(404).end(); return; }
-      res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }).end(localOffer());
+    const offers = createServer(async (req, res) => {
+      if (req.method === 'GET' && req.url === '/offer') {
+        res.writeHead(200, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' }).end(localOffer());
+        return;
+      }
+      // XCUIApplication.open relaunches its target. Dispatch this fixed route through SpringBoard
+      // to exercise the same cold and warm deliveries as an external widget or Home Screen link.
+      if (req.method === 'POST' && req.url === '/open-pasteboard' && req.headers['x-satchel-ui-test'] === '1') {
+        const device = process.env.SATCHEL_SIMULATOR;
+        if (!device) { res.writeHead(503).end('Missing test simulator'); return; }
+        try {
+          await promisify(execFile)('xcrun', ['simctl', 'openurl', device, 'satchel://pasteboard'], { timeout: 15000 });
+          res.writeHead(204).end();
+        } catch {
+          res.writeHead(500).end('Could not open the test simulator pasteboard');
+        }
+        return;
+      }
+      res.writeHead(404).end();
     });
     offers.listen(31926, '127.0.0.1');
     await once(offers, 'listening');
