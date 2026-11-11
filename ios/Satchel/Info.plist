@@ -1,8 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
+<key>SatchelPairingAccessGroup</key><string>$(AppIdentifierPrefix)local.satchel.phone.pairing</string>
 <key>NSLocalNetworkUsageDescription</key><string>Satchel connects to your paired computer to browse and transfer files, edit notes, and use the shared pasteboard.</string>
 <key>NSCameraUsageDescription</key><string>Scan the pairing code shown on your computer.</string>
-<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>local.satchel.phone.pair</string><key>CFBundleURLSchemes</key><array><string>syncit-phone</string></array></dict></array>
+<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>local.satchel.phone.pair</string><key>CFBundleURLSchemes</key><array><string>syncit-phone</string></array></dict>
+<dict><key>CFBundleURLName</key><string>local.satchel.phone.navigate</string><key>CFBundleURLSchemes</key><array><string>satchel</string></array></dict></array>
+<key>UIApplicationShortcutItems</key><array>
+<dict><key>UIApplicationShortcutItemType</key><string>local.satchel.phone.compose</string><key>UIApplicationShortcutItemTitle</key><string>New note</string><key>UIApplicationShortcutItemIconType</key><string>UIApplicationShortcutIconTypeCompose</string></dict>
+<dict><key>UIApplicationShortcutItemType</key><string>local.satchel.phone.pasteboard</string><key>UIApplicationShortcutItemTitle</key><string>Pasteboard</string><key>UIApplicationShortcutItemIconSymbolName</key><string>list.clipboard</string></dict>
+</array>
 <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict></plist>

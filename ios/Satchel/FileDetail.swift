@@ -20,42 +20,57 @@ struct FileDetail: View {
     @State private var preview: URL?
     @State private var preparing = false
 
+    private var title: String { note.map { (($0.path as NSString).lastPathComponent as NSString).deletingPathExtension } ?? file.displayName }
+
     var body: some View {
-        List {
-            if let conflict {
-                Section { Label("Another device edited the original. Your changes were saved to \(conflict).", systemImage: "doc.on.doc") }
-            }
-            if file.kind == "note" {
-                Section {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let conflict {
+                    FeedbackPanel(message: "Another device edited the original. Your changes were saved to \(conflict).")
+                }
+                HStack(spacing: 7) {
+                    Image(systemName: file.kind == "note" ? "text.alignleft" : "doc")
+                    Text(file.kind == "note" ? "Note" : (file.name as NSString).pathExtension.uppercased())
+                    Text("·")
+                    Text(Date(timeIntervalSince1970: file.modifiedAt / 1000), format: .dateTime.month(.abbreviated).day())
+                }.font(SatchelStyle.font(13, .medium, relativeTo: .caption)).foregroundStyle(SatchelStyle.muted)
+                Text(title).font(SatchelStyle.font(29, .semibold, relativeTo: .title)).tracking(-0.9)
+                    .textSelection(.enabled).accessibilityAddTraits(.isHeader)
+                Divider()
+                if file.kind == "note" {
                     if let note {
-                        if note.text.isEmpty { Text("Empty note").foregroundStyle(.secondary) }
-                        else { LinkedText(value: note.text) }
+                        let lines = note.text.components(separatedBy: .newlines)
+                        let body = lines.first == title ? lines.dropFirst().joined(separator: "\n") : note.text
+                        if !body.isEmpty { LinkedText(value: body).font(SatchelStyle.font(18)).lineSpacing(5) }
+                        else if note.text.isEmpty { Text("Empty note").foregroundStyle(SatchelStyle.muted) }
                     } else if error == nil { ProgressView("Reading note…") }
-                }
-            } else {
-                Section {
-                    LabeledContent("Size", value: ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
-                    LabeledContent("Modified") { Text(Date(timeIntervalSince1970: file.modifiedAt / 1000), style: .date) }
-                    Text(file.path).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                }
-                Section {
+                } else {
+                    VStack(alignment: .leading, spacing: 12) {
+                        LabeledContent("Size", value: ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+                        Divider()
+                        Text(file.path).textSelection(.enabled)
+                    }.font(SatchelStyle.font(15)).padding(16).satchelPanel()
                     if let local {
                         if QLPreviewController.canPreview(local as NSURL) {
                             Button { preview = local } label: { Label("Preview", systemImage: "eye") }
+                                .buttonStyle(SatchelButton(primary: true))
                         }
                         ShareLink(item: local) { Label("Share or save to Files", systemImage: "square.and.arrow.up") }
+                            .buttonStyle(SatchelButton())
                     } else if preparing { ProgressView("Downloading file…") }
-                    else { Button { preparing = true } label: { Label("Download to preview or share", systemImage: "arrow.down.circle") } }
+                    else {
+                        Button { preparing = true } label: { Label("Download to preview or share", systemImage: "arrow.down.circle") }
+                            .buttonStyle(SatchelButton(primary: true))
+                    }
                 }
-            }
-            if let error {
-                Section {
-                    Text(error).foregroundStyle(.secondary)
-                    if file.kind == "note" { Button("Retry") { attempt += 1 } }
+                if let error {
+                    FeedbackPanel(message: error)
+                    if file.kind == "note" { Button("Retry") { attempt += 1 }.buttonStyle(SatchelButton()) }
                 }
-            }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 22).padding(.vertical, 18).frame(maxWidth: 740).frame(maxWidth: .infinity)
         }
-        .navigationTitle(note.map { (($0.path as NSString).lastPathComponent as NSString).deletingPathExtension } ?? file.displayName).navigationBarTitleDisplayMode(.inline)
+        .satchelReadingPage().navigationTitle("")
         .toolbar {
             if let note {
                 ShareLink(item: note.text)
@@ -80,7 +95,7 @@ struct FileDetail: View {
         }
         .quickLookPreview($preview)
         .sheet(item: $editing) { original in
-            DraftEditor(title: "Edit note", initial: original.text) { text in
+            DraftEditor(title: "Edit note", initial: original.text, draft: LocalDraft(client: client, document: .note(original.path))) { text in
                 let saved = try await client.saveNote(original, text: text)
                 note = saved
                 if saved.conflict == true { conflict = saved.path }

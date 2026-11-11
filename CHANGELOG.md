@@ -3,7 +3,7 @@
 ## 1.0.0 — 2026-11-11
 
 ### Added
-- The native iPhone and iPad app pairs by QR or one-time offer, edits notes, transfers files and photos, previews and shares downloads, and opens the shared pasteboard with highlighted links and recent clips.
+- The native iPhone and iPad app pairs by QR or one-time offer, edits notes, transfers files and photos, previews and shares downloads, and opens the shared pasteboard with highlighted links and recent clips. Its design follows the desktop collection, with native sharing, recoverable drafts, Shortcuts actions, and Home and Lock Screen widgets.
 
 ### Changed
 - Pasteboard links are highlighted as you type, paste or receive text, including in Quick drop and Recent. Copy and sync preserve the original text.

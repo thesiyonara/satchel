@@ -1,7 +1,7 @@
 import { execFile, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createServer } from 'node:http';
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -13,7 +13,7 @@ const dir = await mkdtemp(path.join(os.tmpdir(), 'satchel-ios-'));
 const library = new Library(path.join(dir, 'collection'));
 const service = new Companion({ directory: dir, port: 0, allowLoopback: true, webRoot: path.resolve('web'), library: () => library,
   deviceName: () => 'Test Mac', collectionName: () => 'Collection', syncState: () => 'synced',
-  thumbnail: async () => Buffer.alloc(0), text: async () => '' });
+  thumbnail: async relative => relative === 'Desktop reference.png' ? readFile(path.resolve('site/img/pinboard.png')) : Buffer.alloc(0), text: async () => '' });
 try {
   await mkdir(library.root);
   await library.initialize();
@@ -22,6 +22,7 @@ try {
   if (process.argv[2] === '--serve-ui') {
     await library.createNote('Handoff notes\nThe revised cut is ready for review. Check the opening sequence and the end credits.');
     await library.addBytes('Shot list.csv', Buffer.from('Scene,Location\nOpening,North entrance\nClose,Studio'));
+    await library.addBytes('Desktop reference.png', await readFile(path.resolve('site/img/pinboard.png')));
     await library.createNote('Field notes\nThe north entrance gets the best morning light. Bring the short tripod and a spare battery.');
     await library.savePasteboard('Meet at the north entrance at 8:30.', 'Studio Mac');
     await library.savePasteboard('', 'Studio Mac');
@@ -35,7 +36,10 @@ try {
     try { await once(process, 'SIGTERM'); } finally { offers.close(); }
   } else {
     const binary = path.join(dir, 'ClientSmoke');
-    await promisify(execFile)('xcrun', ['--sdk', 'macosx', 'swiftc', '-parse-as-library', 'ios/Satchel/Companion.swift', 'ios/Tests/ClientSmoke.swift', '-o', binary]);
+    const architecture = process.arch === 'arm64' ? 'arm64' : 'x86_64';
+    await promisify(execFile)('xcrun', ['--sdk', 'macosx', 'swiftc', '-target', `${architecture}-apple-macosx14.0`,
+      '-parse-as-library', 'ios/Satchel/Companion.swift', 'ios/Satchel/SatchelIntents.swift',
+      'ios/Tests/ClientSmoke.swift', 'ios/Tests/ShortcutSmoke.swift', '-o', binary]);
     const client = spawn(binary, [], { stdio: ['pipe', 'inherit', 'inherit'], timeout: 60000 });
     const exited = once(client, 'exit');
     client.stdin.end(localOffer() + '\n');

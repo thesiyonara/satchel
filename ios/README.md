@@ -19,6 +19,13 @@ Satchel connects to a computer running the desktop app on the same network. The 
 
 Pairing pins the offered certificate before sending the one-time code. The app keeps one pairing in device-only Keychain. Collections are accessed on demand. Previews download to temporary storage. A new computer address or certificate requires a fresh offer.
 
+### iOS shortcuts and sharing
+
+- In another app, open the system share sheet and choose **Satchel** to send text, a URL or files to your paired computer. Shared text can become a note or replace the shared pasteboard.
+- In Shortcuts, search for **Satchel** to save a note, get or set the shared pasteboard, or upload a file. These actions use the same paired computer as the app.
+- Add the **Satchel** widget to your Home Screen to open the collection, compose a note, or open the pasteboard. The Lock Screen widget opens the note composer. Touch and hold the app icon for **New note** and **Pasteboard**.
+- Unsaved edits are kept locally with file protection and excluded from backup. Reopen the same editor to recover a draft. Disconnecting or forgetting the computer clears its drafts.
+
 ### Build and test
 
 Open `Satchel.xcodeproj` in Xcode 16 or newer. Select a simulator, or choose a signing team and a connected device for a physical install. The **iOS client** GitHub workflow builds an unsigned device target and provides a runnable simulator app and XCTest results. TestFlight requires a signed distribution build.

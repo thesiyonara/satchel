@@ -60,7 +60,11 @@ struct CollectionView: View {
     @State private var loaded = false
     @State private var error: String?
     @State private var generation = UUID()
-    @State private var composing = false
+    @EnvironmentObject private var navigation: SatchelNavigation
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @StateObject private var thumbnails = CollectionThumbnails()
+    @AppStorage("collectionCompactList") private var compactList = false
+    @FocusState private var searching: Bool
     @State private var importing = false
     @State private var pickingMedia = false
     @State private var media: [PhotosPickerItem] = []
@@ -77,68 +81,112 @@ struct CollectionView: View {
     }
 
     var body: some View {
-        List {
-            if let transfer { ProgressView(transfer) }
-            if let report {
-                Section {
-                    Text(report).font(.callout).textSelection(.enabled)
-                    Button("Dismiss upload report") { self.report = nil }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                SatchelHeading(title: computer.collection) {
+                    Menu {
+                        Picker("Sort by", selection: $sortByName) {
+                            Text("Latest first").tag(false); Text("Name").tag(true)
+                        }
+                        Picker("Layout", selection: $compactList) {
+                            Label("Cards", systemImage: "square.grid.2x2").tag(false)
+                            Label("List", systemImage: "list.bullet").tag(true)
+                        }
+                    } label: {
+                        Image(systemName: "slider.horizontal.3").frame(width: 44, height: 44)
+                    }.accessibilityLabel("Filter and sort").foregroundStyle(SatchelStyle.secondary)
+                    Menu {
+                        Button { navigation.composing = true } label: { Label("New note", systemImage: "square.and.pencil") }
+                        Button { importing = true } label: { Label("Upload from Files", systemImage: "folder") }
+                        Button { pickingMedia = true } label: { Label("Upload photos or videos", systemImage: "photo.on.rectangle") }
+                    } label: {
+                        Image(systemName: "plus").font(.body.weight(.semibold))
+                            .foregroundStyle(SatchelStyle.inverse)
+                            .frame(width: 39, height: 39).background(SatchelStyle.ink, in: Circle())
+                            .frame(minWidth: 44, minHeight: 44)
+                    }.accessibilityLabel("Add to collection").disabled(transfer != nil)
                 }
-            }
-            if let error {
-                Section { Text(error).foregroundStyle(.secondary); Button("Retry") { Task { await refresh() } } }
-            }
-            Section {
+                Label(computer.name, systemImage: "desktopcomputer")
+                    .font(SatchelStyle.font(13, relativeTo: .footnote)).foregroundStyle(SatchelStyle.muted)
+                HStack(spacing: 9) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(SatchelStyle.muted)
+                    TextField("Search files and notes", text: $query)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .font(SatchelStyle.font()).focused($searching).submitLabel(.search)
+                    if !query.isEmpty {
+                        Button { query = "" } label: { Image(systemName: "xmark.circle.fill").frame(minWidth: 44, minHeight: 44) }
+                            .accessibilityLabel("Clear search").foregroundStyle(SatchelStyle.muted)
+                    }
+                }.padding(.horizontal, 13).frame(minHeight: 46).satchelPanel()
+                ScrollView(.horizontal) {
+                    HStack(spacing: 18) {
+                        ForEach(Kind.allCases, id: \.self) { filter in
+                            let count = filter == .all ? items.count : items.lazy.filter { $0.kind == filter.rawValue }.count
+                            Button { kind = filter } label: {
+                                HStack(spacing: 5) {
+                                    Text(filter == .all ? "All" : filter.title)
+                                        .font(SatchelStyle.font(15, filter == kind ? .semibold : .medium, relativeTo: .subheadline))
+                                    Text("\(count)").font(SatchelStyle.font(12, relativeTo: .caption)).monospacedDigit()
+                                        .foregroundStyle(SatchelStyle.muted)
+                                }.foregroundStyle(filter == kind ? SatchelStyle.ink : SatchelStyle.muted)
+                                .frame(minHeight: 44).overlay(alignment: .bottomLeading) {
+                                    if filter == kind { Rectangle().fill(SatchelStyle.ink).frame(height: 2) }
+                                }
+                            }.buttonStyle(.plain).accessibilityAddTraits(filter == kind ? .isSelected : [])
+                        }
+                    }
+                }.scrollIndicators(.hidden)
+                .overlay(alignment: .bottom) { Rectangle().fill(SatchelStyle.rule).frame(height: 0.5).allowsHitTesting(false) }
+                if let transfer { ProgressView(transfer).font(SatchelStyle.font(14)) }
+                if let report {
+                    HStack {
+                        Text(report).font(SatchelStyle.font(14)).textSelection(.enabled)
+                        Spacer()
+                        Button { self.report = nil } label: { Image(systemName: "xmark").frame(minWidth: 44, minHeight: 44) }
+                            .accessibilityLabel("Dismiss upload report")
+                    }.padding(.leading, 12).satchelPanel()
+                }
+                if let error {
+                    FeedbackPanel(message: error)
+                    Button("Retry") { Task { await refresh() } }.buttonStyle(SatchelButton())
+                }
                 if !loaded && error == nil { ProgressView("Loading collection…") }
                 else if results.isEmpty && error == nil {
                     ContentUnavailableView(query.isEmpty && kind == .all ? "Your collection is empty" : "No matching items",
                                            systemImage: query.isEmpty ? "tray" : "magnifyingglass")
-                }
-                ForEach(results) { file in
-                    NavigationLink {
-                        FileDetail(file: file, client: client) { Task { await refresh() } }
-                    } label: {
-                        Label {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(file.displayName).font(.headline).lineLimit(2)
-                                if let preview = file.excerpt, !preview.isEmpty {
-                                    Text(preview).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
-                                }
-                                Text(file.path.contains("/") ? file.path : ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
-                                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                                if file.conflict { Label("Conflict copy", systemImage: "doc.on.doc").font(.caption) }
-                            }.padding(.vertical, 2)
-                        } icon: {
-                            Image(systemName: (Kind(rawValue: file.kind) ?? .file).icon)
-                                .frame(width: 34, height: 36)
-                                .background(.tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                } else if !results.isEmpty {
+                    HStack {
+                        Text("\(results.count) \(results.count == 1 ? "item" : "items")")
+                        Spacer()
+                        Text(sortByName ? "Name" : "Latest first")
+                    }.font(SatchelStyle.font(13, relativeTo: .caption)).foregroundStyle(SatchelStyle.muted)
+                    let list = compactList || typeSize.isAccessibilitySize
+                    let columns = list ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: 148, maximum: 340), spacing: 10)]
+                    LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
+                        ForEach(results) { file in
+                            NavigationLink {
+                                FileDetail(file: file, client: client) { Task { await refresh() } }
+                            } label: {
+                                CollectionCard(file: file, client: client, thumbnails: thumbnails, compact: list)
+                            }.buttonStyle(.plain).accessibilityIdentifier("item-" + file.path)
+                            .contextMenu {
+                                Button { UIPasteboard.general.string = file.path } label: { Label("Copy path", systemImage: "doc.on.doc") }
+                            }
                         }
-                    }.accessibilityIdentifier("item-" + file.path)
+                    }
                 }
-            } header: { Text("\(kind.title) · \(results.count)") }
+            }
+            .padding(.horizontal, 18).padding(.top, 7).padding(.bottom, 24)
+            .frame(maxWidth: 880).frame(maxWidth: .infinity)
         }
+        .scrollDismissesKeyboard(.interactively)
+        .satchelRootPage()
         .navigationTitle(computer.collection)
-        .searchable(text: $query, prompt: "Files and note text")
         .refreshable { await refresh() }
         .task { await refresh() }
         .onChange(of: phase) { _, value in if value == .active { Task { await refresh() } } }
-        .toolbar {
-            Menu {
-                Picker("Show", selection: $kind) {
-                    ForEach(Kind.allCases, id: \.self) { Label($0.title, systemImage: $0.icon).tag($0) }
-                }
-                Picker("Sort by", selection: $sortByName) {
-                    Text("Latest first").tag(false); Text("Name").tag(true)
-                }
-            } label: { Label("Filter and sort", systemImage: kind == .all ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill") }
-            Menu {
-                Button { composing = true } label: { Label("New note", systemImage: "square.and.pencil") }
-                Button { importing = true } label: { Label("Upload from Files", systemImage: "folder") }
-                Button { pickingMedia = true } label: { Label("Upload photos or videos", systemImage: "photo.on.rectangle") }
-            } label: { Label("Add to collection", systemImage: "plus") }.disabled(transfer != nil)
-        }
-        .sheet(isPresented: $composing) {
-            DraftEditor(title: "New note", initial: "", allowEmpty: false) { text in
+        .sheet(isPresented: $navigation.composing) {
+            DraftEditor(title: "New note", initial: "", draft: LocalDraft(client: client, document: .newNote), allowEmpty: false) { text in
                 _ = try await client.createNote(text)
                 await refresh()
             }

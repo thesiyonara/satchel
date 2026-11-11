@@ -153,10 +153,10 @@ struct Companion {
         let _: SessionReply = try await request("/v1/session", method: "DELETE")
     }
 
-    func upload(_ file: URL) async throws -> String {
+    func upload(_ file: URL, named name: String? = nil) async throws -> String {
         let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize
         guard let size, size <= 100 * 1024 * 1024 else { throw CompanionError("Files must be 100 MB or smaller.") }
-        var req = try makeRequest("/v1/upload", query: [URLQueryItem(name: "name", value: file.lastPathComponent)])
+        var req = try makeRequest("/v1/upload", query: [URLQueryItem(name: "name", value: name ?? file.lastPathComponent)])
         req.httpMethod = "POST"
         req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
         let session = makeSession()
@@ -164,6 +164,15 @@ struct Companion {
         let (data, response) = try await session.upload(for: req, fromFile: file)
         try validate(response, data: data)
         return try JSONDecoder().decode(UploadedFile.self, from: data).path
+    }
+
+    func thumbnail(_ path: String) async throws -> Data {
+        let request = try makeRequest("/v1/thumbnail", query: [URLQueryItem(name: "path", value: path)])
+        let session = makeSession()
+        defer { session.finishTasksAndInvalidate() }
+        let (bytes, response) = try await session.data(for: request)
+        try validate(response, data: bytes)
+        return bytes
     }
 
     // Download to disk so a video or PDF never has to fit in the app's memory.

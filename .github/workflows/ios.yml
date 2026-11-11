@@ -7,7 +7,13 @@ permissions:
   contents: read
 jobs:
   build:
+    strategy:
+      fail-fast: false
+      matrix:
+        device: [iPhone, iPad]
     runs-on: macos-latest
+    env:
+      SIMULATOR_FAMILY: ${{ matrix.device }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -15,26 +21,35 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - name: Start the simulator
+        run: |
+          device=$(xcrun simctl list devices available -j | jq -er --arg family "$SIMULATOR_FAMILY" '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | startswith($family))][0].udid')
+          echo "SATCHEL_SIMULATOR=$device" >> "$GITHUB_ENV"
+          xcrun simctl boot "$device"
       - run: npm ci
       - name: Exercise the Swift client against the desktop service
+        if: matrix.device == 'iPhone'
         run: npx --no-install tsx scripts/ios-client-test.ts
       - name: Build for iPhone and iPad
+        if: matrix.device == 'iPhone'
         run: xcodebuild -project ios/Satchel.xcodeproj -scheme Satchel -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
-      - name: Test the app against a paired computer on iPhone Simulator
+      - name: Test the simulator app against a paired computer
         run: |
           set -euo pipefail
-          device=$(xcrun simctl list devices available -j | jq -er '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | startswith("iPhone"))][0].udid')
+          device="$SATCHEL_SIMULATOR"
           xcrun simctl bootstatus "$device" -b
-          echo "SATCHEL_SIMULATOR=$device" >> "$GITHUB_ENV"
           xcrun simctl status_bar "$device" override --time 9:41
           build=(-project ios/Satchel.xcodeproj -scheme Satchel -destination "id=$device" -derivedDataPath "$RUNNER_TEMP/ios-build" -parallel-testing-enabled NO)
           xcodebuild "${build[@]}" build-for-testing
+          app="$RUNNER_TEMP/ios-build/Build/Products/Debug-iphonesimulator/Satchel.app"
+          jq -e '.actions | has("SaveSatchelNoteIntent") and has("GetSatchelPasteboardIntent") and has("SetSatchelPasteboardIntent") and has("UploadSatchelFileIntent")' "$app/Metadata.appintents/extract.actionsdata"
+          test "$(find "$app/PlugIns" -type d -name '*.appex' | wc -l | tr -d ' ')" = 2
           node --import tsx scripts/ios-client-test.ts --serve-ui &
           fixture=$!
           trap 'kill "$fixture" 2>/dev/null || true' EXIT
           xcodebuild "${build[@]}" -test-timeouts-enabled YES -maximum-test-execution-time-allowance 240 -resultBundlePath "$RUNNER_TEMP/ios-tests.xcresult" test-without-building
           ditto -c -k --keepParent "$RUNNER_TEMP/ios-build/Build/Products/Debug-iphonesimulator/Satchel.app" "$RUNNER_TEMP/Satchel-iOS-Simulator.zip"
-      - name: Collect iPhone screenshots
+      - name: Collect simulator screenshots
         if: always() && env.SATCHEL_SIMULATOR != ''
         run: |
           data=$(xcrun simctl get_app_container "$SATCHEL_SIMULATOR" local.satchel.phone.uitests.xctrunner data)
@@ -42,16 +57,17 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: iPhone-screenshots
+          name: ${{ matrix.device }}-screenshots
           path: ${{ runner.temp }}/iPhone-screenshots/*.png
           if-no-files-found: ignore
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: iOS-test-results
+          name: ${{ matrix.device }}-test-results
           path: ${{ runner.temp }}/ios-tests.xcresult
           if-no-files-found: ignore
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: matrix.device == 'iPhone'
         with:
           name: Satchel-iOS-Simulator
           path: ${{ runner.temp }}/Satchel-iOS-Simulator.zip

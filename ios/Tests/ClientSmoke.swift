@@ -43,6 +43,7 @@ enum ClientSmoke {
         guard let file = try await client.list().first(where: { $0.path == path }) else { throw CompanionError("Missing upload") }
         let local = try await client.download(file, into: directory.appendingPathComponent("preview"))
         guard try Data(contentsOf: local) == bytes, local.lastPathComponent == file.name else { throw CompanionError("Binary transfer failed") }
+        try await ShortcutSmoke.run(using: computer, directory: directory)
         try await client.disconnect()
         do {
             _ = try await client.list()

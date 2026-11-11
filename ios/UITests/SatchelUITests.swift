@@ -24,6 +24,12 @@ final class SatchelUITests: XCTestCase {
         app.buttons["New note"].tap()
         let editor = app.textViews["draft-text"]
         editor.tap(); editor.typeText("Simulator notebook")
+        XCUIDevice.shared.press(.home)
+        app.terminate()
+        app.launch()
+        if !editor.exists { app.open(try XCTUnwrap(URL(string: "satchel://compose"))) }
+        XCTAssertTrue(editor.waitForExistence(timeout: 10))
+        XCTAssertEqual(editor.value as? String, "Simulator notebook")
         app.buttons["Save"].tap()
         let newNote = app.descendants(matching: .any).matching(identifier: "item-Simulator notebook.md").firstMatch
         XCTAssertTrue(newNote.waitForExistence(timeout: 12))
@@ -33,7 +39,7 @@ final class SatchelUITests: XCTestCase {
         editor.tap(); editor.typeText(" updated")
         app.buttons["Save"].tap()
         XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "updated")).firstMatch.waitForExistence(timeout: 10))
-        app.tabBars.buttons["Pasteboard"].tap()
+        app.open(try XCTUnwrap(URL(string: "satchel://pasteboard")))
         let edit = app.buttons["Edit"]
         let ready = NSPredicate(format: "exists == true AND enabled == true")
         expectation(for: ready, evaluatedWith: edit)
@@ -43,9 +49,18 @@ final class SatchelUITests: XCTestCase {
         app.buttons["Save"].tap()
         XCTAssertTrue(app.buttons["Copy text"].waitForExistence(timeout: 10))
         try capture("04-pasteboard", app)
-        app.terminate(); app.launch()
-        XCTAssertTrue(app.tabBars.buttons["Computer"].waitForExistence(timeout: 10))
-        app.tabBars.buttons["Computer"].tap()
+        app.terminate()
+        app.launchArguments = ["-AppleInterfaceStyle", "Dark"]
+        app.launch()
+        app.open(try XCTUnwrap(URL(string: "satchel://pasteboard")))
+        XCTAssertTrue(app.buttons["Copy text"].waitForExistence(timeout: 10))
+        try capture("05-pasteboard-dark", app)
+        app.open(try XCTUnwrap(URL(string: "satchel://collection")))
+        XCTAssertTrue(fieldNotes.waitForExistence(timeout: 10))
+        try capture("06-collection-dark", app)
+        let computerTab = app.buttons["Computer"].firstMatch
+        XCTAssertTrue(computerTab.waitForExistence(timeout: 10))
+        computerTab.tap()
         app.buttons["Disconnect this device"].tap()
         app.buttons["Disconnect"].tap()
         XCTAssertTrue(app.buttons["Pair computer"].waitForExistence(timeout: 10))

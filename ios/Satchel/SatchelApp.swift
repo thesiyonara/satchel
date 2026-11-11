@@ -4,10 +4,12 @@ import AVFoundation
 
 @main
 struct SatchelApp: App {
-    var body: some Scene { WindowGroup { SatchelRoot() } }
+    @UIApplicationDelegateAdaptor(SatchelAppDelegate.self) private var delegate
+    var body: some Scene { WindowGroup { SatchelRoot() }.commands { SatchelKeyboardCommands() } }
 }
 
 struct SatchelRoot: View {
+    @EnvironmentObject private var navigation: SatchelNavigation
     @State private var computer: PairedComputer?
     @State private var offer = ""
     @State private var pairing = false
@@ -18,44 +20,22 @@ struct SatchelRoot: View {
         Group {
             if let computer {
                 let client = Companion(computer: computer)
-                TabView {
+                TabView(selection: $navigation.tab) {
                     NavigationStack { CollectionView(computer: computer, client: client) }
-                        .tabItem { Label("Collection", systemImage: "tray.full") }
+                        .tabItem { Label("Collection", systemImage: "tray.full") }.tag(SatchelTab.collection)
                     NavigationStack { BoardView(client: client) }
-                        .tabItem { Label("Pasteboard", systemImage: "list.clipboard") }
+                        .tabItem { Label("Pasteboard", systemImage: "list.clipboard") }.tag(SatchelTab.pasteboard)
                     NavigationStack { ComputerView(computer: computer, client: client, forget: forget) }
-                        .tabItem { Label("Computer", systemImage: "desktopcomputer") }
+                        .tabItem { Label("Computer", systemImage: "desktopcomputer") }.tag(SatchelTab.computer)
                 }.id(computer.token)
+                .focusedSceneValue(\.satchelNavigation, navigation.isEditingDraft ? nil : navigation)
             } else {
-                NavigationStack {
-                    Form {
-                        Section {
-                            Label("Pair with your computer", systemImage: "laptopcomputer.and.iphone")
-                                .font(.headline)
-                            Text("On your computer, open Satchel → Preferences → Phone access. Choose Pair a phone while both devices are on the same network.")
-                            if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
-                                Button {
-                                    Task {
-                                        if await AVCaptureDevice.requestAccess(for: .video) { scanning = true }
-                                        else { message = "Camera access is off. Paste an offer or enable Camera for Satchel in Settings." }
-                                    }
-                                } label: { Label("Scan pairing code", systemImage: "qrcode.viewfinder") }
-                            }
-                        } footer: { Text("For scanning, choose Show iOS app QR code on the computer.") }
-                        Section {
-                            SecureField("Paste offer from computer", text: $offer)
-                                .textInputAutocapitalization(.never).autocorrectionDisabled()
-                                .accessibilityIdentifier("pairing-offer")
-                            Button { pair() } label: {
-                                if pairing { ProgressView("Pairing…") } else { Text("Pair computer") }
-                            }.disabled(pairing || offer.isEmpty)
-                        } header: { Text("Pairing offer") } footer: { Text("Choose Copy for iOS on the computer to pair with a one-time offer.") }
-                    }.navigationTitle("Satchel").disabled(pairing)
-                }
+                NavigationStack { pairingPage }
             }
         }
+        .font(SatchelStyle.font()).foregroundStyle(SatchelStyle.ink).tint(SatchelStyle.ink)
         .task { do { computer = try PairingStore.load() } catch { message = error.localizedDescription } }
-        .onOpenURL { receive($0.absoluteString) }
+        .onOpenURL { if !navigation.open($0) { receive($0.absoluteString) } }
         .sheet(isPresented: $scanning) {
             NavigationStack {
                 PairingScanner { value in scanning = false; receive(value) } onError: {
@@ -70,6 +50,53 @@ struct SatchelRoot: View {
         } message: { Text(message ?? "") }
     }
 
+    private var pairingPage: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 22) {
+                SatchelHeading(title: "Satchel") { }
+                PairingIllustration()
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Pair your computer").font(SatchelStyle.font(30, .semibold, relativeTo: .title))
+                        .tracking(-1).accessibilityAddTraits(.isHeader)
+                    Text("On the same Wi-Fi, open Satchel on your computer. In Preferences → Phone access, choose Pair a phone.")
+                        .font(SatchelStyle.font(16)).foregroundStyle(SatchelStyle.secondary).lineSpacing(3)
+                }
+                if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Button { requestScan() } label: {
+                            Label("Scan pairing code", systemImage: "qrcode.viewfinder").frame(maxWidth: .infinity)
+                        }.buttonStyle(SatchelButton(primary: true))
+                        Text("Choose Show iOS app QR code on the computer.")
+                            .font(SatchelStyle.font(13, relativeTo: .footnote)).foregroundStyle(SatchelStyle.muted)
+                    }
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Pair with an offer").font(SatchelStyle.font(18, .semibold, relativeTo: .headline))
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Choose Copy for iOS on the computer, then paste the one-time offer here.")
+                        .font(SatchelStyle.font(14, relativeTo: .subheadline)).foregroundStyle(SatchelStyle.secondary)
+                    SecureField("Paste pairing offer", text: $offer)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                        .accessibilityIdentifier("pairing-offer")
+                        .padding(.horizontal, 12).frame(minHeight: 46).satchelPanel(SatchelStyle.paper, radius: 8)
+                    Button { pair() } label: {
+                        Group {
+                            if pairing { ProgressView("Pairing…") } else { Label("Pair computer", systemImage: "link") }
+                        }.frame(maxWidth: .infinity)
+                    }.buttonStyle(SatchelButton(primary: true)).disabled(pairing || offer.isEmpty)
+                }.padding(17).satchelPanel()
+            }
+            .padding(.horizontal, 21).padding(.top, 7).padding(.bottom, 28)
+            .frame(maxWidth: 580).frame(maxWidth: .infinity)
+        }.scrollDismissesKeyboard(.interactively).satchelRootPage().disabled(pairing)
+    }
+
+    private func requestScan() {
+        Task {
+            if await AVCaptureDevice.requestAccess(for: .video) { scanning = true }
+            else { message = "Camera access is off. Paste an offer or enable Camera for Satchel in Settings." }
+        }
+    }
     private func receive(_ value: String) {
         guard computer == nil, !pairing else { return }
         do { _ = try PairingOffer.read(value); offer = value }
@@ -90,8 +117,33 @@ struct SatchelRoot: View {
     }
 
     private func forget() {
-        do { try PairingStore.forget(); computer = nil }
-        catch { message = error.localizedDescription }
+        do {
+            if let computer { try LocalDraft.clear(for: Companion(computer: computer)) }
+            try PairingStore.forget()
+            navigation.reset(); computer = nil
+        } catch { message = error.localizedDescription }
+    }
+}
+
+private struct PairingIllustration: View {
+    var body: some View {
+        HStack(spacing: 16) {
+            VStack(spacing: 3) {
+                Image("SatchelMark").resizable().scaledToFit().frame(width: 33, height: 33)
+                    .frame(width: 87, height: 58)
+                    .overlay { RoundedRectangle(cornerRadius: 6).stroke(lineWidth: 2) }
+                Capsule().frame(width: 103, height: 3)
+            }
+            HStack(spacing: 5) {
+                ForEach(0..<3) { _ in Circle().fill(Color(red: 1, green: 0.54, blue: 0.4)).frame(width: 4, height: 4) }
+            }
+            RoundedRectangle(cornerRadius: 7).stroke(lineWidth: 2).frame(width: 31, height: 55)
+                .overlay(alignment: .bottom) { Capsule().frame(width: 9, height: 2).padding(.bottom, 5) }
+        }
+        .foregroundStyle(Color(red: 0.965, green: 0.953, blue: 0.914))
+        .frame(maxWidth: .infinity).frame(height: 130)
+        .background(Color(red: 0.149, green: 0.227, blue: 0.235), in: RoundedRectangle(cornerRadius: 15))
+        .accessibilityHidden(true)
     }
 }
 
@@ -133,20 +185,39 @@ private struct ComputerView: View {
     @State private var busy = false
 
     var body: some View {
-        Form {
-            Section {
-                LabeledContent("Computer", value: status?.deviceName ?? computer.name)
-                LabeledContent("Collection", value: status?.collection ?? computer.collection)
-                LabeledContent("Address", value: "\(computer.host):\(computer.port)")
-                if let status { LabeledContent("Desktop sync", value: status.state.capitalized) }
-                if let error { Text(error).foregroundStyle(.secondary) }
-                Button("Check connection") { Task { await refresh() } }
-            }
-            Section {
-                Button("Disconnect this device", role: .destructive) { action = "Disconnect" }
-                Button("Forget local pairing", role: .destructive) { action = "Forget" }
-            } footer: { Text("Disconnect revokes access on the computer. If the computer is offline, you can forget the local pairing and remove the device in Phone access later.") }
-        }.disabled(busy).navigationTitle("Computer").task { await refresh() }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 19) {
+                SatchelHeading(title: "Computer") { }
+                VStack(alignment: .leading, spacing: 12) {
+                    Image(systemName: "desktopcomputer").font(.title).foregroundStyle(SatchelStyle.secondary)
+                    Text(status?.deviceName ?? computer.name)
+                        .font(SatchelStyle.font(23, .semibold, relativeTo: .title2)).tracking(-0.5)
+                    if let status {
+                        Label(status.state == "synced" ? "Synced" : status.state.capitalized, systemImage: "arrow.triangle.2.circlepath")
+                            .font(SatchelStyle.font(14)).foregroundStyle(status.state == "synced" ? SatchelStyle.positive : SatchelStyle.secondary)
+                    }
+                }.padding(18).frame(maxWidth: .infinity, alignment: .leading).satchelPanel(SatchelStyle.sagePaper)
+                VStack(alignment: .leading, spacing: 14) {
+                    LabeledContent("Collection", value: status?.collection ?? computer.collection)
+                    Divider()
+                    LabeledContent("Address", value: "\(computer.host):\(computer.port)")
+                        .textSelection(.enabled)
+                }.font(SatchelStyle.font(15)).padding(16).satchelPanel()
+                if let error { FeedbackPanel(message: error) }
+                Button("Check connection") { Task { await refresh() } }.buttonStyle(SatchelButton())
+                SectionCaption(title: "Pairing")
+                VStack(alignment: .leading, spacing: 8) {
+                    Button("Disconnect this device", role: .destructive) { action = "Disconnect" }
+                        .font(SatchelStyle.font(16, .medium)).foregroundStyle(SatchelStyle.link).frame(minHeight: 44)
+                    Divider()
+                    Button("Forget local pairing", role: .destructive) { action = "Forget" }
+                        .font(SatchelStyle.font(16, .medium)).foregroundStyle(SatchelStyle.link).frame(minHeight: 44)
+                }.padding(.horizontal, 16).padding(.vertical, 5).frame(maxWidth: .infinity, alignment: .leading).satchelPanel()
+                Text("Disconnect revokes access on the computer. If the computer is offline, forget the local pairing and remove the device in Phone access later.")
+                    .font(SatchelStyle.font(13, relativeTo: .footnote)).foregroundStyle(SatchelStyle.muted)
+            }.padding(.horizontal, 18).padding(.top, 7).padding(.bottom, 24)
+            .frame(maxWidth: 700).frame(maxWidth: .infinity)
+        }.satchelRootPage().disabled(busy).navigationTitle("Computer").task { await refresh() }
         .confirmationDialog("\(action ?? "") this device?", isPresented: Binding(get: { action != nil }, set: { if !$0 { action = nil } })) {
             if action == "Disconnect" {
                 Button("Disconnect", role: .destructive) {
