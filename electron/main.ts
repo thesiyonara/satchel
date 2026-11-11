@@ -13,7 +13,7 @@ import { SettingsStore, validateSettingsPatch } from './settings';
 import { contained, errorMessage, hash, atomicWrite } from './files';
 import type { BoardPlacement, SyncStatus } from '../shared/types';
 import { formatSize } from '../shared/format';
-import { appCSP, assertSafeToOpen, frameNavigationAllowed, rendererRequestAllowed, secureDirectory } from './security';
+import { appCSP, assertOutsideProfile, assertSafeToOpen, frameNavigationAllowed, rendererRequestAllowed, secureDirectory } from './security';
 import { startControl, type ControlHandlers } from './control';
 import { Updates } from './updates';
 import { Companion } from './companion';
@@ -552,13 +552,13 @@ function setupIPC() {
     if (typeof value !== 'string' || value.length > 4096) throw new Error('Invalid folder');
     return value;
   };
+  async function importCollectionFiles(paths: string[], into: unknown) {
+    await assertOutsideProfile(paths, app.getPath('userData'));
+    await library.importFiles(paths, folderArgument(into));
+  }
   bind('importFiles', async (paths: unknown, into?: unknown) => {
     if (!Array.isArray(paths) || paths.length > 1000 || paths.some(file => typeof file !== 'string' || !path.isAbsolute(file))) throw new Error('Invalid dropped files');
-    // Private app storage (engine keys, settings, the control secret) must never be copied into the synced collection.
-    const normalize = (value: string) => process.platform === 'win32' ? path.resolve(value).toLowerCase() : path.resolve(value);
-    const userData = normalize(app.getPath('userData'));
-    if (paths.some(file => { const candidate = normalize(file); return candidate === userData || candidate.startsWith(userData + path.sep); })) throw new Error('Private application data cannot be added to the collection');
-    await library.importFiles(paths, folderArgument(into));
+    await importCollectionFiles(paths, into);
   });
   bind('chooseFiles', async (kind?: unknown, into?: unknown) => {
     // The Add button and Quick drop: a system picker for files or for a folder. Picked items land in the folder being browsed, or at the top of the collection.
@@ -566,7 +566,7 @@ function setupIPC() {
     if (kind !== undefined && kind !== 'files' && !folder) throw new Error('Invalid picker');
     const result = await dialog.showOpenDialog(mainWindow!, { title: folder ? 'Add a folder to the collection' : 'Add files to the collection', buttonLabel: 'Add', properties: folder ? ['openDirectory', 'multiSelections'] : ['openFile', 'multiSelections'] });
     if (result.canceled || !result.filePaths.length) return 0;
-    await library.importFiles(result.filePaths, folderArgument(into));
+    await importCollectionFiles(result.filePaths, into);
     return result.filePaths.length;
   });
   bind('paste', async () => {

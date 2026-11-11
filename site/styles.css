@@ -16,6 +16,7 @@ p { margin: 0; }
 .top { position: sticky; top: 0; z-index: 2; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
 .top nav { min-height: 64px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; padding-top: 10px; padding-bottom: 10px; }
 .wordmark { display: inline-flex; align-items: center; gap: 10px; color: var(--text); text-decoration: none; font-size: 22px; font-weight: 600; letter-spacing: -0.035em; }
+.brand-mark { width: 24px; height: 24px; background: currentColor; mask: url('img/mark.svg') center / contain no-repeat; }
 .links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 24px; font-size: 15px; }
 .links a { color: var(--text-2); text-decoration: none; padding: 10px 0; }
 .links a:hover { color: var(--text); }

@@ -16,13 +16,21 @@ try {
   await expect.poll(() => desktop.evaluate(() => window.syncit.phoneInfo().then(info => info.running)), { timeout: 20000 }).toBeTruthy();
   const { url, offer } = await desktop.evaluate(() => window.syncit.phoneOffer());
   assert.match(url, /^https:\/\/[0-9.]+:\d+\/#pair=[A-Z2-9]{8}$/);
-  // A phone browser: its own session, trusting only this computer's certificate for this test.
-  await app.evaluate(async ({ BrowserWindow }, { url, hosts }) => {
+  const endpoint = new URL(url);
+  assert.ok(offer.addresses.includes(endpoint.hostname) || endpoint.hostname === '127.0.0.1');
+  assert.equal(Number(endpoint.port), offer.port);
+  // Both processes run on this host. A VPN or offline virtual adapter can own the first advertised IP.
+  endpoint.hostname = '127.0.0.1';
+  await app.evaluate(async ({ BrowserWindow }, { url, fingerprint }) => {
     const window = new BrowserWindow({ show: false, width: 390, height: 844, webPreferences: { partition: 'phone-web-test', contextIsolation: true, sandbox: true } });
-    window.webContents.session.setCertificateVerifyProc((request, callback) => callback(hosts.includes(request.hostname) ? 0 : -2));
+    const { X509Certificate } = process.getBuiltinModule('node:crypto');
+    window.webContents.session.setCertificateVerifyProc((request, callback) => {
+      const trusted = request.hostname === '127.0.0.1' && new X509Certificate(request.certificate.data).fingerprint256 === fingerprint;
+      callback(trusted ? 0 : -2);
+    });
     window.webContents.session.on('will-download', event => event.preventDefault()); // Never write test downloads to the user's folders.
     await window.loadURL(url);
-  }, { url, hosts: [...offer.addresses, '127.0.0.1'] });
+  }, { url: endpoint.href, fingerprint: offer.fingerprint });
   const phone = await expect.poll(async () => (await app.windows()).length).toBe(2).then(async () => (await app.windows()).find(window => window !== desktop));
   await expect(phone.getByRole('heading', { name: 'collection' })).toBeVisible({ timeout: 15000 });
   await expect(phone.getByRole('button', { name: /Shopping/ })).toBeVisible();

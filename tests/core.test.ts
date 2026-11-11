@@ -1,4 +1,5 @@
 import test from 'node:test';
+import { imageSize } from 'image-size';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
@@ -8,6 +9,13 @@ import { Library, validatePlacement, replaces } from '../electron/library';
 import { cleanName, contained, safeRelative } from '../electron/files';
 import { SettingsStore, validateSettingsPatch } from '../electron/settings';
 import { localIPAllowed, parseLocalAddress, parsePairingCode, validateEncryptionPassword } from '../electron/sync-engine';
+
+test('menu bar assets specify a 16-point icon at standard and Retina scale', async () => {
+  for (const [file, points] of [['trayTemplate.png', 16], ['trayTemplate@2x.png', 32]] as const) {
+    const { width, height, type } = imageSize(await fs.readFile(path.join('assets', file)));
+    assert.deepEqual([width, height, type], [points, points, 'png'], file);
+  }
+});
 
 async function waitFor(condition: () => Promise<boolean>, message: string, timeout = 8000) { const start = Date.now(); while (Date.now() - start < timeout) { if (await condition().catch(() => false)) return; await new Promise(resolve => setTimeout(resolve, 100)); } throw new Error(`Timed out: ${message}`); }
 

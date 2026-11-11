@@ -24,6 +24,39 @@ export function rendererRequestAllowed(url: string, devURL?: string): boolean {
     return false;
   } catch { return false; }
 }
+/** Refuse a profile, anything inside it, or a folder that would recursively import it.
+ * Compare filesystem identities so linked parents and alternate casing on a Mac resolve consistently. */
+export async function assertOutsideProfile(sources: string[], profile: string) {
+  const folders = new Map<string, string>();
+  async function identity(file: string) {
+    let key = folders.get(file);
+    if (!key) {
+      const { dev, ino } = await fs.stat(file, { bigint: true });
+      key = `${dev}:${ino}`;
+      folders.set(file, key);
+    }
+    return key;
+  }
+  function* ancestors(file: string) {
+    for (;;) {
+      yield file;
+      const parent = path.dirname(file);
+      if (parent === file) return;
+      file = parent;
+    }
+  }
+  const privateRoot = await fs.realpath(profile);
+  const privateId = await identity(privateRoot);
+  const enclosing = new Set<string>();
+  for (const parent of ancestors(privateRoot)) enclosing.add(await identity(parent));
+  for (const source of sources) {
+    const resolved = await fs.realpath(source);
+    if (enclosing.has(await identity(resolved))) throw new Error('Private application data cannot be added to the collection');
+    for (const parent of ancestors(path.dirname(resolved))) {
+      if (await identity(parent) === privateId) throw new Error('Private application data cannot be added to the collection');
+    }
+  }
+}
 export async function secureDirectory(directory: string) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 });
   const info = await fs.lstat(directory);

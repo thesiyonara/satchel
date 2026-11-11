@@ -17,6 +17,8 @@ try {
   const page = await application.firstWindow();
   page.on('pageerror', error => errors.push(error.message));
   await expect(page.getByRole('button', { name: 'Create collection' })).toBeVisible({ timeout: 20000 });
+  await expect(page.locator('.onboarding .brand .mark')).toBeVisible();
+  await expect(page.locator('.onboarding .brand .mark')).toHaveCSS('mask-image', /url\(/);
   await page.screenshot({ path: path.join(artifacts, 'welcome.png') });
   await page.getByRole('button', { name: 'Create collection' }).click();
   await expect(page.getByRole('heading', { name: 'Everything', exact: true })).toBeVisible();
@@ -350,6 +352,14 @@ try {
   await page.evaluate(async source => window.syncit.importFiles([source]), scriptPath);
   const privateImport = await page.evaluate(async source => { try { await window.syncit.importFiles([source]); return 'allowed'; } catch (error) { return String(error); } }, path.join(profile, 'settings.json'));
   assert.match(privateImport, /Private application data/);
+  // Exercise the native picker route with an isolated fixture, without opening a system dialog.
+  await application.evaluate(({ dialog }, file) => {
+    globalThis.__originalOpenDialog = dialog.showOpenDialog;
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [file] });
+  }, path.join(profile, 'settings.json'));
+  try { await assert.rejects(page.evaluate(() => window.syncit.chooseFiles('files')), /Private application data/); }
+  finally { await application.evaluate(({ dialog }) => { dialog.showOpenDialog = globalThis.__originalOpenDialog; delete globalThis.__originalOpenDialog; }); }
+
   const blocked = await page.evaluate(async () => { try { await window.syncit.open('do-not-run.cmd'); return false; } catch { return true; } });
   assert.equal(blocked, true);
   await page.reload();

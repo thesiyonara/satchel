@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { assertSafeToOpen, rendererRequestAllowed, secureDirectory } from '../electron/security';
+import { assertOutsideProfile, assertSafeToOpen, rendererRequestAllowed, secureDirectory } from '../electron/security';
 import { atomicWrite, cleanName, safeRelative } from '../electron/files';
 import { Library, RECOVERY_KEEP_PER_NOTE } from '../electron/library';
 import { parsePairingCode } from '../electron/sync-engine';
@@ -54,6 +54,22 @@ test('successful note saves keep local recovery copies independently of remote v
   assert.equal(await fs.readFile(path.join(recovery, versions[0]), 'utf8'), first.text);
   assert.equal((await library.readNote(first.path)).text, 'An edited note');
 });
+test('imports stay separate from the private profile, including containing folders and linked parents', async t => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'satchel-import-'));
+  t.after(() => fs.rm(dir, { recursive: true, force: true }));
+  const profile = path.join(dir, 'Satchel');
+  const sibling = path.join(dir, 'Satchel files');
+  await fs.mkdir(profile); await fs.mkdir(sibling);
+  await fs.writeFile(path.join(profile, 'example.txt'), 'fixture');
+  for (const source of [dir, profile, path.join(profile, 'example.txt')]) {
+    await assert.rejects(assertOutsideProfile([sibling, source], profile), /Private application data/);
+  }
+  await assertOutsideProfile([sibling], profile);
+  const alias = path.join(dir, 'alias');
+  await fs.symlink(profile, alias, 'junction');
+  await assert.rejects(assertOutsideProfile([path.join(alias, 'example.txt')], profile), /Private application data/);
+});
+
 test('private storage rejects a substituted directory link', async t => {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'syncit-security-'));
   t.after(() => fs.rm(dir, { recursive: true, force: true }));

@@ -2,7 +2,13 @@
 
 ## Unreleased
 
+### Changed
+- A folded S replaces the bag icon across desktop, phone and web. The Mac menu bar now uses a compact 16-point template with a Retina representation.
+
+
 ### Fixed
+- File imports consistently exclude Satchel’s private profile, including when picking a folder.
+- Updated the XML parser used by the sync engine to 5.12.0.
 - Renaming or moving a folder could fail when the file watcher reset the collection index halfway through. The rename now finishes and the index is rebuilt on the next look.
 
 ## 0.6.20 — 2026-11-03
