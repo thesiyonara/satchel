@@ -10,6 +10,7 @@ enum PairingStore {
 
 enum ShortcutSmoke {
     static func run(using computer: PairedComputer, directory: URL) async throws {
+        try await checkNavigation()
         let reader = GetSatchelPasteboardIntent()
         do {
             _ = try await reader.perform()
@@ -48,4 +49,18 @@ enum ShortcutSmoke {
         }
         print("Passed Save Note, Get and Set Shared Pasteboard, Add File (disk and memory), and missing pairing.")
     }
+    @MainActor
+    private static func checkNavigation() throws {
+        let route = SatchelNavigation()
+        guard route.open(URL(string: "satchel://compose")!), route.composing,
+              !route.open(URL(string: "https://example.org/")!) else { throw CompanionError("Cold compose routing failed") }
+        route.beginEditingDraft()
+        _ = route.open(URL(string: "satchel://pasteboard")!)
+        guard route.tab == .collection && route.composing else { throw CompanionError("A warm URL displaced a draft") }
+        route.endEditingDraft()
+        guard route.tab == .pasteboard && !route.composing else { throw CompanionError("The pending pasteboard did not open") }
+        _ = route.open(URL(string: "satchel://compose?text=unrequested")!)
+        guard route.tab == .pasteboard && !route.composing else { throw CompanionError("An unsupported URL changed navigation") }
+    }
+
 }

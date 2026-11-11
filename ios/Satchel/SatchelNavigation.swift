@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 enum SatchelTab { case collection, pasteboard, computer }
 
@@ -14,17 +13,7 @@ extension BoardClip: Hashable {
 }
 
 @MainActor
-final class SatchelAppDelegate: NSObject, UIApplicationDelegate {
-    func application(_ application: UIApplication, configurationForConnecting session: UISceneSession,
-                     options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        let configuration = UISceneConfiguration(name: nil, sessionRole: session.role)
-        if session.role == .windowApplication { configuration.delegateClass = SatchelNavigation.self }
-        return configuration
-    }
-}
-
-@MainActor
-final class SatchelNavigation: NSObject, ObservableObject, UIWindowSceneDelegate {
+final class SatchelNavigation: NSObject, ObservableObject {
     @Published var tab: SatchelTab = .collection
     @Published var composing = false
     @Published var searchRequested = false
@@ -32,25 +21,6 @@ final class SatchelNavigation: NSObject, ObservableObject, UIWindowSceneDelegate
     @Published var pasteboardPath: [BoardClip] = []
     @Published private(set) var isEditingDraft = false
     private var pendingDestination: Destination?
-
-    // SwiftUI injects this delegate into each scene, so a quick action opens in its own window on iPad.
-    func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options: UIScene.ConnectionOptions) {
-        if let shortcut = options.shortcutItem { _ = handle(shortcut) }
-    }
-
-    func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem,
-                     completionHandler: @escaping (Bool) -> Void) {
-        completionHandler(handle(shortcutItem))
-    }
-
-    private func handle(_ shortcut: UIApplicationShortcutItem) -> Bool {
-        switch shortcut.type {
-        case "local.satchel.phone.compose": navigate(to: .compose)
-        case "local.satchel.phone.pasteboard": navigate(to: .pasteboard)
-        default: return false
-        }
-        return true
-    }
 
     enum Destination: String { case collection, compose, pasteboard, search }
 

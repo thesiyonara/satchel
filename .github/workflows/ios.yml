@@ -21,12 +21,14 @@ jobs:
         with:
           node-version: '24'
           cache: npm
+      - run: npm ci
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
       - name: Start the simulator
         run: |
           device=$(xcrun simctl list devices available -j | jq -er --arg family "$SIMULATOR_FAMILY" '[.devices | to_entries[] | select(.key | contains("iOS")) | .value[] | select(.name | startswith($family))][0].udid')
           echo "SATCHEL_SIMULATOR=$device" >> "$GITHUB_ENV"
           xcrun simctl boot "$device"
-      - run: npm ci
       - name: Exercise the Swift client against the desktop service
         if: matrix.device == 'iPhone'
         run: npx --no-install tsx scripts/ios-client-test.ts

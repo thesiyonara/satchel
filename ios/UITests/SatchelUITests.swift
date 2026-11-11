@@ -28,8 +28,7 @@ final class SatchelUITests: XCTestCase {
         editor.tap(); editor.typeText("Simulator notebook")
         XCUIDevice.shared.press(.home)
         app.terminate()
-        try await openPasteboardFromSystem()
-        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 10))
+        app.open(try XCTUnwrap(URL(string: "satchel://pasteboard")))
         XCTAssertTrue(app.staticTexts["The shared pasteboard is empty."].waitForExistence(timeout: 10))
         app.open(try XCTUnwrap(URL(string: "satchel://compose")))
         XCTAssertTrue(editor.waitForExistence(timeout: 10))
@@ -41,10 +40,9 @@ final class SatchelUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 10))
         app.buttons["Edit"].tap()
         editor.tap(); editor.typeText(" updated")
-        try await openPasteboardFromSystem()
-        XCTAssertTrue((editor.value as? String)?.contains("updated") == true, "Opening a widget destination must preserve the active editor.")
         app.buttons["Save"].tap()
-        XCTAssertTrue(app.staticTexts["Current text"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "updated")).firstMatch.waitForExistence(timeout: 10))
+        app.buttons["Pasteboard"].firstMatch.tap()
         let edit = app.buttons["Edit"]
         let ready = NSPredicate(format: "exists == true AND enabled == true")
         let editable = XCTNSPredicateExpectation(predicate: ready, object: edit)
@@ -71,6 +69,45 @@ final class SatchelUITests: XCTestCase {
         app.buttons["Disconnect this device"].tap()
         app.buttons["Disconnect"].tap()
         XCTAssertTrue(app.buttons["Pair computer"].waitForExistence(timeout: 10))
+    }
+
+    @MainActor
+    func testWarmPasteboardLinkPreservesDraft() async throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        app.launch()
+        // Each test gets a new single-use offer, including after an interrupted screenshot test.
+        let pairButton = app.buttons["Pair computer"]
+        if !pairButton.waitForExistence(timeout: 3) {
+            app.buttons["Computer"].firstMatch.tap()
+            app.buttons["Disconnect this device"].tap()
+            app.buttons["Disconnect"].tap()
+        }
+        XCTAssertTrue(pairButton.waitForExistence(timeout: 10))
+        let offer = try String(contentsOf: XCTUnwrap(URL(string: "http://127.0.0.1:31926/offer")), encoding: .utf8)
+        app.open(try XCTUnwrap(URL(string: offer)))
+        pairButton.tap()
+        let add = app.buttons["Add to collection"]
+        XCTAssertTrue(add.waitForExistence(timeout: 20))
+        add.tap()
+        app.buttons["New note"].tap()
+        let editor = app.textViews["draft-text"]
+        let contents = "Warm navigation draft"
+        editor.tap(); editor.typeText(contents)
+
+        async let dispatch: Void = openPasteboardFromSystem()
+        let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+        let open = springboard.alerts.buttons["Open"].firstMatch
+        if open.waitForExistence(timeout: 5) { open.tap() }
+        try await dispatch
+        XCTAssertTrue(editor.waitForExistence(timeout: 12))
+        XCTAssertEqual(editor.value as? String, contents)
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Current text"].waitForExistence(timeout: 12))
+        app.buttons["Collection"].firstMatch.tap()
+        let saved = app.descendants(matching: .any).matching(identifier: "item-Warm navigation draft.md").firstMatch
+        XCTAssertTrue(saved.waitForExistence(timeout: 12))
     }
 
     private func openPasteboardFromSystem() async throws {

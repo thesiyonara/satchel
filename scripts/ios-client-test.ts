@@ -33,7 +33,7 @@ try {
         return;
       }
       // XCUIApplication.open relaunches its target. Dispatch this fixed route through SpringBoard
-      // to exercise the same cold and warm deliveries as an external widget or Home Screen link.
+      // to exercise the same warm delivery as an external widget or Home Screen link.
       if (req.method === 'POST' && req.url === '/open-pasteboard' && req.headers['x-satchel-ui-test'] === '1') {
         const device = process.env.SATCHEL_SIMULATOR;
         if (!device) { res.writeHead(503).end('Missing test simulator'); return; }
@@ -54,7 +54,7 @@ try {
     const binary = path.join(dir, 'ClientSmoke');
     const architecture = process.arch === 'arm64' ? 'arm64' : 'x86_64';
     await promisify(execFile)('xcrun', ['--sdk', 'macosx', 'swiftc', '-target', `${architecture}-apple-macosx14.0`,
-      '-parse-as-library', 'ios/Satchel/Companion.swift', 'ios/Satchel/SatchelIntents.swift',
+      '-parse-as-library', 'ios/Satchel/Companion.swift', 'ios/Satchel/SatchelIntents.swift', 'ios/Satchel/SatchelNavigation.swift',
       'ios/Tests/ClientSmoke.swift', 'ios/Tests/ShortcutSmoke.swift', '-o', binary]);
     const client = spawn(binary, [], { stdio: ['pipe', 'inherit', 'inherit'], timeout: 60000 });
     const exited = once(client, 'exit');
