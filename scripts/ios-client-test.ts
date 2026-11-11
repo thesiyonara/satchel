@@ -38,9 +38,10 @@ try {
         const device = process.env.SATCHEL_SIMULATOR;
         if (!device) { res.writeHead(503).end('Missing test simulator'); return; }
         try {
-          await promisify(execFile)('xcrun', ['simctl', 'openurl', device, 'satchel://pasteboard'], { timeout: 15000 });
+          await promisify(execFile)('xcrun', ['simctl', 'openurl', device, 'satchel://pasteboard'], { timeout: 45000 });
           res.writeHead(204).end();
-        } catch {
+        } catch (error) {
+          console.error('Could not deliver the simulator pasteboard URL:', error);
           res.writeHead(500).end('Could not open the test simulator pasteboard');
         }
         return;

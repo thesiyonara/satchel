@@ -100,11 +100,20 @@ final class SatchelUITests: XCTestCase {
         let contents = "Warm navigation draft"
         editor.tap(); editor.typeText(contents)
 
-        async let dispatch: Void = openPasteboardFromSystem()
+        // LaunchServices may queue its confirmation after simctl returns. Handle the actual
+        // system prompt before interacting with Satchel; XCTest's default handler chooses Cancel.
+        let monitor = addUIInterruptionMonitor(withDescription: "Open the Satchel test link") { alert in
+            guard alert.label.contains("Satchel"), alert.buttons["Open"].exists else { return false }
+            alert.buttons["Open"].tap()
+            return true
+        }
+        defer { removeUIInterruptionMonitor(monitor) }
+        try await openPasteboardFromSystem()
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let open = springboard.alerts.buttons["Open"].firstMatch
-        if open.waitForExistence(timeout: 5) { open.tap() }
-        try await dispatch
+        let confirmation = springboard.alerts.containing(NSPredicate(format: "label CONTAINS %@", "Satchel")).firstMatch
+        if confirmation.waitForExistence(timeout: 20) {
+            confirmation.buttons["Open"].tap()
+        }
         XCTAssertTrue(app.staticTexts["pending-destination"].waitForExistence(timeout: 12), app.debugDescription)
         XCTAssertTrue(editor.waitForExistence(timeout: 12))
         XCTAssertEqual(editor.value as? String, contents)
