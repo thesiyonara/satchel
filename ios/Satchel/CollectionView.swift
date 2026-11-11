@@ -62,6 +62,7 @@ struct CollectionView: View {
     @State private var generation = UUID()
     @EnvironmentObject private var navigation: SatchelNavigation
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @StateObject private var thumbnails = CollectionThumbnails()
     @AppStorage("collectionCompactList") private var compactList = false
     @FocusState private var searching: Bool
@@ -163,7 +164,7 @@ struct CollectionView: View {
                         Text(sortByName ? "Name" : "Latest first")
                     }.font(SatchelStyle.font(13, relativeTo: .caption)).foregroundStyle(SatchelStyle.muted)
                     let list = compactList || typeSize.isAccessibilitySize
-                    let columns = list ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: 148, maximum: 340), spacing: 10)]
+                    let columns = list ? [GridItem(.flexible())] : [GridItem(.adaptive(minimum: horizontalSizeClass == .regular ? 196 : 148, maximum: 340), spacing: 10)]
                     LazyVGrid(columns: columns, alignment: .leading, spacing: 10) {
                         ForEach(results) { file in
                             NavigationLink(value: file) {
