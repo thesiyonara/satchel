@@ -98,6 +98,10 @@ try {
   await page.screenshot({ path: path.join(artifacts, 'pinboard.png') });
   // The pasteboard column: the shared text is saved a moment after typing; a text pasted over it drops into Recent, where it can be put back, copied or removed; Clear sends the text to Recent too.
   const board = page.getByRole('textbox', { name: 'Pasteboard text' });
+  const linked = 'Open https://example.com/a_(b), then www.example.org. Copy exactly.';
+  await board.fill(linked);
+  await expect(page.locator('.paste-mirror mark')).toHaveText(['https://example.com/a_(b)', 'www.example.org']);
+  await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.pasteboard?.text))).toBe(linked);
   await board.fill('Door code 4411\nWifi: guest-net');
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.pasteboard?.text || ''))).toBe('Door code 4411\nWifi: guest-net');
   await expect(page.getByText(/Changed just now/)).toBeVisible();
@@ -153,6 +157,13 @@ try {
   await panel.keyboard.press('End');
   await expect.poll(() => page.evaluate(() => window.syncit.initial().then(i => i.settings.panelOpacity))).toBe(1);
   await panel.getByRole('button', { name: 'Window opacity' }).click();
+  await panel.getByRole('button', { name: 'Find in collection' }).click();
+  await panel.getByRole('searchbox', { name: 'Find in collection' }).fill('bookshop');
+  await expect(panel.locator('.qd-tile')).toHaveCount(1);
+  await panel.getByRole('searchbox').fill('qz-none');
+  await expect(panel.getByText('No results for “qz-none”')).toBeVisible();
+  await panel.keyboard.press('Escape');
+  await expect(panel.getByRole('heading', { name: 'Latest' })).toBeVisible();
   // Latest shows the collection as tiles or a list, the choice kept per computer; the pasteboard in Quick drop is the same live text as the column.
   await expect(panel.locator('.qd-tile').first()).toBeVisible();
   await panel.screenshot({ path: path.join(artifacts, 'quick-drop.png') });
@@ -161,6 +172,8 @@ try {
   await expect(panel.locator('.qd-tile')).toHaveCount(0);
   await panel.getByRole('button', { name: 'Tiles', exact: true }).click();
   await expect(panel.locator('.qd-tile').first()).toBeVisible();
+  await panel.getByRole('textbox', { name: 'Pasteboard text' }).fill(linked);
+  await expect(panel.locator('.paste-mirror mark')).toHaveText(['https://example.com/a_(b)', 'www.example.org']);
   await panel.getByRole('textbox', { name: 'Pasteboard text' }).fill('From the little window');
   await expect.poll(() => page.evaluate(() => window.syncit.list().then(l => l.pasteboard?.text || ''))).toBe('From the little window');
   await panel.getByRole('textbox', { name: 'Pasteboard text' }).fill('');

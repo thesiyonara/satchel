@@ -42,7 +42,7 @@ textarea { resize: none; line-height: 1.6; }
 header.top { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; min-height: 44px; }
 header.top h1 { font-size: 22px; line-height: 1.2; margin: 0; letter-spacing: -.3px; font-weight: 600; flex: 1; min-width: 0; overflow: hidden; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 header.top.compact h1 { font-size: 17px; }
-.brand { display: none; }
+.brand { flex: none; width: 26px; height: 26px; }
 .back { padding-left: 0; }
 .status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin: 0 0 14px; }
 .status i { width: 7px; height: 7px; border-radius: 50%; background: var(--line-2); display: inline-block; flex-shrink: 0; }
@@ -54,7 +54,7 @@ header.top.compact h1 { font-size: 17px; }
 .toolbar input { padding-left: 36px; height: 42px; }
 .chips { display: flex; gap: 14px; overflow-x: auto; margin: 0 -16px 10px; padding: 2px 16px 0; scrollbar-width: none; }
 .chips::-webkit-scrollbar { display: none; }
-.chip { flex-shrink: 0; min-height: 36px; padding: 6px 0; font-size: 14px; font-weight: 500; border: 0; border-radius: 0; background: transparent; color: var(--muted); border-bottom: 2px solid transparent; }
+.chip { flex-shrink: 0; min-height: 44px; padding: 6px 2px; font-size: 14px; font-weight: 500; border: 0; border-radius: 0; background: transparent; color: var(--muted); border-bottom: 2px solid transparent; }
 .chip span { font-size: 12px; font-weight: 400; color: var(--faint); margin-left: 2px; }
 .chip.active { color: var(--text); border-bottom-color: var(--text); }
 .section-label { font-size: 12.5px; color: var(--muted); margin: 4px 0 10px; display: flex; justify-content: space-between; }
@@ -155,3 +155,9 @@ button:active:not(:disabled) { transform: scale(.98); opacity: 1; }
 /* Fit: one column on narrow phones so file rows and titles keep their room. */
 @media (max-width: 379px) { .grid { column-count: 1; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.editor-actions { align-items: center; }
+.editor-actions .save-state { flex: 1; margin: 0; min-width: 0; }
+.editor-actions button.primary { flex: 0 0 auto; min-width: 88px; }
+.chip:focus-visible, button:focus-visible { outline: 2px solid var(--accent-text); outline-offset: -2px; }
+.tiles .card-item.media { min-height: 0; }

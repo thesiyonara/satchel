@@ -105,13 +105,13 @@
 
   function topBar(text, options = {}) {
     return el('header', { class: `top ${options.back ? 'compact' : ''}` },
-      options.back ? el('button', { class: 'plain back', 'aria-label': 'Back', onclick: () => go({ name: 'list' }) }, icon('back')) : el('span', { class: 'brand' }, el('span', { text: 's/i' })),
+      options.back ? el('button', { class: 'plain back', 'aria-label': 'Back', onclick: options.onBack || (() => go({ name: 'list' })) }, icon('back')) : el('img', { class: 'brand', src: '/icon.png', alt: '', width: 26, height: 26 }),
       el('h1', { text }),
       options.back ? null : el('button', { class: 'plain', 'aria-label': 'Computer', title: 'This computer', onclick: () => go({ name: 'computer' }) }, icon('computer')));
   }
   function statusLine() {
     const status = state.status; if (!status) return null;
-    const ok = status.state === 'synced' || status.state === 'unpaired';
+    const ok = status.state === 'synced';
     return el('p', { class: 'status' }, el('i', { class: ok ? 'ok' : status.state === 'error' ? 'bad' : '' }), `${status.deviceName} · ${labels[status.state] || status.state}`);
   }
 
@@ -142,26 +142,49 @@
     const form = el('form', { onsubmit: event => { event.preventDefault(); void run(() => pair(input.value.trim().toUpperCase())); } },
       el('div', { class: 'card' }, el('h2', { text: 'Pair with this computer' }), el('p', { text: 'On the computer, open Preferences → Phone access and choose “Pair a phone”. Scanning its QR code with the camera fills this in; otherwise type the eight-character code.' }), input),
       el('button', { class: 'primary wide', type: 'submit', disabled: state.busy, text: state.busy ? 'Pairing…' : 'Pair' }));
-    root.replaceChildren(el('header', { class: 'top' }, el('span', { class: 'brand' }, el('span', { text: 's/i' })), el('h1', { text: 'Phone access' })), form, el('p', { class: 'status', text: 'Nothing is stored on this phone except the pairing.' }));
+    root.replaceChildren(el('header', { class: 'top' }, el('img', { class: 'brand', src: '/icon.png', alt: '', width: 26, height: 26 }), el('h1', { text: 'Phone access' })), form, el('p', { class: 'status', text: 'Nothing is stored on this phone except the pairing.' }));
   }
 
   function renderList() {
     const items = state.items || [];
-    const query = state.query.toLowerCase();
     const counts = { all: items.length };
     for (const item of items) counts[item.kind] = (counts[item.kind] || 0) + 1;
-    const visible = items.filter(item => (state.filter === 'all' || item.kind === state.filter) && `${item.path} ${item.preview || ''}`.toLowerCase().includes(query));
-    const search = el('input', { type: 'search', 'aria-label': 'Search the collection', placeholder: 'Search', value: state.query, oninput: event => { state.query = event.target.value; renderList(); } });
+    const search = el('input', { type: 'search', 'aria-label': 'Search the collection', placeholder: 'Search', value: state.query, oninput: event => { state.query = event.target.value; updateResults(); } });
     const chips = el('div', { class: 'chips', role: 'tablist' }, ['all', 'note', 'image', 'video', 'audio', 'file'].filter(kind => kind === 'all' || kind === 'note' || counts[kind]).map(kind =>
       el('button', { class: `chip ${state.filter === kind ? 'active' : ''}`, role: 'tab', 'aria-selected': state.filter === kind ? 'true' : 'false', onclick: () => { state.filter = kind; renderList(); } }, kindNames[kind], el('span', { text: String(counts[kind] || 0) }))));
-    const tiles = state.filter === 'image' || state.filter === 'video';
-    let content;
-    if (state.items === null) content = el('div', { class: 'grid' }, el('div', { class: 'skeleton' }), el('div', { class: 'skeleton' }), el('div', { class: 'skeleton' }), el('div', { class: 'skeleton' }));
-    else if (!visible.length) content = el('div', { class: 'empty' }, el('strong', { text: items.length ? 'No matches' : 'Nothing here yet' }), items.length ? 'Try another word.' : 'Tap + to write a note or add a photo. Everything lands on the computer.');
-    else if (tiles) content = el('div', { class: 'tiles' }, visible.map(item => mediaCard(item, true)));
-    else content = el('div', { class: 'grid' }, visible.map(item => item.kind === 'note' ? noteCard(item) : item.kind === 'image' || item.kind === 'video' ? mediaCard(item, false) : fileCard(item)));
-    const label = el('div', { class: 'section-label' }, el('span', { text: state.query ? 'Results' : kindNames[state.filter] }), el('span', { text: String(visible.length) }));
-    const upload = el('input', { type: 'file', class: 'hidden', 'aria-label': 'Choose a file to add', onchange: event => { const file = event.target.files[0]; if (file) void run(async () => { await api('POST', `/v1/upload?name=${encodeURIComponent(file.name)}`, { body: file, contentType: file.type || 'application/octet-stream' }); await load(); toast(`${file.name} added.`); }); event.target.value = ''; } });
+    const results = el('section', { 'aria-label': 'Collection results' });
+    function updateResults() {
+      const query = state.query.trim().toLowerCase();
+      const visible = items.filter(item => (state.filter === 'all' || item.kind === state.filter) && `${item.path} ${item.preview || ''}`.toLowerCase().includes(query));
+      const tiles = state.filter === 'image' || state.filter === 'video';
+      let content;
+      if (state.items === null) content = el('div', { class: 'grid' }, el('div', { class: 'skeleton' }), el('div', { class: 'skeleton' }), el('div', { class: 'skeleton' }), el('div', { class: 'skeleton' }));
+      else if (!visible.length) content = el('div', { class: 'empty' }, el('strong', { text: items.length ? 'No matches' : 'Nothing here yet' }), items.length ? 'Try another word.' : 'Tap + to write a note or add a photo. Everything lands on the computer.');
+      else if (tiles) content = el('div', { class: 'tiles' }, visible.map(item => mediaCard(item, true)));
+      else content = el('div', { class: 'grid' }, visible.map(item => item.kind === 'note' ? noteCard(item) : item.kind === 'image' || item.kind === 'video' ? mediaCard(item, false) : fileCard(item)));
+      const label = el('div', { class: 'section-label' }, el('span', { text: state.query ? 'Results' : kindNames[state.filter] }), el('span', { text: String(visible.length) }));
+      results.replaceChildren(...(query ? [label, content] : [content]));
+    }
+    updateResults();
+    const upload = el('input', { type: 'file', multiple: true, class: 'hidden', 'aria-label': 'Choose a file to add', onchange: event => {
+      const files = Array.from(event.target.files);
+      event.target.value = '';
+      if (!files.length) return;
+      void run(async () => {
+        let added = 0;
+        try {
+          for (const file of files) {
+            await api('POST', `/v1/upload?name=${encodeURIComponent(file.name)}`, { body: file, contentType: file.type || 'application/octet-stream' });
+            added++;
+          }
+        } catch (error) {
+          throw new Error(`${added} of ${files.length} added. ${files[added].name}: ${error.message}`);
+        } finally {
+          if (added) await load();
+        }
+        toast(files.length === 1 ? `${files[0].name} added.` : `${added} files added.`);
+      });
+    } });
     const openSheet = () => {
       const shade = el('div', { class: 'sheet-shade', onclick: event => { if (event.target === shade) shade.remove(); } },
         el('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Create' },
@@ -173,7 +196,7 @@
     root.replaceChildren(
       topBar(state.status ? state.status.collection : 'Collection'), statusLine(),
       el('div', { class: 'toolbar' }, el('div', { class: 'search' }, search), el('button', { class: 'plain', 'aria-label': 'Refresh', title: 'Refresh', disabled: state.busy, onclick: () => void run(load) }, icon('refresh'))),
-      chips, label, content, upload,
+      chips, results, upload,
       el('button', { class: 'fab', 'aria-label': 'Create', disabled: state.busy, onclick: openSheet }, icon('plus')));
   }
   function open(item) { go({ name: item.kind === 'note' ? 'note' : 'item', item }); }
@@ -218,13 +241,13 @@
 
   function renderNote() {
     const item = state.view.item;
-    const textarea = el('textarea', { 'aria-label': 'Note text', placeholder: 'Write here.', spellcheck: 'true', oninput: () => grow() });
+    const textarea = el('textarea', { disabled: !!item, 'aria-label': 'Note text', placeholder: 'Write here.', spellcheck: 'true', oninput: () => { grow(); saveState.textContent = textarea.value === (document_?.text || '') ? '' : 'Unsaved changes'; } });
     // The editor grows with the text so the page scrolls, never a box inside it.
     const grow = () => { textarea.style.height = 'auto'; textarea.style.height = `${Math.max(textarea.scrollHeight + 24, window.innerHeight - 200)}px`; };
-    const saveState = el('p', { class: 'save-state' });
+    const saveState = el('p', { class: 'save-state', role: 'status', text: item ? 'Loading note…' : '' });
     let document_ = null;
-    const saveButton = el('button', { class: 'primary', text: 'Save', onclick: () => void run(async () => {
-      saveButton.disabled = true;
+    const saveButton = el('button', { class: 'primary', disabled: !!item, text: 'Save', onclick: () => void run(async () => {
+      saveButton.disabled = true; textarea.readOnly = true;
       const text = textarea.value;
       if (document_) {
         const saved = await api('PUT', '/v1/note', { json: { path: document_.path, text, revision: document_.revision } });
@@ -235,11 +258,14 @@
         saveState.textContent = `Saved as ${document_.path}.`;
       }
       await load();
-    }).finally(() => { saveButton.disabled = false; }) });
-    root.replaceChildren(topBar(item ? title(item) : 'New note', { back: true }), textarea, saveState,
-      el('div', { class: 'actions' }, saveButton, item ? el('button', { class: 'icon', 'aria-label': 'Download note', onclick: () => void run(() => download(item)) }, icon('download')) : null));
+    }).finally(() => { saveButton.disabled = false; textarea.readOnly = false; }) });
+    root.replaceChildren(topBar(item ? title(item) : 'New note', { back: true, onBack: () => {
+      if (state.busy) return;
+      if (textarea.value === (document_?.text || '') || confirm('Discard unsaved changes?')) go({ name: 'list' });
+    } }), textarea,
+      el('div', { class: 'actions editor-actions' }, saveState, saveButton, item ? el('button', { class: 'icon', 'aria-label': 'Download note', onclick: () => void run(() => download(item)) }, icon('download')) : null));
     grow();
-    if (item) api('GET', `/v1/note?path=${encodeURIComponent(item.path)}`).then(note => { document_ = note; textarea.value = note.text; grow(); }).catch(error => { saveState.className = 'save-state error'; saveState.textContent = error.message; });
+    if (item) api('GET', `/v1/note?path=${encodeURIComponent(item.path)}`).then(note => { document_ = note; textarea.value = note.text; textarea.disabled = false; saveButton.disabled = false; saveState.textContent = ''; grow(); }).catch(error => { saveState.className = 'save-state error'; saveState.textContent = error.message; });
     else textarea.focus();
   }
 

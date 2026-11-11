@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Changed
+- Pasteboard links are highlighted as you type, paste or receive text, including in Quick drop and Recent. Copy and sync preserve the original text.
+- Quick drop can search the collection by filename, folder or note text. Narrow dashboards give search a full row.
+- On phones, typing in search keeps the keyboard open. The editor shows save status beside Save, protects unsaved text when using Back, and accepts edits once the original is loaded.
+- Phone uploads accept multiple files. Desktop phone pairing can copy a certificate-pinned offer for a native client.
 - A folded S replaces the bag icon across desktop, phone and web. The Mac menu bar now uses a compact 16-point template with a Retina representation.
 
 

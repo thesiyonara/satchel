@@ -1,3 +1,4 @@
+import { PasteboardInput, PasteboardText } from './PasteboardInput';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpToLine, ChevronRight, ClipboardCopy, Eraser, X } from 'lucide-react';
 import type { Pasteboard as PasteboardState, PasteboardClip } from '../shared/types';
@@ -76,11 +77,11 @@ export function Pasteboard({ board, notify, since, peers, hidden, compact }: { b
       onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); resize(width + (event.key === 'ArrowLeft' ? 20 : -20), true); } }} />
     <div className="pasteboard-head"><div><h2>Pasteboard</h2><small>{peers.length > 0 ? <span className="live" title={peers.join(', ')}><i /><span>Live with {peers.length === 1 ? peers[0] : `${peers.length} computers`}</span></span> : <span className="live off"><i /><span>Syncs once a computer is paired</span></span>}<br />{liveStatus(live.state, board, since)}</small></div>
       <div className="tools"><button className="icon-button" aria-label="Copy all" title="Copy all" disabled={!live.text} onClick={() => void copy(live.text, 'Pasteboard')}><ClipboardCopy size={15} /></button><button className="icon-button" aria-label="Clear" title="Clear the text (it goes to Recent)" disabled={!live.text} onClick={() => { live.replace(''); area.current?.focus(); }}><Eraser size={15} /></button><button className="icon-button" aria-label="Hide pasteboard" title="Hide the pasteboard" onClick={() => toggle(false)}><ChevronRight size={15} /></button></div></div>
-    <textarea ref={area} aria-label="Pasteboard text" placeholder="Paste or type here." value={live.text} onChange={event => live.change(event.target.value)} spellCheck={false} />
+    <PasteboardInput inputRef={area} placeholder="Paste or type here." value={live.text} change={live.change} />
     <div className="recent-head"><span>Recent</span>{recent.length > 0 && <button onClick={() => void remove()}>Clear list</button>}</div>
     <div className="recent">
       {recent.length === 0 ? <p className="recent-empty">When the text is replaced, the old one lands here.</p> : recent.map(clip => <div key={clip.id} className="clip">
-        <button className="clip-text" title="Copy" onClick={() => void copy(clip.text, 'Text')}>{clip.text}</button>
+        <button className="clip-text" title="Copy" onClick={() => void copy(clip.text, 'Text')}><PasteboardText text={clip.text} /></button>
         <small>{since(clip.time)}{clip.from ? ` · from ${clip.from}` : ''}</small>
         <div className="clip-tools"><button className="icon-button" aria-label={`Copy ${label(clip)}`} title="Copy" onClick={() => void copy(clip.text, 'Text')}><ClipboardCopy size={14} /></button><button className="icon-button" aria-label={`Put ${label(clip)} on the board`} title="Put it back on the board" onClick={() => void use(clip)}><ArrowUpToLine size={14} /></button><button className="icon-button" aria-label={`Remove ${label(clip)}`} title="Remove" onClick={() => void remove(clip)}><X size={14} /></button></div>
       </div>)}

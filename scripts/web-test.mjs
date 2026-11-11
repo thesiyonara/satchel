@@ -38,10 +38,19 @@ try {
   assert.equal(await phone.evaluate(() => location.hash), '', 'The one-time code is removed from the address after pairing');
   await mkdir('test-results', { recursive: true }); await phone.screenshot({ path: path.resolve('test-results/phone-web.png') });
   await expect.poll(() => desktop.evaluate(() => window.syncit.phoneInfo().then(info => info.devices.map(device => device.name)))).toContain('Phone (web)');
+  const search = phone.getByRole('searchbox', { name: 'Search the collection' });
+  await search.pressSequentially('shopping', { delay: 20 });
+  await expect(search).toBeFocused();
+  await expect(search).toHaveValue('shopping');
+  await expect(phone.getByRole('button', { name: /Shopping/ })).toBeVisible();
+  await search.fill('');
   // Read and edit the note with the revision rule.
   await phone.getByRole('button', { name: /Shopping/ }).click();
   await expect(phone.getByRole('textbox', { name: 'Note text' })).toHaveValue(/Bread, apples, coffee\./);
   await phone.getByRole('textbox', { name: 'Note text' }).fill('# Shopping\n\nBread, apples, coffee, milk.');
+  phone.once('dialog', dialog => dialog.dismiss());
+  await phone.getByRole('button', { name: 'Back' }).click();
+  await expect(phone.getByRole('textbox', { name: 'Note text' })).toHaveValue(/milk/);
   await phone.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(phone.getByText(/Saved on Desk/)).toBeVisible();
   await expect.poll(() => desktop.evaluate(() => window.syncit.readNote('Shopping.md').then(note => note.text))).toMatch(/milk/);
@@ -77,11 +86,18 @@ try {
   const chooser3 = phone.waitForEvent('filechooser');
   await phone.getByRole('button', { name: 'Create', exact: true }).click();
   await phone.getByRole('button', { name: 'Add photo or file' }).click();
-  await (await chooser3).setFiles(dataFile);
-  await expect(phone.getByText('readings.json added.')).toBeVisible({ timeout: 15000 });
+  const otherFile = path.join(profile, 'agenda.csv'); await writeFile(otherFile, 'Time,Item');
+  await (await chooser3).setFiles([dataFile, otherFile]);
+  await expect(phone.getByText('2 files added.')).toBeVisible({ timeout: 15000 });
   await phone.getByRole('button', { name: /readings\.json/ }).click();
   await expect(phone.getByLabel('File text')).toContainText('"sensor": "kitchen"');
   await phone.getByRole('button', { name: 'Back' }).click();
+  await expect(phone.getByRole('button', { name: /agenda.csv/ })).toBeVisible();
+  for (const width of [320, 390]) {
+    await phone.setViewportSize({ width, height: 844 });
+    assert.ok(await phone.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await phone.screenshot({ path: path.resolve(`test-results/phone-web-${width}.png`) });
+  }
   await phone.screenshot({ path: path.resolve('test-results/phone-web-list.png') });
   await phone.getByRole('button', { name: 'Create', exact: true }).click();
   await phone.waitForTimeout(300); await phone.screenshot({ path: path.resolve('test-results/phone-web-sheet.png') });
