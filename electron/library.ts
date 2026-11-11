@@ -151,10 +151,11 @@ export class Library {
     recent.sort((a, b) => b.time - a.time);
     return { text, updatedAt, from, recent: recent.slice(0, CLIP_LIMIT) };
   }
-  async savePasteboard(text: unknown, from?: string): Promise<Pasteboard> {
+  async savePasteboard(text: unknown, from?: string, expectedRevision?: string): Promise<Pasteboard> {
     return this.serial(async () => {
       this.validateText(text);
       const current = await this.readPasteboard();
+      if (expectedRevision !== undefined && hash(current.text) !== expectedRevision) throw new Error('The pasteboard changed on the computer. Copy your draft, then reopen the pasteboard to see the latest text.');
       const file = await contained(this.root, '.syncit/pasteboard.txt', true);
       await fs.mkdir(path.dirname(file), { recursive: true });
       if (replaces(current.text, text)) await this.keepClip(current);

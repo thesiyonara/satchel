@@ -1,19 +1,26 @@
-# Satchel for iOS
+# Satchel for iPhone and iPad
 
-Open `Satchel.xcodeproj` in Xcode 16 or newer. The SwiftUI app targets iOS 17 and later. Select an iPhone simulator, or select a signing team and a connected iPhone to run it on a device.
+Satchel connects to a computer running the desktop app on the same network. The native app runs on iOS and iPadOS 17 or later. Use desktop version 1.0.0 or later for shared pasteboard and in-app QR pairing.
 
-1. Put the phone and computer on the same local network. On the computer, open **Preferences → Phone access**, enable access, then choose **Pair a phone → Copy for iOS**.
-2. Transfer the offer to the iPhone and paste it into **Pairing offer** before it expires. Choose **Pair computer** and allow local-network access.
-3. Browse and search files, open notes, or use the compose button to save a new note directly to the computer. Pull down to refresh the collection.
+### Pair a computer
 
-The client pins the offered certificate before sending the one-time code. The computer address, fingerprint and bearer token are stored in this device’s Keychain. Use **Computer actions → Forget this computer** to clear the local pairing. The computer’s **Phone access** screen can revoke the credential.
+1. Open **Preferences → Phone access** in desktop Satchel, enable access and choose **Pair a phone**.
+2. Choose **Show iOS app QR code**, then tap **Scan pairing code** in Satchel on the phone. Alternatively, choose **Copy for iOS** and paste the offer into the phone app.
+3. Tap **Pair computer**. Allow local-network access when prompted. Each offer expires after five minutes and pairs one device.
 
-This first version supports one computer at a time. Non-note items show their path and size. The browser client also supports file previews, uploads and editing existing notes. A changed computer address requires a fresh pairing offer.
+### Use the collection
 
-From the repository root on a Mac with Xcode, run the Swift networking smoke test against an isolated instance of the desktop phone service:
+- Search filenames, paths and note excerpts. Filter by kind, sort by name or latest change, and pull to refresh.
+- Use **+** to write a note, upload from Files, or select photos and videos. Uploads run while the app is active and report individual failures. The desktop limit is 100 MiB per file.
+- Open a note to read, share, or edit it. If another device changed it first, Satchel keeps both versions and shows where it saved your edit.
+- Open a file and tap **Download to preview or share**. Quick Look previews supported formats including images, PDFs, audio and video. The share sheet can save the original to Files or open it in another app.
+- In **Pasteboard**, copy or edit the shared text, follow highlighted web links, or open a recent clip. If a newer edit reaches the computer before yours, the editor keeps your draft available to copy.
+- **Computer** shows desktop sync status and lets you revoke the phone’s access. When offline, you can forget the local pairing and revoke the credential later on the computer.
 
-```sh
-npm ci
-npx --no-install tsx scripts/ios-client-test.ts
-xcodebuild -project ios/Satchel.xcodeproj -scheme Satchel -destination 'generic/platform=iOS Simulator' build
-```
+Pairing pins the offered certificate before sending the one-time code. The app keeps one pairing in device-only Keychain. Collections are accessed on demand. Previews download to temporary storage. A new computer address or certificate requires a fresh offer.
+
+### Build and test
+
+Open `Satchel.xcodeproj` in Xcode 16 or newer. Select a simulator, or choose a signing team and a connected device for a physical install. The **iOS client** GitHub workflow builds an unsigned device target and provides a runnable simulator app and XCTest results. TestFlight requires a signed distribution build.
+
+The workflow exercises the Swift HTTP client against an isolated desktop service, including certificate rejection, conflicting notes, pasteboard revisions, file transfers and token revocation. It then pairs the simulator app with a fresh service and exercises the interface with XCTest.

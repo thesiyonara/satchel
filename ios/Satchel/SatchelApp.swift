@@ -1,4 +1,6 @@
 import SwiftUI
+import VisionKit
+import AVFoundation
 
 @main
 struct SatchelApp: App {
@@ -9,177 +11,156 @@ struct SatchelRoot: View {
     @State private var computer: PairedComputer?
     @State private var offer = ""
     @State private var pairing = false
+    @State private var scanning = false
     @State private var message: String?
 
     var body: some View {
-        NavigationStack {
+        Group {
             if let computer {
-                CollectionView(computer: computer) {
-                    do {
-                        try PairingStore.forget()
-                        self.computer = nil
-                    } catch { message = error.localizedDescription }
-                }
+                let client = Companion(computer: computer)
+                TabView {
+                    NavigationStack { CollectionView(computer: computer, client: client) }
+                        .tabItem { Label("Collection", systemImage: "tray.full") }
+                    NavigationStack { BoardView(client: client) }
+                        .tabItem { Label("Pasteboard", systemImage: "list.clipboard") }
+                    NavigationStack { ComputerView(computer: computer, client: client, forget: forget) }
+                        .tabItem { Label("Computer", systemImage: "desktopcomputer") }
+                }.id(computer.token)
             } else {
-                Form {
-                    Section("Pair with a computer") {
-                        Text("In Satchel on your computer, open Preferences → Phone access → Pair a phone. Choose Copy for iOS and paste the offer here.")
-                        SecureField("Pairing offer", text: $offer)
-                            .textInputAutocapitalization(.never).autocorrectionDisabled()
-                            .accessibilityIdentifier("pairing-offer")
-                        Button {
-                            pairing = true
-                            Task {
-                                defer { pairing = false }
-                                do {
-                                    let paired = try await Companion.pair(PairingOffer.read(offer))
-                                    try PairingStore.save(paired)
-                                    offer = ""; computer = paired
-                                } catch { message = error.localizedDescription }
+                NavigationStack {
+                    Form {
+                        Section {
+                            Label("Pair with your computer", systemImage: "laptopcomputer.and.iphone")
+                                .font(.headline)
+                            Text("On your computer, open Satchel → Preferences → Phone access. Choose Pair a phone while both devices are on the same network.")
+                            if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
+                                Button {
+                                    Task {
+                                        if await AVCaptureDevice.requestAccess(for: .video) { scanning = true }
+                                        else { message = "Camera access is off. Paste an offer or enable Camera for Satchel in Settings." }
+                                    }
+                                } label: { Label("Scan pairing code", systemImage: "qrcode.viewfinder") }
                             }
-                        } label: {
-                            if pairing { ProgressView("Pairing…") } else { Text("Pair computer") }
-                        }.disabled(pairing || offer.isEmpty)
-                    }
-                }.navigationTitle("Satchel")
+                        } footer: { Text("For scanning, choose Show iOS app QR code on the computer.") }
+                        Section {
+                            SecureField("Paste offer from computer", text: $offer)
+                                .textInputAutocapitalization(.never).autocorrectionDisabled()
+                                .accessibilityIdentifier("pairing-offer")
+                            Button { pair() } label: {
+                                if pairing { ProgressView("Pairing…") } else { Text("Pair computer") }
+                            }.disabled(pairing || offer.isEmpty)
+                        } header: { Text("Pairing offer") } footer: { Text("Choose Copy for iOS on the computer to pair with a one-time offer.") }
+                    }.navigationTitle("Satchel").disabled(pairing)
+                }
             }
         }
         .task { do { computer = try PairingStore.load() } catch { message = error.localizedDescription } }
+        .onOpenURL { receive($0.absoluteString) }
+        .sheet(isPresented: $scanning) {
+            NavigationStack {
+                PairingScanner { value in scanning = false; receive(value) } onError: {
+                    scanning = false; message = "Camera unavailable. Use Copy for iOS and paste the offer."
+                }
+                .navigationTitle("Scan iOS pairing code").navigationBarTitleDisplayMode(.inline)
+                .toolbar { Button("Cancel") { scanning = false } }
+            }
+        }
         .alert("Pairing", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK") { message = nil }
         } message: { Text(message ?? "") }
     }
+
+    private func receive(_ value: String) {
+        guard computer == nil, !pairing else { return }
+        do { _ = try PairingOffer.read(value); offer = value }
+        catch { message = error.localizedDescription }
+    }
+
+    private func pair() {
+        pairing = true
+        Task {
+            defer { pairing = false }
+            do {
+                let name = UIDevice.current.userInterfaceIdiom == .pad ? "iPad (Satchel)" : "iPhone (Satchel)"
+                let paired = try await Companion.pair(PairingOffer.read(offer), deviceName: name)
+                try PairingStore.save(paired)
+                offer = ""; computer = paired
+            } catch { message = error.localizedDescription }
+        }
+    }
+
+    private func forget() {
+        do { try PairingStore.forget(); computer = nil }
+        catch { message = error.localizedDescription }
+    }
 }
 
-private struct CollectionView: View {
+private struct PairingScanner: UIViewControllerRepresentable {
+    let onScan: (String) -> Void
+    let onError: () -> Void
+    final class Coordinator: NSObject, DataScannerViewControllerDelegate {
+        let onScan: (String) -> Void
+        var finished = false
+        init(onScan: @escaping (String) -> Void) { self.onScan = onScan }
+        func dataScanner(_ scanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+            for case let .barcode(item) in addedItems {
+                if !finished, let value = item.payloadStringValue {
+                    finished = true; scanner.stopScanning(); onScan(value)
+                }
+            }
+        }
+    }
+    func makeCoordinator() -> Coordinator { Coordinator(onScan: onScan) }
+    func makeUIViewController(context: Context) -> DataScannerViewController {
+        let scanner = DataScannerViewController(recognizedDataTypes: [.barcode(symbologies: [.qr])], isHighlightingEnabled: true)
+        scanner.delegate = context.coordinator
+        DispatchQueue.main.async {
+            do { try scanner.startScanning() } catch { onError() }
+        }
+        return scanner
+    }
+    func updateUIViewController(_ controller: DataScannerViewController, context: Context) {}
+    static func dismantleUIViewController(_ controller: DataScannerViewController, coordinator: Coordinator) { controller.stopScanning() }
+}
+
+private struct ComputerView: View {
     let computer: PairedComputer
-    let forget: () -> Void
-    @State private var items: [CollectionFile] = []
-    @State private var query = ""
-    @State private var loaded = false
-    @State private var error: String?
-    @State private var composing = false
-    @State private var confirmingForget = false
-
-    private var client: Companion { Companion(computer: computer) }
-    private var results: [CollectionFile] {
-        guard !query.isEmpty else { return items }
-        return items.filter { $0.path.localizedCaseInsensitiveContains(query) || ($0.preview?.localizedCaseInsensitiveContains(query) ?? false) }
-    }
-
-    var body: some View {
-        List {
-            Section {
-                if let error {
-                    Text(error).foregroundStyle(.secondary)
-                    Button("Retry") { Task { await refresh() } }
-                } else if !loaded {
-                    ProgressView("Loading collection…")
-                } else if results.isEmpty {
-                    Text(query.isEmpty ? "The collection is empty." : "No matching items.").foregroundStyle(.secondary)
-                }
-                ForEach(results) { file in
-                    NavigationLink {
-                        FileDetail(file: file, client: client)
-                    } label: {
-                        Label {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(file.name).lineLimit(2)
-                                Text(file.path.contains("/") ? file.path : ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
-                                    .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                            }
-                        } icon: { Image(systemName: symbol(file.kind)) }
-                    }
-                }
-            } header: { Label(computer.name, systemImage: "desktopcomputer") }
-        }
-        .navigationTitle(computer.collection)
-        .searchable(text: $query, prompt: "Files and note text")
-        .refreshable { await refresh() }
-        .task { await refresh() }
-        .toolbar {
-            Button { composing = true } label: { Label("New note", systemImage: "square.and.pencil") }
-            Menu {
-                Button("Refresh") { Task { await refresh() } }
-                Button("Forget this computer", role: .destructive) { confirmingForget = true }
-            } label: { Label("Computer actions", systemImage: "ellipsis.circle") }
-        }
-        .confirmationDialog("Forget this computer on this iPhone?", isPresented: $confirmingForget) {
-            Button("Forget computer", role: .destructive, action: forget)
-        } message: { Text("To revoke the phone’s access on the computer, remove it under Phone access.") }
-        .sheet(isPresented: $composing, onDismiss: { Task { await refresh() } }) { NewNote(client: client) }
-    }
-
-    private func refresh() async {
-        do { items = try await client.list(); loaded = true; error = nil }
-        catch { if !Task.isCancelled { self.error = error.localizedDescription } }
-    }
-}
-
-private func symbol(_ kind: String) -> String {
-    switch kind {
-    case "note": return "note.text"
-    case "image": return "photo"
-    case "audio": return "waveform"
-    case "video": return "film"
-    default: return "doc"
-    }
-}
-
-private struct FileDetail: View {
-    let file: CollectionFile
     let client: Companion
-    @State private var note: String?
+    let forget: () -> Void
+    @State private var status: ComputerStatus?
     @State private var error: String?
+    @State private var action: String?
+    @State private var busy = false
+
     var body: some View {
         Form {
-            if file.kind == "note" {
-                if let note { Text(note).textSelection(.enabled) }
-                else if let error { Text(error); Button("Retry") { Task { await read() } } }
-                else { ProgressView("Reading note…") }
-            } else {
-                LabeledContent("Location", value: file.path)
-                LabeledContent("Size", value: ByteCountFormatter.string(fromByteCount: file.size, countStyle: .file))
+            Section {
+                LabeledContent("Computer", value: status?.deviceName ?? computer.name)
+                LabeledContent("Collection", value: status?.collection ?? computer.collection)
+                LabeledContent("Address", value: "\(computer.host):\(computer.port)")
+                if let status { LabeledContent("Desktop sync", value: status.state.capitalized) }
+                if let error { Text(error).foregroundStyle(.secondary) }
+                Button("Check connection") { Task { await refresh() } }
             }
-        }.navigationTitle(file.name).navigationBarTitleDisplayMode(.inline)
-        .task { if file.kind == "note" { await read() } }
-    }
-    private func read() async {
-        error = nil
-        do { note = try await client.note(file.path).text } catch { self.error = error.localizedDescription }
-    }
-}
-
-private struct NewNote: View {
-    let client: Companion
-    @Environment(\.dismiss) private var dismiss
-    @State private var text = ""
-    @State private var saving = false
-    @State private var discard = false
-    @State private var error: String?
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading) {
-                TextEditor(text: $text).disabled(saving).accessibilityLabel("Note text")
-                if let error { Text(error).font(.footnote).foregroundStyle(.red) }
-            }.padding().navigationTitle("New note").navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { if text.isEmpty { dismiss() } else { discard = true } }.disabled(saving)
+            Section {
+                Button("Disconnect this device", role: .destructive) { action = "Disconnect" }
+                Button("Forget local pairing", role: .destructive) { action = "Forget" }
+            } footer: { Text("Disconnect revokes access on the computer. If the computer is offline, you can forget the local pairing and remove the device in Phone access later.") }
+        }.disabled(busy).navigationTitle("Computer").task { await refresh() }
+        .confirmationDialog("\(action ?? "") this device?", isPresented: Binding(get: { action != nil }, set: { if !$0 { action = nil } })) {
+            if action == "Disconnect" {
+                Button("Disconnect", role: .destructive) {
+                    busy = true
+                    Task {
+                        defer { busy = false }
+                        do { try await client.disconnect(); forget() } catch { self.error = error.localizedDescription }
+                    }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(saving ? "Saving…" : "Save") {
-                        saving = true
-                        Task {
-                            defer { saving = false }
-                            do { _ = try await client.createNote(text); dismiss() } catch { self.error = error.localizedDescription }
-                        }
-                    }.disabled(saving || text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-            }
-        }.interactiveDismissDisabled(saving || !text.isEmpty)
-        .confirmationDialog("Discard this note?", isPresented: $discard) {
-            Button("Discard", role: .destructive) { dismiss() }
+            } else { Button("Forget", role: .destructive, action: forget) }
         }
+    }
+    private func refresh() async {
+        do { status = try await client.status(); error = nil }
+        catch { status = nil; self.error = error.localizedDescription }
     }
 }

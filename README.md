@@ -34,7 +34,7 @@ Files stay ordinary files on your disk, so any other program can use them. There
 - Conflicts keep both versions. Deleted files go to the Recycle Bin or Trash, and received overwrites keep 30 days of versions.
 - Tray menu, command palette, and an authenticated local CLI for scripting.
 - Phone access: turn it on in Preferences and scan the QR code with your phone's camera. The browser opens a small app served by your computer over your network: browse, read and edit notes, download files on demand, upload photos. Add it to the Home Screen; nothing is stored on the phone.
-- The [iOS starter](ios/README.md) pairs with a computer, browses and searches the collection, reads notes and creates new ones.
+- The [native iPhone and iPad app](ios/README.md) pairs over the local network, browses collections, edits notes, previews and shares files, uploads photos and videos, and edits the shared pasteboard.
 - In-app updates, downloaded from this repository's releases and verified against published checksums.
 
 | Pinboard | Note with Markdown preview | Quick drop |

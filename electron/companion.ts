@@ -11,7 +11,7 @@ import { generate } from 'selfsigned';
 import type { PhoneDeviceInfo, PhoneOffer } from '../shared/types';
 import type { Library } from './library';
 import { localIPAllowed, localNetworks } from './sync-engine';
-import { atomicWrite, contained, errorMessage, readJSON } from './files';
+import { atomicWrite, contained, errorMessage, hash, readJSON } from './files';
 import { openRange, previewKind, streamable } from './media';
 
 export interface PhoneDevice extends PhoneDeviceInfo { tokenHash: string }
@@ -175,6 +175,13 @@ export class Companion {
     switch (`${request.method} ${url.pathname}`) {
       case 'GET /v1/status': return this.reply(response, 200, { deviceName: this.options.deviceName(), collection: this.options.collectionName(), state: this.options.syncState(), phone: { id: device.id, name: device.name }, phones: this.registry.length });
       case 'GET /v1/items': { const snapshot = await library.snapshot(); return this.reply(response, 200, { items: snapshot.items.map(item => ({ ...item, preview: item.preview?.slice(0, 400), previewKind: previewKind(item.name) })), placements: snapshot.placements, error: snapshot.error }); }
+      case 'GET /v1/pasteboard':
+      case 'PUT /v1/pasteboard': {
+        const body = request.method === 'PUT' ? await this.readJSONBody(request) : undefined;
+        if (body && typeof body.revision !== 'string') throw new RequestError(400, 'A pasteboard revision is required');
+        const board = body ? await library.savePasteboard(body.text, device.name, body.revision as string) : await library.readPasteboard();
+        return this.reply(response, 200, { ...board, revision: hash(board.text) });
+      }
       case 'GET /v1/note': return this.reply(response, 200, await library.readNote(relative));
       case 'POST /v1/note': { const body = await this.readJSONBody(request); return this.reply(response, 201, await library.createNote(body.text as string | undefined)); }
       case 'PUT /v1/note': { const body = await this.readJSONBody(request); if (typeof body.revision !== 'string') throw new RequestError(400, 'A note revision is required'); return this.reply(response, 200, await library.saveNote(body.path as string, body.text as string, body.revision)); }

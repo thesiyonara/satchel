@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-<key>NSLocalNetworkUsageDescription</key><string>Satchel connects to your paired computer to browse its collection and save notes.</string>
+<key>NSLocalNetworkUsageDescription</key><string>Satchel connects to your paired computer to browse and transfer files, edit notes, and use the shared pasteboard.</string>
+<key>NSCameraUsageDescription</key><string>Scan the pairing code shown on your computer.</string>
+<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>local.satchel.phone.pair</string><key>CFBundleURLSchemes</key><array><string>syncit-phone</string></array></dict></array>
 <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict></plist>

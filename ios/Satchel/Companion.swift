@@ -58,10 +58,21 @@ struct CollectionFile: Decodable, Identifiable {
     let kind: String
     let size: Int64
     let preview: String?
+    let modifiedAt: Double
+    let conflict: Bool
     var id: String { path }
 }
 
-struct CollectionNote: Decodable { let path, text, revision: String }
+struct CollectionNote: Decodable, Identifiable {
+    let path, text, revision: String
+    let conflict: Bool?
+    var id: String { path }
+}
+struct BoardClip: Decodable, Identifiable { let id, text: String; let time: Double }
+struct SharedBoard: Decodable { let text, revision: String; let recent: [BoardClip]; let from: String? }
+struct ComputerStatus: Decodable { let deviceName, collection, state: String }
+private struct UploadedFile: Decodable { let path: String }
+private struct SessionReply: Decodable { let ok: Bool }
 struct CollectionResponse: Decodable { let items: [CollectionFile]; let error: String? }
 private struct PairResponse: Decodable { let token, deviceName, collection, fingerprint: String }
 private struct ErrorResponse: Decodable { let error: String }
@@ -98,12 +109,12 @@ struct Companion {
         self.host = host; self.port = port; self.fingerprint = fingerprint; self.token = token
     }
 
-    static func pair(_ offer: PairingOffer) async throws -> PairedComputer {
+    static func pair(_ offer: PairingOffer, deviceName: String = "iPhone (Satchel)") async throws -> PairedComputer {
         var lastError: Error = CompanionError("The computer could not be reached.")
         for address in offer.addresses {
             let client = Companion(host: address, port: offer.port, fingerprint: offer.fingerprint)
             do {
-                let reply: PairResponse = try await client.request("/v1/pair", body: ["code": offer.code, "name": "iPhone (Satchel)"])
+                let reply: PairResponse = try await client.request("/v1/pair", body: ["code": offer.code, "name": deviceName])
                 guard reply.fingerprint.uppercased() == offer.fingerprint.uppercased(), !reply.token.isEmpty else {
                     throw CompanionError("The computer’s pairing reply did not match the offer.")
                 }
@@ -129,29 +140,88 @@ struct Companion {
         try await request("/v1/note", body: ["text": text])
     }
 
-    private func request<T: Decodable>(_ path: String, query: [URLQueryItem] = [], body: [String: String]? = nil) async throws -> T {
+    func saveNote(_ note: CollectionNote, text: String) async throws -> CollectionNote {
+        try await request("/v1/note", method: "PUT", body: ["path": note.path, "revision": note.revision, "text": text])
+    }
+
+    func pasteboard() async throws -> SharedBoard { try await request("/v1/pasteboard") }
+    func saveBoard(_ text: String, revision: String) async throws -> SharedBoard {
+        try await request("/v1/pasteboard", method: "PUT", body: ["text": text, "revision": revision])
+    }
+    func status() async throws -> ComputerStatus { try await request("/v1/status") }
+    func disconnect() async throws {
+        let _: SessionReply = try await request("/v1/session", method: "DELETE")
+    }
+
+    func upload(_ file: URL) async throws -> String {
+        let size = try file.resourceValues(forKeys: [.fileSizeKey]).fileSize
+        guard let size, size <= 100 * 1024 * 1024 else { throw CompanionError("Files must be 100 MB or smaller.") }
+        var req = try makeRequest("/v1/upload", query: [URLQueryItem(name: "name", value: file.lastPathComponent)])
+        req.httpMethod = "POST"
+        req.setValue("application/octet-stream", forHTTPHeaderField: "Content-Type")
+        let session = makeSession()
+        defer { session.finishTasksAndInvalidate() }
+        let (data, response) = try await session.upload(for: req, fromFile: file)
+        try validate(response, data: data)
+        return try JSONDecoder().decode(UploadedFile.self, from: data).path
+    }
+
+    // Download to disk so a video or PDF never has to fit in the app's memory.
+    func download(_ file: CollectionFile, into directory: URL) async throws -> URL {
+        guard !file.name.isEmpty, file.name != ".", file.name != "..", !file.name.contains("/") else {
+            throw CompanionError("Invalid file name.")
+        }
+        let req = try makeRequest("/v1/file", query: [URLQueryItem(name: "path", value: file.path)])
+        let session = makeSession()
+        defer { session.finishTasksAndInvalidate() }
+        let (temporary, response) = try await session.download(for: req)
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try validate(response)
+        try Task.checkCancellation()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let destination = directory.appendingPathComponent(file.name)
+        try FileManager.default.moveItem(at: temporary, to: destination)
+        return destination
+    }
+
+    private func request<T: Decodable>(_ path: String, method: String? = nil, query: [URLQueryItem] = [], body: [String: String]? = nil) async throws -> T {
+        var req = try makeRequest(path, query: query)
+        req.httpMethod = method ?? (body == nil ? "GET" : "POST")
+        if let body {
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.httpBody = try JSONEncoder().encode(body)
+        }
+        let session = makeSession()
+        defer { session.finishTasksAndInvalidate() }
+        let (data, response) = try await session.data(for: req)
+        try validate(response, data: data)
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    private func makeRequest(_ path: String, query: [URLQueryItem]) throws -> URLRequest {
         var parts = URLComponents()
         parts.scheme = "https"; parts.host = host; parts.port = port; parts.path = path
         parts.queryItems = query.isEmpty ? nil : query
         guard let url = parts.url else { throw CompanionError("Invalid computer address.") }
-        var request = URLRequest(url: url)
-        if let token { request.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
-        if let body {
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.httpBody = try JSONEncoder().encode(body)
-        }
+        var req = URLRequest(url: url)
+        if let token { req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization") }
+        return req
+    }
+
+    private func makeSession() -> URLSession {
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 8
+        config.timeoutIntervalForRequest = 15
         config.urlCache = nil
         config.httpCookieStorage = nil
-        let session = URLSession(configuration: config, delegate: PinnedTransport(host: host, fingerprint: fingerprint), delegateQueue: nil)
-        defer { session.finishTasksAndInvalidate() }
-        let (data, response) = try await session.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            let message = try? JSONDecoder().decode(ErrorResponse.self, from: data).error
-            throw CompanionError(message ?? "The computer could not complete this request.")
-        }
-        return try JSONDecoder().decode(T.self, from: data)
+        return URLSession(configuration: config, delegate: PinnedTransport(host: host, fingerprint: fingerprint), delegateQueue: nil)
+    }
+
+    private func validate(_ response: URLResponse, data: Data? = nil) throws {
+        guard let http = response as? HTTPURLResponse else { throw CompanionError("No reply from the computer.") }
+        guard !(200..<300).contains(http.statusCode) else { return }
+        if http.statusCode == 401 { throw CompanionError("Access was revoked. Forget this pairing in Computer, then pair again.") }
+        if http.statusCode == 404, http.url?.path == "/v1/pasteboard" { throw CompanionError("Update Satchel on your computer to use its shared pasteboard.") }
+        let detail = data.flatMap { try? JSONDecoder().decode(ErrorResponse.self, from: $0).error }
+        throw CompanionError(detail ?? "The computer could not complete this request (HTTP \(http.statusCode)).")
     }
 }
